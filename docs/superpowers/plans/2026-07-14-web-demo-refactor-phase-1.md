@@ -16,7 +16,7 @@
 - Create: `package.json`
 - Create: `tests/web-structure.test.mjs`
 
-- [ ] **Step 1: Write the failing structure test**
+- [x] **Step 1: Write the failing structure test**
 
 ```js
 import assert from "node:assert/strict";
@@ -40,7 +40,7 @@ test("extracted runtime retains the live version and server routes", async () =>
 });
 ```
 
-- [ ] **Step 2: Configure the test command**
+- [x] **Step 2: Configure the test command**
 
 ```json
 {
@@ -52,7 +52,7 @@ test("extracted runtime retains the live version and server routes", async () =>
 }
 ```
 
-- [ ] **Step 3: Run the tests and verify RED**
+- [x] **Step 3: Run the tests and verify RED**
 
 Run: `npm test`
 
@@ -65,28 +65,28 @@ Expected: FAIL because `web-demo/index.html` still contains inline style/script 
 - Create: `web-demo/styles/main.css`
 - Create: `web-demo/src/main.js`
 
-- [ ] **Step 1: Extract the current style block byte-for-byte into `styles/main.css`**
+- [x] **Step 1: Extract the current style block byte-for-byte into `styles/main.css`**
 
-- [ ] **Step 2: Extract the current script body byte-for-byte into `src/main.js`**
+- [x] **Step 2: Extract the current script body byte-for-byte into `src/main.js`**
 
-- [ ] **Step 3: Replace the inline blocks with these exact tags**
+- [x] **Step 3: Replace the inline blocks with these exact tags**
 
 ```html
 <link rel="stylesheet" href="./styles/main.css">
 <script type="module" src="./src/main.js"></script>
 ```
 
-- [ ] **Step 4: Run the tests and verify GREEN**
+- [x] **Step 4: Run the tests and verify GREEN**
 
 Run: `npm test`
 
 Expected: both structure tests PASS.
 
-- [ ] **Step 5: Serve `web-demo/` over HTTP and verify the login overlay in Playwright**
+- [x] **Step 5: Serve `web-demo/` over HTTP and verify the login overlay in Playwright**
 
 Expected: the login overlay, Canvas background, version `v7.18.8`, and navigation buttons match the saved remote baseline; no new console errors appear.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```text
 refactor: split web demo shell from runtime
