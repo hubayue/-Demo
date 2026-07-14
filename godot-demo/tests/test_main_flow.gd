@@ -119,6 +119,18 @@ func _run() -> void:
     if not _expect(not battle_run.awaiting_card_choice, "Clicking a growth card must apply it and resume the battle"):
         return
 
+    battle_run.enemies = _command_enemies(8)
+    battle_run.spawn_queue = []
+    battle_run.lord_command_cd = 0.0
+    _click(main, Vector2(400, 770))
+    if not _expect(battle_run.lord_command_used == 1 and battle_run.wuxing_time > 0, "Clicking the ready lord-command panel must cast it manually"):
+        return
+    battle_run.permanent_tactics.gewu = true
+    _click(main, Vector2(20, 260))
+    if not _expect(not bool(battle_run.permanent_tactics.get("gewu", false)), "Clicking the battlefield while Gewu is active must return to manual play"):
+        return
+    battle_run.enemies = []
+
     battle_run.clear_formation()
     battle_run.obstacles.clear()
     battle_run.add_unit_at("huangzhong", 0, 0)
@@ -138,6 +150,15 @@ func _run() -> void:
         return
     if not _expect("四选一" in main.card_draft_heading(), "Yiji's expanded growth draft heading must say four choices"):
         return
+    battle_run.card_choices = []
+    for index in 5:
+        battle_run.card_choices.append({"kind": "merit", "title": "门生牌%d" % index, "value": 1})
+    battle_run.awaiting_card_choice = true
+    if not _expect(main._growth_card_rect(4).end.x <= 480.0 and "五选一" in main.card_draft_heading(), "Mensheng's fifth card must be visible and the draft heading must say five choices"):
+        return
+    _click(main, main._growth_card_rect(4).get_center())
+    if not _expect(int(battle_run.card_picks.get("门生牌4", 0)) == 1, "Mensheng's fifth card must be clickable inside the viewport"):
+        return
     battle_run.picking_relic = true
     if not _expect(main.has_method("card_draft_heading") and "遗宝" in main.card_draft_heading(), "a relic draft must identify itself instead of claiming to be a level-up draft"):
         return
@@ -151,6 +172,16 @@ func _click(main: Control, position: Vector2) -> void:
     event.position = position
     event.pressed = true
     main._gui_input(event)
+
+func _command_enemies(count: int) -> Array:
+    var result := []
+    for index in count:
+        result.append({
+            "x": 40.0 + index * 50.0, "y": 340.0, "r": 18.0,
+            "hp": 1000.0, "hp_max": 1000.0, "tri": "badao", "xp": 0.0,
+            "dead": false, "boss": false, "cls": "spear", "slowT": 0.0, "stunT": 0.0,
+        })
+    return result
 
 func _unique_count(values: Array) -> int:
     var unique := {}

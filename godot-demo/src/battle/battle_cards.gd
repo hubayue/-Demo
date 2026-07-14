@@ -115,7 +115,8 @@ func build_pool(run) -> Array:
 		_add_capped_buff(pool, true, "extraShot", 1, 4, "万箭齐发", "🌠", "弓兵多射一箭")
 	if run.wall < run.wall_max:
 		pool.append({"kind": "heal", "weight": 8.0, "title": "修筑城防", "icon": "🏯", "desc": "城墙补3点血"})
-	pool.append({"kind": "lordatk", "weight": 7.0, "title": "御驾亲征", "icon": "🎯", "desc": "主公亲射伤害+40%（叠到+200%封顶）"})
+	if run.lord_atk_buff < 2.0:
+		pool.append({"kind": "lordatk", "weight": 7.0, "title": "御驾亲征", "icon": "🎯", "desc": "主公亲射伤害+40%（叠到+200%封顶）"})
 	if run.lord_atk_gap > 0.4:
 		pool.append({"kind": "lordhaste", "weight": 5.0, "title": "神机连弩", "icon": "⚙️", "desc": "主公亲射出手快25%"})
 	if not run.permanent_tactics.has("luanshi") and not run.obstacles.is_empty():
@@ -144,6 +145,9 @@ func roll(run) -> Array:
 			card.weight = maxf(1.0, float(card.weight) / (1.0 + picked * 0.4))
 	var result := []
 	var draw_count := 4 if run.relic_ids.has("yiji") else 3
+	if run.wide_picks > 0:
+		draw_count = 5
+		run.wide_picks -= 1
 	for draw_index in draw_count:
 		if pool.is_empty():
 			break
@@ -164,6 +168,28 @@ func roll(run) -> Array:
 			if str(pool[index].title) == title:
 				pool.remove_at(index)
 	return result
+
+func widen_current(run, current: Array, target_count: int) -> void:
+	var pool := build_pool(run)
+	var existing_titles := {}
+	for card in current:
+		existing_titles[str(card.title)] = true
+	for index in range(pool.size() - 1, -1, -1):
+		if existing_titles.has(str(pool[index].title)):
+			pool.remove_at(index)
+	while current.size() < target_count and not pool.is_empty():
+		var total := 0.0
+		for card in pool:
+			total += float(card.weight)
+		var value: float = rng.next_float() * total
+		var selected_index := pool.size() - 1
+		for index in pool.size():
+			value -= float(pool[index].weight)
+			if value <= 0:
+				selected_index = index
+				break
+		current.append(pool[selected_index])
+		pool.remove_at(selected_index)
 
 func build_relic_pool(run) -> Array:
 	var result := []

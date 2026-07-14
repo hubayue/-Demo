@@ -5,6 +5,7 @@ const WeeklyMapSource = preload("res://src/progression/weekly_map.gd")
 const OpeningPickerSource = preload("res://src/progression/opening_picker.gd")
 const Mulberry32Source = preload("res://src/core/mulberry32.gd")
 const BattleRunSource = preload("res://src/battle/battle_run.gd")
+const BattleLordSource = preload("res://src/battle/battle_lord.gd")
 
 const VIEW_SIZE := Vector2(480.0, 800.0)
 const CURRENT_WEEK := 2948
@@ -43,6 +44,7 @@ const MAP_TAB_RECTS := [
 	Rect2(339, 706, 93, 34),
 ]
 const STATE_GO_RECT := Rect2(150, 648, 180, 44)
+const LORD_COMMAND_RECT := Rect2(324, 751, 146, 42)
 
 var catalog
 var weekly
@@ -163,12 +165,23 @@ func _handle_pointer(point: Vector2) -> void:
 					select_opening_hero(opening_hero_ids[index])
 					return
 		"battle":
-			if battle_run != null and battle_run.awaiting_card_choice:
+			if battle_run == null:
+				return
+			if bool(battle_run.permanent_tactics.get("gewu", false)):
+				battle_run.permanent_tactics.gewu = false
+				battle_run.gewu_auto_timer = 0.0
+				queue_redraw()
+				return
+			if battle_run.awaiting_card_choice:
 				for index in battle_run.card_choices.size():
 					if _growth_card_rect(index).has_point(point):
 						battle_run.choose_card(index)
 						queue_redraw()
 						return
+			elif LORD_COMMAND_RECT.has_point(point):
+				battle_run.cast_lord_command()
+				queue_redraw()
+				return
 
 func _handle_map_pointer(point: Vector2) -> void:
 	if state_popup >= 0:
@@ -363,6 +376,8 @@ func _hero_card_rect(index: int) -> Rect2:
 	return Rect2(8 + index * 158, 278, 148, 232)
 
 func _growth_card_rect(index: int) -> Rect2:
+	if battle_run != null and battle_run.card_choices.size() >= 5:
+		return Rect2(4 + index * 95, 278, 90, 244)
 	if battle_run != null and battle_run.card_choices.size() >= 4:
 		return Rect2(4 + index * 119, 278, 114, 244)
 	return Rect2(8 + index * 158, 278, 148, 244)
@@ -390,6 +405,8 @@ func active_relic_text() -> String:
 func card_draft_heading() -> String:
 	if battle_run != null and battle_run.picking_relic:
 		return "遗宝！三选一"
+	if battle_run != null and battle_run.card_choices.size() >= 5:
+		return "门生故吏！五选一"
 	return "升级！四选一" if battle_run != null and battle_run.card_choices.size() >= 4 else "升级！三选一"
 
 func _short_text(text: String, max_characters: int) -> String:
@@ -442,6 +459,13 @@ func _draw_battle() -> void:
 	if not relic_text.is_empty():
 		draw_rect(Rect2(16, 170, 448, 23), Color("211b12e8"), true)
 		_text_center("遗宝：%s" % _short_text(relic_text, 28), 187, 12, PALE_GOLD)
+	var lord_effect := _active_lord_effect_text()
+	if not lord_effect.is_empty():
+		draw_rect(Rect2(54, 198, 372, 25), Color("172334e8"), true)
+		_text_center(lord_effect, 216, 13, Color("b9dfff"))
+	if battle_run.taoyuan_time > 0:
+		draw_rect(Rect2(5, 5, 470, 790), Color("ffd27899"), false, 5.0)
+		_text_center("桃园金身 · 全军刀枪不入 %.1fs" % battle_run.taoyuan_time, 246, 18, Color("ffe8b0"))
 	if battle_run.awaiting_card_choice:
 		_draw_growth_cards()
 	elif battle_run.status != "play":
@@ -449,6 +473,13 @@ func _draw_battle() -> void:
 		_text_center("攻城告捷" if battle_run.status == "win" else "城墙失守", 350, 36, GOLD if battle_run.status == "win" else RED)
 
 func _draw_battle_entities() -> void:
+	if not battle_run.flood.is_empty():
+		var river_y1 := float(battle_run.flood.y1)
+		var river_y2 := float(battle_run.flood.y2)
+		draw_rect(Rect2(0, river_y1, 480, river_y2 - river_y1), Color("5aaaff38"), true)
+		_text_center("大江横流 · 挨打多%d%% · %.1fs" % [roundi(float(battle_run.flood.amp) * 100.0), float(battle_run.flood.t)], (river_y1 + river_y2) / 2.0 + 4.0, 12, Color("a0d2ff"))
+	for ring in battle_run.lord_effect_rings:
+		draw_arc(Vector2(float(ring.x), float(ring.y)), float(ring.radius), 0, TAU, 48, Color(str(ring.color)), 2.5)
 	for ripple in battle_run.ripples:
 		var ripple_color := Color("ff9a5a")
 		match str(ripple.kind):
@@ -474,6 +505,16 @@ func _draw_battle_entities() -> void:
 		var hp_width := radius * 2.0
 		draw_rect(Rect2(position.x - radius, position.y - radius - 7, hp_width, 3), Color("4a211b"), true)
 		draw_rect(Rect2(position.x - radius, position.y - radius - 7, hp_width * maxf(0.0, float(enemy.hp) / maxf(1.0, float(enemy.hp_max))), 3), RED, true)
+		if float(enemy.get("stunT", 0.0)) > 0:
+			_text_centered_in_rect("晕", Rect2(position.x - 10, position.y - radius - 24, 20, 16), 10, Color("b9e8ff"))
+		elif float(enemy.get("burnT", 0.0)) > 0:
+			_text_centered_in_rect("火", Rect2(position.x - 10, position.y - radius - 24, 20, 16), 10, Color("ff9a5a"))
+	for trace in battle_run.lord_attack_traces:
+		draw_line(Vector2(float(trace.x1), float(trace.y1)), Vector2(float(trace.x2), float(trace.y2)), Color(str(trace.color)), 3.0)
+	for event in battle_run.lord_command_events:
+		var command: Dictionary = BattleLordSource.COMMANDS.get(str(event.id), {})
+		if not command.is_empty():
+			_text_center("主公号令 · %s！" % command.name, 264, 20, GOLD)
 
 func _draw_battle_formation() -> void:
 	for row in BattleRunSource.GRID_ROWS:
@@ -505,14 +546,47 @@ func _draw_battle_formation() -> void:
 			draw_rect(Rect2(rect.position.x + 6, rect.position.y + 67, (rect.size.x - 12) * unit_hp_ratio, 4), GREEN, true)
 			_text("★".repeat(int(unit.level)), rect.position + Vector2(4, 77), 8, GOLD)
 	draw_rect(Rect2(0, BattleRunSource.DEFENSE_LINE, 480, 800 - BattleRunSource.DEFENSE_LINE), Color("5b4024"), true)
-	var ruler: Dictionary = catalog.by_id("rulers", selected_ruler)
-	_text("主公：%s" % ruler.name, Vector2(16, 778), 13, PALE_GOLD)
-	_text("城墙", Vector2(214, 778), 13, Color("d9c49a"))
-	_text("自动迎敌", Vector2(386, 778), 12, MUTED)
+	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
+	if battle_run.lord_mount.is_empty():
+		draw_circle(Vector2(240, 772), 18, Color("6a4a2a"))
+		draw_arc(Vector2(240, 772), 19, 0, TAU, 32, GOLD if battle_run.lord_kin_power() > 1.0 else PALE_GOLD, 2.0)
+		_text_centered_in_rect("主", Rect2(224, 762, 32, 20), 13, Color.WHITE)
+	else:
+		var mount_pos := Vector2(float(battle_run.lord_mount.x), float(battle_run.lord_mount.y))
+		draw_circle(mount_pos, 21, Color("e8f4ff55"))
+		draw_arc(mount_pos, 22, 0, TAU, 32, GOLD, 2.0)
+		_text_centered_in_rect("骑", Rect2(mount_pos.x - 16, mount_pos.y - 9, 32, 20), 13, Color.WHITE)
+	_text("主公：%s Lv.%d" % [ruler.name, battle_run.ruler_level], Vector2(12, 774), 12, PALE_GOLD)
+	var command: Dictionary = BattleLordSource.COMMANDS.get(battle_run.lord_skill_id, {})
+	if not command.is_empty():
+		var command_ready: bool = battle_run.lord_command_cd <= 0 and not bool(battle_run.permanent_tactics.get("gewu", false))
+		var auto_ready: bool = command_ready and battle_run.lord_command_auto_ready()
+		draw_rect(LORD_COMMAND_RECT, Color("25311f") if command_ready else Color("352e26"), true)
+		draw_rect(LORD_COMMAND_RECT, GREEN if command_ready else MUTED, false, 1.5)
+		_text_centered_in_rect(str(command.name), Rect2(326, 755, 142, 17), 12, GOLD if command_ready else PALE_GOLD)
+		var cooldown_text := "自动待发" if auto_ready else ("点击施放" if command_ready else ("CD %.1fs" % battle_run.lord_command_cd if battle_run.lord_command_cd > 0 else "号令罢工"))
+		_text_centered_in_rect(cooldown_text, Rect2(326, 773, 142, 16), 10, GREEN if command_ready else MUTED)
+
+func _active_lord_effect_text() -> String:
+	if battle_run == null:
+		return ""
+	if bool(battle_run.permanent_tactics.get("gewu", false)):
+		return "🍷乐不思蜀 · 全军攻击+30% · 自动抽卡 · 点屏回神"
+	if battle_run.wuxing_time > 0:
+		return "三才破敌 %.1fs · 被克免罚 + 全军伤害+15%%" % battle_run.wuxing_time
+	if battle_run.taoyuan_time > 0:
+		return "桃园义 %.1fs · 已扛 %.0f 伤" % [battle_run.taoyuan_time, battle_run.taoyuan_absorb]
+	if not battle_run.flood.is_empty():
+		return "截江断流 %.1fs · 江中减速40%%" % float(battle_run.flood.t)
+	if battle_run.wide_picks > 0:
+		return "门生故吏 · 五选一 ×%d" % battle_run.wide_picks
+	if battle_run.tyranny > 0:
+		return "暴政印记 · 全军攻击+%d%%" % roundi(battle_run.tyranny)
+	return ""
 
 func _draw_growth_cards() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.76), true)
-	_text_center(card_draft_heading(), 226, 28, GOLD)
+	_text_center("🍷 乐不思蜀·自动抽卡中…" if bool(battle_run.permanent_tactics.get("gewu", false)) else card_draft_heading(), 226, 28, GOLD)
 	_text_center("战斗已暂停", 252, 13, Color("d5c9a8"))
 	for index in battle_run.card_choices.size():
 		var card: Dictionary = battle_run.card_choices[index]

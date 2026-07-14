@@ -3,6 +3,7 @@ extends RefCounted
 
 const BattleCardsScript = preload("res://src/battle/battle_cards.gd")
 const BattleTeamScript = preload("res://src/battle/battle_team.gd")
+const BattleLordScript = preload("res://src/battle/battle_lord.gd")
 
 const GRID_ROWS := 3
 const GRID_COLS := 5
@@ -21,8 +22,16 @@ var catalog
 var rng
 var card_system
 var team
+var lord_system
 var city: Dictionary = {}
 var ruler_id := ""
+var ruler_level := 1
+var hero_levels: Dictionary = {}
+var lord_skill_id := ""
+var lord_skill_level := 1
+var lord_command_cd := 18.0
+var lord_command_cd_total := 18.0
+var lord_command_used := 0
 var status := "play"
 var shen_period := 0
 var shen_ids: Array = []
@@ -45,14 +54,28 @@ var pending_relic_picks := 0
 var picking_relic := false
 var card_choices: Array = []
 var card_picks: Dictionary = {}
+var gewu_auto_timer := 0.0
 var buffs: Dictionary = {}
 var lord_atk_buff := 0.0
 var lord_atk_gap := 1.0
+var lord_attack_timer := 1.5
+var lord_attack_traces: Array = []
+var lord_effect_rings: Array = []
+var lord_command_events: Array = []
+var wuxing_time := 0.0
+var flood: Dictionary = {}
+var wide_picks := 0
+var lord_mount: Dictionary = {}
+var tyranny := 0.0
+var jianhao_count := 0
+var taoyuan_time := 0.0
+var taoyuan_absorb := 0.0
 var permanent_tactics: Dictionary = {}
 var relic_ids: Array = []
 var wall_regen_timer := 30.0
 var baihu_ready := false
 var kills := 0
+var unit_deaths := 0
 var grid: Array = []
 var obstacles: Dictionary = {}
 var traits: Dictionary = {}
@@ -69,10 +92,19 @@ func _init(content_catalog, random_source) -> void:
 	rng = random_source
 	card_system = BattleCardsScript.new(catalog, rng)
 	team = BattleTeamScript.new(catalog)
+	lord_system = BattleLordScript.new()
 
-func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String) -> void:
+func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String, selected_ruler_level := 1, selected_hero_levels: Dictionary = {}) -> void:
 	city = level_data.duplicate(true)
 	ruler_id = selected_ruler_id
+	ruler_level = maxi(1, int(selected_ruler_level))
+	hero_levels = selected_hero_levels.duplicate(true)
+	var ruler: Dictionary = catalog.by_id("rulers", ruler_id)
+	lord_skill_id = str(ruler.get("skill", ""))
+	lord_skill_level = lord_system.skill_level(ruler_level)
+	lord_command_cd = 18.0
+	lord_command_cd_total = 18.0
+	lord_command_used = 0
 	status = "play"
 	shen_period = 0
 	shen_ids = []
@@ -95,6 +127,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	picking_relic = false
 	card_choices = []
 	card_picks = {}
+	gewu_auto_timer = 0.0
 	buffs = {
 		"dmg": 1.0,
 		"rate": 1.0,
@@ -112,11 +145,24 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	}
 	lord_atk_buff = 0.0
 	lord_atk_gap = 1.0
+	lord_attack_timer = 1.5
+	lord_attack_traces = []
+	lord_effect_rings = []
+	lord_command_events = []
+	wuxing_time = 0.0
+	flood = {}
+	wide_picks = 0
+	lord_mount = {}
+	tyranny = 0.0
+	jianhao_count = 0
+	taoyuan_time = 0.0
+	taoyuan_absorb = 0.0
 	permanent_tactics = {}
 	relic_ids = []
 	wall_regen_timer = 30.0
 	baihu_ready = false
 	kills = 0
+	unit_deaths = 0
 	grid = []
 	for row in GRID_ROWS:
 		var cells := []
@@ -136,7 +182,20 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	_place_opening_hero(opening_hero_id)
 
 func advance_real(delta: float) -> void:
-	if awaiting_card_choice or status != "play":
+	if status != "play":
+		return
+	if awaiting_card_choice:
+		if bool(permanent_tactics.get("gewu", false)):
+			gewu_auto_timer += delta
+			if gewu_auto_timer >= 1.5 and not card_choices.is_empty():
+				var safe_indices := []
+				for index in card_choices.size():
+					if not ["seppuku", "dance"].has(str(card_choices[index].kind)):
+						safe_indices.append(index)
+				var choice_index := 0
+				if not safe_indices.is_empty():
+					choice_index = int(safe_indices[int(floor(rng.next_float() * safe_indices.size()))])
+				choose_card(choice_index)
 		return
 	for step in speed:
 		_update_step(delta)
@@ -150,10 +209,14 @@ static func triangle_multiplier(attacker_tri: String, enemy_tri: String) -> floa
 		return 0.6
 	return 1.0
 
-func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "") -> int:
+func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source := "") -> int:
 	if bool(enemy.get("dead", false)):
 		return 0
 	var triangle := triangle_multiplier(attacker_tri, str(enemy.get("tri", "")))
+	if wuxing_time > 0 and not str(attacker_tri).is_empty():
+		if TRI_KE.get(str(enemy.get("tri", "")), "") == attacker_tri:
+			triangle = 1.0
+		amount *= 1.15
 	if is_equal_approx(triangle, 0.6) and float(enemy.get("armorBreakT", 0.0)) > 0:
 		if team.active_bonds.has("shuijing"):
 			triangle = 1.2
@@ -161,12 +224,22 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "") -> int:
 			triangle = 1.1
 		else:
 			triangle = 1.0
+	if enemy_in_flood(enemy):
+		amount *= 1.0 + float(flood.get("amp", 0.3))
 	var damage := maxi(1, int(round(amount * triangle)))
 	enemy.hp = float(enemy.hp) - damage
 	if float(enemy.hp) <= 0:
+		var drowned := enemy_in_flood(enemy)
 		enemy.dead = true
 		kills += 1
-		gain_xp(float(enemy.get("xp", 0.0)))
+		var xp_multiplier := 1.0
+		if ruler_id == "sunquan":
+			xp_multiplier = 2.0 if drowned else 1.3
+		elif ruler_id == "gongsunzan" and source == "lord":
+			xp_multiplier = 3.0
+		elif ruler_id == "dongzhuo" and float(enemy.get("burnT", 0.0)) > 0:
+			xp_multiplier = 2.0
+		gain_xp(float(enemy.get("xp", 0.0)) * xp_multiplier)
 		if kills >= int(city.get("killTarget", 450)):
 			status = "win"
 		elif bool(enemy.get("boss", false)):
@@ -193,6 +266,7 @@ func gain_xp(amount: float) -> void:
 func choose_card(index: int) -> bool:
 	if not awaiting_card_choice or index < 0 or index >= card_choices.size():
 		return false
+	gewu_auto_timer = 0.0
 	return card_system.apply(self, card_choices[index])
 
 func queue_relic_draft() -> void:
@@ -230,6 +304,39 @@ func _update_step(delta: float) -> void:
 	_update_projectiles(delta)
 	_update_charges(delta)
 	_update_ripples(delta)
+	_update_lord_command(delta)
+	_update_lord_auto_attack(delta)
+	_update_lord_visuals(delta)
+
+func _update_lord_auto_attack(delta: float) -> void:
+	lord_system.update_auto_attack(self, delta)
+
+func _update_lord_command(delta: float) -> void:
+	lord_system.update_command(self, delta)
+
+func lord_command_auto_ready() -> bool:
+	return lord_system.auto_ready(self)
+
+func cast_lord_command() -> bool:
+	return lord_system.cast_command(self)
+
+func lord_command_cooldown_max() -> float:
+	return lord_system.cooldown_max(self)
+
+func lord_kin_power() -> float:
+	return lord_system.kin_power(self)
+
+func _update_lord_visuals(delta: float) -> void:
+	for trace in lord_attack_traces:
+		trace.t = float(trace.t) - delta
+	for index in range(lord_attack_traces.size() - 1, -1, -1):
+		if float(lord_attack_traces[index].t) <= 0:
+			lord_attack_traces.remove_at(index)
+	for ring in lord_effect_rings:
+		ring.t = float(ring.t) - delta
+	for index in range(lord_effect_rings.size() - 1, -1, -1):
+		if float(lord_effect_rings[index].t) <= 0:
+			lord_effect_rings.remove_at(index)
 
 func _start_next_wave() -> void:
 	prepare_next_wave()
@@ -260,15 +367,55 @@ func _spawn_enemy(spec: Dictionary) -> void:
 	enemies.append(enemy)
 
 func _update_enemies(delta: float) -> void:
-	for enemy in enemies:
+	for enemy in enemies.duplicate():
 		if bool(enemy.get("dead", false)):
 			continue
+		if float(enemy.get("burnT", 0.0)) > 0:
+			enemy.burnT = maxf(0.0, float(enemy.burnT) - delta)
+			enemy.burnTick = float(enemy.get("burnTick", 0.0)) - delta
+			if float(enemy.burnTick) <= 0:
+				enemy.burnTick = 0.5
+				damage_enemy(enemy, float(enemy.get("burnDmg", 0.0)))
+				if bool(enemy.get("dead", false)):
+					continue
 		var slowed := float(enemy.get("slowT", 0.0)) > 0
 		if slowed:
 			enemy.slowT = maxf(0.0, float(enemy.slowT) - delta)
 		if float(enemy.get("armorBreakT", 0.0)) > 0:
 			enemy.armorBreakT = maxf(0.0, float(enemy.armorBreakT) - delta)
-		enemy.y = float(enemy.y) + float(enemy.base_speed) * (0.55 if slowed else 1.0) * delta
+		if float(enemy.get("kb", 0.0)) > 0:
+			var knock_step := minf(float(enemy.kb), 300.0 * delta)
+			enemy.y = maxf(-30.0, float(enemy.y) - knock_step)
+			enemy.kb = float(enemy.kb) - knock_step
+		var stunned := float(enemy.get("stunT", 0.0)) > 0
+		if stunned:
+			enemy.stunT = maxf(0.0, float(enemy.stunT) - delta)
+			continue
+		var flood_slow := enemy_in_flood(enemy)
+		var speed_now := float(enemy.base_speed) * (0.55 if slowed else 1.0) * (0.6 if flood_slow else 1.0)
+		var blocker := _find_lane_blocker(enemy)
+		if not blocker.is_empty():
+			var target_x := GRID_X + int(blocker.col) * CELL + CELL / 2.0
+			if absf(target_x - float(enemy.x)) > 4.0:
+				enemy.x = move_toward(float(enemy.x), target_x, 130.0 * delta)
+			var stop_y := float(blocker.stop_y)
+			if float(enemy.y) >= stop_y:
+				enemy.y = stop_y
+				enemy.atkT = float(enemy.get("atkT", 0.0)) - delta
+				if float(enemy.atkT) <= 0:
+					enemy.atkT = 1.6 if bool(enemy.get("boss", false)) else 1.2
+					var base_damage := 30.0 if bool(enemy.get("boss", false)) else (16.0 if bool(enemy.get("big", false)) else 7.0)
+					var hit_damage := roundi(base_damage * (1.0 + wave * 0.06))
+					hurt_unit(blocker.unit, hit_damage, int(blocker.row), int(blocker.col))
+					if str(blocker.unit.hero.cls) == "shield" and not bool(enemy.get("dead", false)):
+						var reflect := roundi(float(blocker.unit.hp_max) * (0.04 + float(buffs.get("shieldReflect", 0.0))))
+						if reflect > 0:
+							damage_enemy(enemy, reflect)
+						gain_xp(1.0)
+			else:
+				enemy.y = minf(stop_y, float(enemy.y) + speed_now * delta)
+		else:
+			enemy.y = float(enemy.y) + speed_now * delta
 		if float(enemy.y) > DEFENSE_LINE - 6.0:
 			var wall_damage := int(enemy.dmg)
 			if relic_ids.has("lianhuan"):
@@ -280,6 +427,57 @@ func _update_enemies(delta: float) -> void:
 	for index in range(enemies.size() - 1, -1, -1):
 		if bool(enemies[index].get("dead", false)):
 			enemies.remove_at(index)
+
+func hurt_unit(unit: Dictionary, amount: int, row: int, col: int) -> int:
+	if unit.is_empty() or float(unit.get("hp", 0.0)) <= 0:
+		return 0
+	if taoyuan_time > 0:
+		taoyuan_absorb += amount
+		return 0
+	var damage := amount
+	if str(traits.get(_cell_key(row, col), "")) == "guard":
+		damage = roundi(damage * 0.8)
+	if str(unit.hero.cls) != "shield" and _has_adjacent_shield(row, col):
+		damage = roundi(damage * 0.75)
+	damage = maxi(1, damage)
+	unit.hp = float(unit.hp) - damage
+	if float(unit.hp) <= 0:
+		unit.hp = 0.0
+		if row >= 0 and row < GRID_ROWS and col >= 0 and col < GRID_COLS and grid[row][col] == unit:
+			grid[row][col] = null
+			unit_deaths += 1
+			team.recompute(self)
+	return damage
+
+func _find_lane_blocker(enemy: Dictionary) -> Dictionary:
+	var reach := 330.0 if str(enemy.get("special", "")) == "shooter" else (340.0 if str(enemy.get("special", "")) == "thrower" else 150.0)
+	if float(enemy.y) <= GRID_Y - reach:
+		return {}
+	var col := clampi(int(floor((float(enemy.x) - GRID_X) / CELL)), 0, GRID_COLS - 1)
+	for row in GRID_ROWS:
+		var unit = grid[row][col]
+		if unit == null:
+			continue
+		if str(enemy.get("special", "")) == "ram" and str(unit.hero.cls) != "shield":
+			continue
+		var stop_y := GRID_Y + row * CELL + 6.0 - float(enemy.r) * 0.4
+		if float(enemy.y) > stop_y + 6.0:
+			continue
+		return {"unit": unit, "row": row, "col": col, "stop_y": stop_y}
+	return {}
+
+func _has_adjacent_shield(row: int, col: int) -> bool:
+	for other_row in range(maxi(0, row - 1), mini(GRID_ROWS - 1, row + 1) + 1):
+		for other_col in range(maxi(0, col - 1), mini(GRID_COLS - 1, col + 1) + 1):
+			if other_row == row and other_col == col:
+				continue
+			var unit = grid[other_row][other_col]
+			if unit != null and str(unit.hero.cls) == "shield":
+				return true
+	return false
+
+func enemy_in_flood(enemy: Dictionary) -> bool:
+	return not flood.is_empty() and float(flood.get("t", 0.0)) > 0 and float(enemy.y) > float(flood.y1) and float(enemy.y) < float(flood.y2)
 
 func _update_units(delta: float) -> void:
 	for unit in units():

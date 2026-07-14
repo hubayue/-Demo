@@ -44,6 +44,45 @@ func _run() -> void:
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.2-relic-draft.png")):
 		return
+	run.awaiting_card_choice = false
+	run.picking_relic = false
+	run.card_choices = []
+	run.status = "play"
+	run.clear_formation()
+	run.obstacles.clear()
+	run.add_unit_at("caoren", 0, 0)
+	run.add_unit_at("zhangfei", 0, 1)
+	run.add_unit_at("jiaxu", 1, 2)
+	run.enemies = []
+	for index in 8:
+		run.enemies.append({
+			"x": 48.0 + index * 54.0,
+			"y": 488.0 if index < 2 else 330.0 + index * 10.0,
+			"r": 17.0,
+			"base_speed": 45.0,
+			"hp": 180.0,
+			"hp_max": 180.0,
+			"tri": "badao",
+			"cls": "spear",
+			"xp": 0.0,
+			"dmg": 1,
+			"dead": false,
+			"big": index == 7,
+			"boss": false,
+			"slowT": 0.0,
+			"burnT": 0.0,
+			"burnDmg": 0.0,
+		})
+	run.lord_command_cd = 0.0
+	run.lord_system.update_command(run, 0.01)
+	run.lord_attack_timer = 0.0
+	run._update_lord_auto_attack(0.01)
+	run._update_enemies(0.01)
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-ruler-command.png")):
+		return
 	print("Godot battle screenshots: PASS")
 	quit(0)
 

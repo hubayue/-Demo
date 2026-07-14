@@ -24,6 +24,10 @@ func _run() -> void:
 	for title in ["张飞练兵", "全军猛攻", "击鼓进军", "青囊秘术", "招贤纳士", "神机妙算", "战阵精修", "开山凿石", "霸道淬炼", "御驾亲征", "擒贼擒王", "校场演武", "自刎归天", "乐不思蜀"]:
 		if not _expect(_find_title(pool, title) != null, "initial card pool must contain %s" % title):
 			return
+	run.lord_atk_buff = 2.0
+	if not _expect(_find_title(cards.build_pool(run), "御驾亲征") == null, "Yujia Qinzhen must leave the pool after reaching its Web +200% cap"):
+		return
+	run.lord_atk_buff = 0.0
 	var draw: Array = cards.roll(run)
 	if not _expect(draw.size() == 3 and _unique_titles(draw) == 3, "growth draft must contain three unique card titles"):
 		return
@@ -36,6 +40,8 @@ func _run() -> void:
 			return
 
 	if not _test_applications(catalog, fixture.city):
+		return
+	if not _test_gewu_autoplay(catalog, fixture.city):
 		return
 	if not _test_relic_drops(catalog, fixture.city):
 		return
@@ -76,6 +82,18 @@ func _test_applications(catalog, city: Dictionary) -> bool:
 	if not _expect(run.units().size() == 2, "unit card must place a new hero on a legal empty cell"):
 		return false
 	return true
+
+func _test_gewu_autoplay(catalog, city: Dictionary) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(city, "caocao", "zhangfei")
+	run.permanent_tactics.gewu = true
+	run.awaiting_card_choice = true
+	run.card_choices = [{"kind": "merit", "title": "挂机拍板", "value": 1}]
+	run.advance_real(1.49)
+	if not _expect(run.awaiting_card_choice, "Gewu autoplay must preserve the Web 1.5-second roulette pause"):
+		return false
+	run.advance_real(0.02)
+	return _expect(not run.awaiting_card_choice and int(run.card_picks.get("挂机拍板", 0)) == 1, "Gewu must automatically choose a safe growth card after 1.5 seconds")
 
 func _test_relic_drops(catalog, city: Dictionary) -> bool:
 	var run = BattleRun.new(catalog, Mulberry32.new(7192))
