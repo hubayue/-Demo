@@ -17,6 +17,10 @@ test("extracted runtime retains the live version and server routes", async () =>
 
   assert.match(source, /const GAME_VERSION = "7\.18\.8"/);
   assert.doesNotMatch(source, /\bfetch\s*\(/);
+  assert.doesNotMatch(
+    source,
+    /\b(?:localStorage|sessionStorage)\.(?:getItem|setItem|removeItem)\s*\(/,
+  );
   const networkSource = `${source}\n${apiSource}`;
   for (const route of ["register", "login", "load", "save", "battle", "board", "version"]) {
     assert.match(networkSource, new RegExp(`/api/${route}`));

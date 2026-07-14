@@ -89,17 +89,17 @@ refactor: isolate account API transport
 - Create: `web-demo/src/platform/browser-storage.js`
 - Modify: `web-demo/src/main.js`
 
-- [ ] **Step 1: Write failing tests for string, JSON, corrupt data, and denied storage**
+- [x] **Step 1: Write failing tests for string, JSON, corrupt data, and denied storage**
 
 The tests use a small in-memory storage object and a storage object whose methods throw. Verify that storage errors never escape and corrupt JSON returns `null`.
 
-- [ ] **Step 2: Run the storage tests and verify RED**
+- [x] **Step 2: Run the storage tests and verify RED**
 
 Run: `node --test tests/browser-storage.test.mjs`
 
 Expected: FAIL because `web-demo/src/platform/browser-storage.js` does not exist.
 
-- [ ] **Step 3: Implement the storage adapter**
+- [x] **Step 3: Implement the storage adapter**
 
 ```js
 export function createBrowserStorage(storage) {
@@ -125,15 +125,15 @@ export function createBrowserStorage(storage) {
 }
 ```
 
-- [ ] **Step 4: Compose local and session adapters in `main.js`**
+- [x] **Step 4: Compose local and session adapters in `main.js`**
 
 Replace the existing direct `localStorage` and `sessionStorage` calls without changing keys, remembered-account behavior, cache fallback, or resume behavior.
 
-- [ ] **Step 5: Run all tests and browser smoke verification**
+- [x] **Step 5: Run all tests and browser smoke verification**
 
 Expected: tests pass without warnings; login overlay and remembered-account controls still render.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```text
 refactor: isolate browser storage access

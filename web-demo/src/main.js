@@ -3,6 +3,10 @@ import {
   starParts,
 } from "./core/progression.js";
 import { createAccountApi } from "./platform/account-api.js";
+import { createBrowserStorage } from "./platform/browser-storage.js";
+
+const localStore = createBrowserStorage(globalThis.localStorage);
+const sessionStore = createBrowserStorage(globalThis.sessionStorage);
 
 "use strict";
 /* ============================================================
@@ -780,7 +784,7 @@ function normalizeMeta(m) {
 let meta = normalizeMeta(freshMeta());
 function saveMeta() {
   meta.lastPlayed = Date.now();
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(meta)); } catch (e) {}
+  localStore.setJson(CACHE_KEY, meta);
   netPushSoon();
 }
 /* 收金币统一走这：排行榜按"累计赚到的"排名，花掉不掉名次 */
@@ -870,7 +874,7 @@ function netResync() {
       meta = normalizeMeta(r.meta);
       NET.epoch = r.epoch || NET.epoch;
       NET.stale = false;                // 顺带从"另一台更新已停推"的状态里自动恢复，不用手动刷新
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify(meta)); } catch (e) {}
+      localStore.setJson(CACHE_KEY, meta);
       if (typeof addFloater === "function") addFloater(W / 2, 300, "☁️ 已同步另一台设备的最新进度", "#7ad86a", 18);
     } else {
       // 正在打这局：换内存档会搅乱进行中的对局——只停推防覆盖云端，打完回标题刷新即同步
@@ -944,9 +948,7 @@ function netCheckNewVer() {
   }).catch(() => {});
 }
 function reloadForUpdate(where) {
-  try {
-    sessionStorage.setItem("sanguo_resume", where);
-  } catch (e) {}
+  sessionStore.set("sanguo_resume", where);
   location.replace(location.pathname + "?v=" + encodeURIComponent(newVerSeen || Date.now()));
 }
 async function netFetchBoard(force = false) {
@@ -11549,7 +11551,8 @@ requestAnimationFrame(loop);
 
 /* ---------- 账号登录（DOM 浮层：canvas 里画输入框太受罪，手机键盘也唤不起来） ---------- */
 function acctLogout() {
-  try { localStorage.removeItem("sanguo_acct"); sessionStorage.removeItem("sanguo_acct"); } catch (e) {}
+  localStore.remove("sanguo_acct");
+  sessionStore.remove("sanguo_acct");
   clearTimeout(NET.timer);
   NET.name = NET.token = null;
   meta = normalizeMeta(freshMeta());
@@ -11595,22 +11598,20 @@ if (IS_BROWSER) (function initAcct() {
   window.acctShow = () => { box.classList.remove("hide"); say(""); };
   const hide = () => box.classList.add("hide");
   function store() {
-    const bag = $("acctRem").checked ? localStorage : sessionStorage;
-    try { bag.setItem("sanguo_acct", JSON.stringify({ name: NET.name, token: NET.token })); } catch (e) {}
+    const bag = $("acctRem").checked ? localStore : sessionStore;
+    bag.setJson("sanguo_acct", { name: NET.name, token: NET.token });
   }
   function enter(serverMeta) {
     meta = normalizeMeta(serverMeta || freshMeta());
     saveMeta();   // 新号立即把初始档推上云
     hide();
     // 无感热更（v7.18.8）：带标记刷新回来的——直接跳回讨贼地图，顶部提示已更新
-    try {
-      const ra = sessionStorage.getItem("sanguo_resume");
-      if (ra) {
-        sessionStorage.removeItem("sanguo_resume");
-        if (ra === "map") gotoLevelSelect();
-        state.updateToastUntil = Date.now() + 6000;
-      }
-    } catch (e) {}
+    const ra = sessionStore.get("sanguo_resume");
+    if (ra) {
+      sessionStore.remove("sanguo_resume");
+      if (ra === "map") gotoLevelSelect();
+      state.updateToastUntil = Date.now() + 6000;
+    }
   }
   async function submit(route) {
     const name = $("acctName").value.trim(), pw = $("acctPw").value;
@@ -11634,8 +11635,7 @@ if (IS_BROWSER) (function initAcct() {
   $("acctPw").addEventListener("keydown", (e) => { if (e.key === "Enter") submit("/api/login"); });
   // 自动登录：记住过就直接进；断网时退回本地缓存档能先玩（联网后会同步覆盖到云）
   (async () => {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem("sanguo_acct") || sessionStorage.getItem("sanguo_acct")); } catch (e) {}
+    const saved = localStore.getJson("sanguo_acct") || sessionStore.getJson("sanguo_acct");
     if (!saved || !saved.token) { acctShow(); return; }
     try {
       const r = await api("/api/load", saved);
@@ -11652,8 +11652,7 @@ if (IS_BROWSER) (function initAcct() {
       // 服务器暂时够不着：用本地缓存先玩，别把人挡在门外
       NET.name = saved.name;
       NET.token = saved.token;
-      let cached = null;
-      try { cached = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e2) {}
+      const cached = localStore.getJson(CACHE_KEY);
       enter(cached);
     }
   })();
