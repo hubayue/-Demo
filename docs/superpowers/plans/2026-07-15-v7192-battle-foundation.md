@@ -179,7 +179,7 @@ Capture `output/godot/v7.19.2-battle-foundation.png` and `output/godot/v7.19.2-f
 
 Run all Godot headless tests, `npm test`, Godot headless import, rendered capture, and `git diff --check`. Request independent review for Important-or-higher parity or runtime issues and resolve any findings.
 
-- [ ] **Step 6: Commit and push**
+- [x] **Step 6: Commit and push**
 
 ```text
 feat: make v7.19.2 battle foundation playable
