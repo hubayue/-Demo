@@ -1,10 +1,10 @@
-# v7.19.0 Content Catalog Implementation Plan
+# v7.19.2 Content Catalog Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Create a source-traceable Godot content catalog containing every static v7.19.0 gameplay definition needed by later out-of-run and battle migration.
+**Goal:** Create a source-traceable Godot content catalog containing every static v7.19.2 gameplay definition needed by later out-of-run and battle migration.
 
-**Architecture:** A small Node extractor reads named JavaScript constants from the frozen Web source and emits one deterministic JSON snapshot. Godot loads that JSON through a scene-independent `ContentCatalog`; tests pin authoritative counts and the newest v7.19.0 entities so later systems cannot silently omit content.
+**Architecture:** A small Node extractor reads named JavaScript constants from the frozen Web source and emits one deterministic JSON snapshot. Godot loads that JSON through a scene-independent `ContentCatalog`; tests pin authoritative counts and the newest v7.19.2 entities so later systems cannot silently omit content.
 
 **Tech Stack:** Node.js built-in test runner, JavaScript scanner/evaluator, JSON, Godot 4.7, GDScript headless tests.
 
@@ -116,7 +116,7 @@ Expected: one passing test.
 
 **Files:**
 - Modify: `scripts/extract-demo-content.mjs`
-- Create: `godot-demo/data/content-v7.19.0.json`
+- Create: `godot-demo/data/content-v7.19.2.json`
 
 - [x] **Step 1: Add the exact extraction manifest and CLI**
 
@@ -176,20 +176,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 Run:
 
 ```powershell
-node scripts/extract-demo-content.mjs reference/web-v7.19.0/index.html godot-demo/data/content-v7.19.0.json
+node scripts/extract-demo-content.mjs reference/web-v7.19.2/index.html godot-demo/data/content-v7.19.2.json
 ```
 
-Expected: a UTF-8 JSON file with `version` equal to `7.19.0`.
+Expected: a UTF-8 JSON file with `version` equal to `7.19.2`.
 
 - [x] **Step 3: Verify the source inventory counts**
 
 Run:
 
 ```powershell
-node -e "const c=require('./godot-demo/data/content-v7.19.0.json'); console.log(c.version,c.heroes.length,c.bonds.length,c.rulers.length,c.state_names.length,c.relics.length)"
+node -e "const c=require('./godot-demo/data/content-v7.19.2.json'); console.log(c.version,c.heroes.length,c.bonds.length,c.rulers.length,c.state_names.length,c.relics.length)"
 ```
 
-Expected: `7.19.0 45 18 8 64 30`.
+Expected: `7.19.2 45 18 8 64 30`.
 
 ### Task 3: Load and validate content in Godot
 
@@ -206,8 +206,8 @@ const ContentCatalog = preload("res://src/content/content_catalog.gd")
 
 func _init() -> void:
     var catalog = ContentCatalog.new()
-    assert(catalog.load_from("res://data/content-v7.19.0.json") == OK)
-    assert(catalog.version == "7.19.0")
+    assert(catalog.load_from("res://data/content-v7.19.2.json") == OK)
+    assert(catalog.version == "7.19.2")
     assert(catalog.list("heroes").size() == 45)
     assert(catalog.list("bonds").size() == 18)
     assert(catalog.list("rulers").size() == 8)
@@ -217,7 +217,7 @@ func _init() -> void:
     assert(catalog.by_id("heroes", "wenchou").name == "文丑")
     assert(catalog.by_id("specials", "cata").name == "投石车")
     assert(catalog.by_id("rulers", "sunquan").special == "shuijun")
-    print("Godot v7.19.0 content catalog: PASS")
+    print("Godot v7.19.2 content catalog: PASS")
     quit(0)
 ```
 
@@ -287,5 +287,5 @@ Expected: content catalog, main flow and progression tests print `PASS`; `npm te
 - [x] **Step 5: Commit and push**
 
 ```text
-feat: add v7.19.0 Godot content catalog
+feat: add v7.19.2 Godot content catalog
 ```
