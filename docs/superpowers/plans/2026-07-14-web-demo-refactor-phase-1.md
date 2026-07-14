@@ -176,19 +176,19 @@ refactor: extract progression math from demo runtime
 **Files:**
 - Create: `docs/architecture/web-demo-boundaries.md`
 
-- [ ] **Step 1: Document the current dependency seams**
+- [x] **Step 1: Document the current dependency seams**
 
 Record these next extraction boundaries in order: account API, persistence/cache, static content data, battle state/update, Canvas rendering, and pointer/keyboard input.
 
-- [ ] **Step 2: Define the Godot handoff contract**
+- [x] **Step 2: Define the Godot handoff contract**
 
 Specify that portable gameplay rules must be represented as pure functions plus serializable data before the corresponding Godot system is implemented.
 
-- [ ] **Step 3: Run `npm test` and `git diff --check`**
+- [x] **Step 3: Run `npm test` and `git diff --check`**
 
 Expected: all tests PASS and no whitespace errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```text
 docs: define web refactor boundaries for Godot migration
