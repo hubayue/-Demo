@@ -12,6 +12,8 @@ coverage/
 .cache/
 .parcel-cache/
 .vite/
+.playwright-cli/
+/output/
 
 # Local environment and secrets
 .env
@@ -31,4 +33,3 @@ Desktop.ini
 *.log
 tmp/
 temp/
-
