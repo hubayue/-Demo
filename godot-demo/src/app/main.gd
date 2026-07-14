@@ -365,6 +365,16 @@ func _hero_card_rect(index: int) -> Rect2:
 func _growth_card_rect(index: int) -> Rect2:
 	return Rect2(8 + index * 158, 278, 148, 244)
 
+func active_bond_text() -> String:
+	if battle_run == null:
+		return ""
+	var names: Array[String] = []
+	for bond_id in battle_run.team.active_bond_ids():
+		var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
+		if not bond.is_empty():
+			names.append(str(bond.name))
+	return " · ".join(names)
+
 func _short_text(text: String, max_characters: int) -> String:
 	return text if text.length() <= max_characters else text.left(max_characters) + "…"
 
@@ -407,6 +417,10 @@ func _draw_battle() -> void:
 	else:
 		var pressure_left := maxf(0.0, battle_run.wave_budget - battle_run.wave_clock)
 		_text_center("第%d波 · 催战 %.1fs" % [battle_run.wave, pressure_left], 130, 14, RED if pressure_left < 5.0 else MUTED)
+	var bond_text := active_bond_text()
+	if not bond_text.is_empty():
+		draw_rect(Rect2(66, 140, 348, 25), Color("332714e8"), true)
+		_text_center("🔗 羁绊：%s" % bond_text, 158, 13, GOLD)
 	if battle_run.awaiting_card_choice:
 		_draw_growth_cards()
 	elif battle_run.status != "play":
@@ -414,6 +428,15 @@ func _draw_battle() -> void:
 		_text_center("攻城告捷" if battle_run.status == "win" else "城墙失守", 350, 36, GOLD if battle_run.status == "win" else RED)
 
 func _draw_battle_entities() -> void:
+	for ripple in battle_run.ripples:
+		var ripple_color := Color("ff9a5a")
+		match str(ripple.kind):
+			"heal": ripple_color = Color("8aff9a")
+			"haste", "slow": ripple_color = Color("8ad2ff")
+			"crit": ripple_color = Color("ffd24a")
+			"soothe": ripple_color = Color("bfe8ff")
+			"cdr", "sunder": ripple_color = Color("c9a8ff")
+		draw_arc(Vector2(float(ripple.x), float(ripple.y)), float(ripple.r), 0, TAU, 48, ripple_color, 2.0)
 	for projectile in battle_run.projectiles:
 		draw_circle(Vector2(float(projectile.x), float(projectile.y)), 4.0, GOLD)
 	for charge in battle_run.charges:

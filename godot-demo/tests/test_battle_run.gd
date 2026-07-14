@@ -62,6 +62,12 @@ func _run() -> void:
 		return
 	if not _test_team_modifiers_affect_auto_attack(catalog):
 		return
+	if not _test_critical_and_piercing_hits(catalog):
+		return
+	if not _test_support_ripple(catalog):
+		return
+	if not _test_sunder_ripple(catalog):
+		return
 	if not _test_ranged_and_cavalry_entities(catalog, fixture.city, seed):
 		return
 	print("Godot v7.19.2 battle run: PASS")
@@ -209,6 +215,90 @@ func _test_team_modifiers_affect_auto_attack(catalog) -> bool:
 	run.spawn_queue = []
 	run.advance_real(0.01)
 	return _expect(is_equal_approx(float(enemy.hp), 952.0), "automatic spear attack must use the browser-derived adjacent formation damage of 48")
+
+func _test_critical_and_piercing_hits(catalog) -> bool:
+	var crit_run = BattleRun.new(catalog, Mulberry32.new(7192))
+	crit_run.start(_base_city(""), "caocao", "zhangfei")
+	crit_run.obstacles.clear()
+	crit_run.traits.clear()
+	crit_run.buffs.critCh = 1.0
+	var fighter: Dictionary = crit_run.units()[0]
+	fighter.cd = 0.0
+	var fighter_mods: Dictionary = crit_run.team.unit_mods(crit_run, fighter)
+	var expected_base: int = crit_run.team.unit_damage(crit_run, fighter, fighter_mods)
+	var center := BattleRun.slot_center(int(fighter.row), int(fighter.col))
+	var crit_enemy := {
+		"x": center.x, "y": center.y - 80.0, "r": 15, "base_speed": 0.0,
+		"hp": 1000.0, "hp_max": 1000.0, "tri": str(fighter.hero.elem), "xp": 0.0,
+		"dmg": 1, "dead": false,
+	}
+	crit_run.enemies = [crit_enemy]
+	crit_run.spawn_queue = []
+	crit_run.advance_real(0.01)
+	if not _expect(is_equal_approx(float(crit_enemy.hp), 1000.0 - expected_base * 2.0), "100% critical chance must double a real automatic attack"):
+		return false
+
+	var pierce_run = BattleRun.new(catalog, Mulberry32.new(7192))
+	pierce_run.start(_base_city(""), "caocao", "huangzhong")
+	pierce_run.obstacles.clear()
+	pierce_run.traits.clear()
+	pierce_run.relic_ids = ["liannu"]
+	var archer: Dictionary = pierce_run.units()[0]
+	archer.cd = 0.0
+	var archer_center := BattleRun.slot_center(int(archer.row), int(archer.col))
+	var near_enemy := {"x": archer_center.x, "y": archer_center.y - 100.0, "r": 18, "base_speed": 0.0, "hp": 1000.0, "hp_max": 1000.0, "tri": str(archer.hero.elem), "xp": 0.0, "dmg": 1, "dead": false}
+	var far_enemy := {"x": archer_center.x, "y": archer_center.y - 150.0, "r": 18, "base_speed": 0.0, "hp": 1000.0, "hp_max": 1000.0, "tri": str(archer.hero.elem), "xp": 0.0, "dmg": 1, "dead": false}
+	pierce_run.enemies = [near_enemy, far_enemy]
+	pierce_run.advance_real(0.01)
+	for step in 16:
+		pierce_run.advance_real(0.05)
+	if not _expect(float(near_enemy.hp) < 1000.0 and float(far_enemy.hp) < 1000.0, "Liannu pierceAdd must let a real archer projectile pass through one enemy"):
+		return false
+	return true
+
+func _test_support_ripple(catalog) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(_base_city("tuanjie"), "caocao", "daqiao")
+	run.clear_formation()
+	run.obstacles.clear()
+	run.add_unit_at("daqiao", 1, 1)
+	run.add_unit_at("xiaoqiao", 1, 2)
+	var daqiao: Dictionary = run.units().filter(func(unit): return unit.hero.id == "daqiao")[0]
+	daqiao.cd = 0.0
+	var center := BattleRun.slot_center(1, 1)
+	var enemy := {"x": center.x, "y": center.y - 250.0, "r": 15, "base_speed": 100.0, "hp": 1000.0, "hp_max": 1000.0, "tri": "rende", "xp": 0.0, "dmg": 1, "dead": false, "slowT": 0.0}
+	run.enemies = [enemy]
+	run.spawn_queue = []
+	run.advance_real(0.01)
+	if not _expect(float(enemy.slowT) > 0.0 and run.ripples.size() == 1, "Da Qiao must cast a visible Erqiao-expanded slow ripple on enemies inside 308px"):
+		return false
+	var y_before := float(enemy.y)
+	run.advance_real(0.1)
+	if not _expect(float(run.ripples[0].r) > 6.0, "a support ripple must visibly expand after it is cast"):
+		return false
+	return _expect(float(enemy.y) - y_before < 20.0, "slow ripple must reduce enemy movement while its timer is active")
+
+func _test_sunder_ripple(catalog) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(_base_city(""), "caocao", "xushu")
+	run.clear_formation()
+	run.obstacles.clear()
+	run.add_unit_at("xushu", 1, 1)
+	run.add_unit_at("zhugeliang", 1, 2)
+	var xushu: Dictionary = run.units().filter(func(unit): return unit.hero.id == "xushu")[0]
+	xushu.cd = 0.0
+	var center := BattleRun.slot_center(1, 1)
+	var enemy := {"x": center.x, "y": center.y - 100.0, "r": 15, "base_speed": 0.0, "hp": 1000.0, "hp_max": 1000.0, "tri": "badao", "xp": 0.0, "dmg": 1, "dead": false, "armorBreakT": 0.0}
+	run.enemies = [enemy]
+	run.spawn_queue = []
+	run.advance_real(0.01)
+	if not _expect(float(enemy.armorBreakT) > 0.0, "Xu Shu must apply armor break inside his support ripple"):
+		return false
+	var dealt := run.damage_enemy(enemy, 10.0, "liangmou")
+	return _expect(dealt == 12, "armor break with Shuijing bond must replace countered x0.6 damage with browser x1.2 damage")
+
+func _base_city(theme: String) -> Dictionary:
+	return {"ch": 1, "wall": 20, "theme": theme, "field": "", "hpMul": 1.0, "spdMul": 1.0, "hpGrow": 1.1, "affixAdd": 0.0, "killTarget": 450, "obstacles": 0, "foes": {"tri": ""}}
 
 func _test_ranged_and_cavalry_entities(catalog, city: Dictionary, seed: int) -> bool:
 	var archer_run = BattleRun.new(catalog, Mulberry32.new(seed))

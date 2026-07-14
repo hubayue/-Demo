@@ -119,6 +119,17 @@ func _run() -> void:
     if not _expect(not battle_run.awaiting_card_choice, "Clicking a growth card must apply it and resume the battle"):
         return
 
+    battle_run.clear_formation()
+    battle_run.obstacles.clear()
+    battle_run.add_unit_at("huangzhong", 0, 0)
+    battle_run.add_unit_at("yanyan", 2, 4)
+    if not _expect(battle_run.team.active_bond_ids() == ["laojiang"], "Integrated formation changes must activate the old-generals bond"):
+        return
+    if not _expect(main.has_method("active_bond_text"), "Battle UI must expose active bond text"):
+        return
+    if not _expect("老当益壮" in main.active_bond_text(), "Battle UI must name the active old-generals bond"):
+        return
+
     print("Godot main input and runtime flow: PASS")
     quit(0)
 

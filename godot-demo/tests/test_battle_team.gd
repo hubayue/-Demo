@@ -46,8 +46,55 @@ func _run() -> void:
 				return
 			if not _expect(is_equal_approx(run.team.unit_rate(unit, mods), float(expected_unit.rate)), "%s %s rate must match browser runtime" % [case_data.id, expected_unit.id]):
 				return
+		if str(case_data.id) == "laojiang":
+			if not _expect(run.upgrade_hero("huangzhong"), "bonded Huang Zhong must be upgradeable"):
+				return
+			var upgraded := _find_unit(run.units(), "huangzhong")
+			if not _expect(int(upgraded.hp_max) == 119 and int(upgraded.hp) == 119, "upgrading after bond activation must apply the browser HP multiplier"):
+				return
+			run.relic_ids = ["jinlan"]
+			var jinlan_fx: Dictionary = run.team.bond_fx(run, "huangzhong")
+			if not _expect(is_equal_approx(float(jinlan_fx.dmg), 1.8775) and is_equal_approx(float(jinlan_fx.hp), 1.8775), "Jinlan and tuanjie must multiply the active bond bonus like the browser"):
+				return
+	if not _test_dengai_obstacle(catalog):
+		return
+	if not _test_erqiao_ripple_radius(catalog):
+		return
 	print("Godot v7.19.2 battle team state: PASS")
 	quit(0)
+
+func _test_dengai_obstacle(catalog) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(_base_city(""), "caocao", "zhangfei")
+	run.clear_formation()
+	run.obstacles = {"1,2": true}
+	if not _expect(run.add_unit_at("dengai", 1, 2), "Deng Ai must be the only hero allowed to occupy an obstacle"):
+		return false
+	var unit: Dictionary = run.units()[0]
+	var mods: Dictionary = run.team.unit_mods(run, unit)
+	if not _expect(is_equal_approx(float(mods.dmgMul), 1.65 * 1.4), "Deng Ai on an obstacle must gain the browser x1.4 high-ground damage"):
+		return false
+	var card_run = BattleRun.new(catalog, Mulberry32.new(7192))
+	card_run.start(_base_city(""), "caocao", "zhangfei")
+	card_run.clear_formation()
+	card_run.obstacles = {"0,4": true}
+	if not _expect(card_run.add_unit("dengai"), "a Deng Ai unit card must be placeable when only an obstacle is available"):
+		return false
+	var placed: Dictionary = card_run.units()[0]
+	return _expect(int(placed.row) == 0 and int(placed.col) == 4, "a Deng Ai unit card must prioritize an empty obstacle like the browser")
+
+func _test_erqiao_ripple_radius(catalog) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(_base_city("tuanjie"), "caocao", "daqiao")
+	run.clear_formation()
+	run.obstacles.clear()
+	run.add_unit_at("daqiao", 1, 1)
+	run.add_unit_at("xiaoqiao", 1, 2)
+	var daqiao: Dictionary = _find_unit(run.units(), "daqiao")
+	return _expect(is_equal_approx(run.team.ripple_max(run, daqiao), 308.0), "Erqiao plus tuanjie must expand Da Qiao's slow ripple from 230 to 308")
+
+func _base_city(theme: String) -> Dictionary:
+	return {"ch": 1, "wall": 20, "theme": theme, "field": "", "hpMul": 1.0, "spdMul": 1.0, "hpGrow": 1.1, "affixAdd": 0.0, "killTarget": 450, "obstacles": 0, "foes": {"tri": ""}}
 
 func _dictionary_equal_approx(actual: Dictionary, expected: Dictionary) -> bool:
 	if actual.size() != expected.size():

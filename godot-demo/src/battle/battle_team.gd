@@ -44,7 +44,11 @@ func bond_fx(run, hero_id: String) -> Dictionary:
 		result.rate *= float(effects.get("rate", 1.0))
 		result.hp *= float(effects.get("hp", 1.0))
 		result.rippleRad += float(effects.get("rippleRad", 0.0))
-	var bonus_multiplier := 1.3 if str(run.city.get("theme", "")) == "tuanjie" else 1.0
+	var bonus_multiplier := 1.0
+	if run.relic_ids.has("jinlan"):
+		bonus_multiplier *= 1.5
+	if str(run.city.get("theme", "")) == "tuanjie":
+		bonus_multiplier *= 1.3
 	if not is_equal_approx(bonus_multiplier, 1.0):
 		result.dmg = 1.0 + (float(result.dmg) - 1.0) * bonus_multiplier
 		result.rate = 1.0 + (float(result.rate) - 1.0) * bonus_multiplier
@@ -77,6 +81,8 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 		damage_multiplier *= float(field.get("archerMul", 1.0))
 	var row := int(unit.row)
 	var col := int(unit.col)
+	if str(hero.id) == "dengai" and run.obstacles.has("%d,%d" % [row, col]):
+		damage_multiplier *= 1.4
 	var cell_trait := str(run.traits.get("%d,%d" % [row, col], ""))
 	if cell_trait == "atk":
 		damage_multiplier *= 1.15
@@ -115,6 +121,15 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 			rate_multiplier *= 1.15
 		if class_count >= 4:
 			rate_multiplier *= 1.15
+	if run.relic_ids.has("liannu"):
+		pierce_add += 1
+	var ripple_buffs: Dictionary = unit.get("rbuffs", {})
+	if float(ripple_buffs.get("dmg", 0.0)) > 0:
+		damage_multiplier *= 1.25
+	if float(ripple_buffs.get("haste", 0.0)) > 0:
+		rate_multiplier *= 1.22
+	if float(ripple_buffs.get("crit", 0.0)) > 0:
+		critical_chance += 0.15
 	return {
 		"dmgMul": damage_multiplier,
 		"rateMul": rate_multiplier,
@@ -127,6 +142,10 @@ func unit_damage(_run, unit: Dictionary, mods: Dictionary) -> int:
 
 func unit_rate(unit: Dictionary, mods: Dictionary) -> float:
 	return float(unit.hero.get("rate", 99.0)) * pow(0.93, int(unit.level) - 1) / float(mods.rateMul)
+
+func ripple_max(run, unit: Dictionary) -> float:
+	var base := 230.0 if str(unit.hero.get("ripple", "")) == "slow" else 130.0
+	return base + float(run.buffs.rippleRad) + float(bond_fx(run, str(unit.hero.id)).rippleRad)
 
 static func _star_damage_multiplier(stars: int) -> float:
 	return pow(1.9, mini(stars, 5) - 1) * pow(1.4, maxi(0, mini(stars, 10) - 5)) * pow(1.3, maxi(0, stars - 10))

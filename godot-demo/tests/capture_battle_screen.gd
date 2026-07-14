@@ -25,6 +25,17 @@ func _run() -> void:
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.2-first-growth-draft.png")):
 		return
+	run.choose_card(0)
+	run.clear_formation()
+	run.obstacles.clear()
+	run.add_unit_at("huangzhong", 0, 0)
+	run.add_unit_at("yanyan", 2, 4)
+	main.set_process(false)
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-active-bond.png")):
+		return
 	print("Godot battle screenshots: PASS")
 	quit(0)
 
