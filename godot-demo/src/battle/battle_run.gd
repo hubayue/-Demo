@@ -2,6 +2,7 @@ class_name BattleRun
 extends RefCounted
 
 const BattleCardsScript = preload("res://src/battle/battle_cards.gd")
+const BattleTeamScript = preload("res://src/battle/battle_team.gd")
 
 const GRID_ROWS := 3
 const GRID_COLS := 5
@@ -18,6 +19,7 @@ const TRAIT_KEYS := ["atk", "haste", "guard", "heal", "crit", "elem"]
 var catalog
 var rng
 var card_system
+var team
 var city: Dictionary = {}
 var ruler_id := ""
 var status := "play"
@@ -59,6 +61,7 @@ func _init(content_catalog, random_source) -> void:
 	catalog = content_catalog
 	rng = random_source
 	card_system = BattleCardsScript.new(catalog, rng)
+	team = BattleTeamScript.new(catalog)
 
 func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String) -> void:
 	city = level_data.duplicate(true)
@@ -116,6 +119,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	next_queue = []
 	next_wave_preview = {}
 	_roll_layout()
+	team.recompute(self)
 	_place_opening_hero(opening_hero_id)
 
 func advance_real(delta: float) -> void:
@@ -362,6 +366,25 @@ func add_unit_data(hero: Dictionary) -> bool:
 	var slot: Array = _pick(slots)
 	var unit := _make_unit(hero, int(slot[0]), int(slot[1]))
 	grid[unit.row][unit.col] = unit
+	team.recompute(self)
+	return true
+
+func clear_formation() -> void:
+	for row in GRID_ROWS:
+		for col in GRID_COLS:
+			grid[row][col] = null
+	team.recompute(self)
+
+func add_unit_at(hero_id: String, row: int, col: int) -> bool:
+	if row < 0 or row >= GRID_ROWS or col < 0 or col >= GRID_COLS:
+		return false
+	if grid[row][col] != null or obstacles.has(_cell_key(row, col)):
+		return false
+	var hero: Dictionary = catalog.by_id("heroes", hero_id)
+	if hero.is_empty():
+		return false
+	grid[row][col] = _make_unit(hero, row, col)
+	team.recompute(self)
 	return true
 
 func upgrade_hero(hero_id: String) -> bool:
