@@ -20,12 +20,13 @@
 
 ## 当前状态
 
-Git 仓库已初始化，当前线上 Demo `v7.18.8` 的前端源码和更新日志已保存到 `web-demo/`。
+Git 仓库已初始化。当前线上权威版本为 `v7.19.0`，原始前端源码和更新日志保存在 `reference/web-v7.19.0/`；`web-demo/` 保留此前 `v7.18.8` 的拆分研究版本。
 
 - 线上地址：<http://175.178.82.224:3000/>
-- 原始前端：`web-demo/index.html`
-- 原始更新日志：`web-demo/changelog.html`
-- 抓取与验证记录：`docs/baseline/2026-07-14-v7.18.8-source-provenance.md`
+- 最新原始前端：`reference/web-v7.19.0/index.html`
+- 最新原始更新日志：`reference/web-v7.19.0/changelog.html`
+- 最新抓取记录：`docs/baseline/2026-07-14-v7.19.0-source-provenance.md`
+- 前一版基线记录：`docs/baseline/2026-07-14-v7.18.8-source-provenance.md`
 
 线上页面依赖账号、云存档、排行榜和战报接口；当前抓取只包含浏览器可获得的完整前端源码，不包含服务器端实现。Godot 原型明确不迁移这些服务器依赖，改用本地配置、样例数据和 `user://` 存档。
 
