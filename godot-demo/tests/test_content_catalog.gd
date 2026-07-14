@@ -21,6 +21,10 @@ func _run() -> void:
         return
     if not _expect(catalog.list("fields").size() == 11, "all 11 fields must be present"):
         return
+    if not _expect(catalog.list("boss_kits").size() == 8, "all eight chapter boss kits must be present"):
+        return
+    if not _expect(catalog.by_id("level_rules", "rush").short == "急行军", "level rule labels must be queryable"):
+        return
     if not _expect(catalog.list("relics").size() == 30, "all 30 relics must be present"):
         return
     if not _expect(catalog.by_id("heroes", "wenchou").name == "文丑", "latest hero metadata must be queryable"):

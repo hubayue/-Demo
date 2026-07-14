@@ -1520,6 +1520,54 @@
     "乐浪",
     "单于庭"
   ],
+  "boss_kits": [
+    "summon",
+    "firepot",
+    "volley",
+    "split",
+    "sealwave",
+    "thunder",
+    "affixlord",
+    "avatar"
+  ],
+  "level_rules": {
+    "twinBoss": {
+      "short": "双贼首",
+      "tip": "贼首带着影子一起上"
+    },
+    "rush": {
+      "short": "急行军",
+      "tip": "敌人跑得更快"
+    },
+    "ruin": {
+      "short": "城防失修",
+      "tip": "城墙比平时矮"
+    },
+    "rich": {
+      "short": "缴获丰厚",
+      "tip": "金币掉得多"
+    },
+    "rocks": {
+      "short": "乱石密布",
+      "tip": "石头障碍更多"
+    },
+    "elite": {
+      "short": "精锐云集",
+      "tip": "精锐词缀更多"
+    },
+    "smoke": {
+      "short": "烟瘴弥漫",
+      "tip": "烟大看不远，弓兵射程-35%"
+    },
+    "mud": {
+      "short": "泥沼遍地",
+      "tip": "泥深马难行，骑兵冲锋只有一半远"
+    },
+    "crossbow": {
+      "short": "连弩贼",
+      "tip": "弓贼投石兵成倍地来，护住武将"
+    }
+  },
   "week_themes": [
     {
       "id": "tuanjie",

@@ -16,6 +16,8 @@ const CONTENT_NAMES = {
   chapters: "CHAPTERS",
   level_names: "LEVEL_NAMES",
   state_names: "STATE_NAMES",
+  boss_kits: "BOSS_KITS",
+  level_rules: "LEVEL_RULE_DEFS",
   week_themes: "WEEK_THEMES",
   rulers: "LORD_RULERS",
   lord_kin: "LORD_KIN",

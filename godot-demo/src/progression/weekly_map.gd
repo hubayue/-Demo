@@ -76,6 +76,102 @@ func theme_of(week: int, region := 0) -> Dictionary:
     var order := _shuffled(Mulberry32Source.new(week * 977 + 53), rest)
     return themes[order[region - 2]]
 
+func make_level(week: int, k: int) -> Dictionary:
+    var slot: Dictionary = make_slots(week)[k]
+    var states: Array = catalog.list("state_names")
+    var chapters: Array = catalog.list("chapters")
+    var boss_kits: Array = catalog.list("boss_kits")
+    var chapter: Dictionary = chapters[slot.ch]
+    var boss := k % 2 == 1
+    var t_raw := (3.0 + 4.0 * k) / 63.0
+    var t_c: float = min(1.0, t_raw)
+    var kx: int = min(16, max(0, k - 15))
+    var kw: int = max(0, k - 31)
+    var hp_base: float
+    if k <= 15:
+        hp_base = 0.95 * pow(12.0 / 0.95, pow(k / 15.0, 0.72))
+    elif k <= 31:
+        hp_base = 12.0 * pow(1.09, k - 15)
+    elif k <= 47:
+        hp_base = 47.66 * pow(1.05, k - 31)
+    else:
+        hp_base = 104.0 * pow(1.025, k - 47)
+    if k == 8:
+        hp_base *= 1.1
+
+    var level := {
+        "key": "w%dk%d" % [week, k],
+        "idx": -1,
+        "lvIdx": min(63, 3 + 4 * k),
+        "week": week,
+        "k": k,
+        "ch": slot.ch,
+        "n": 7 if boss else 3,
+        "name": "%s · %s" % [states[k], chapter.name],
+        "tag": states[k],
+        "icon": chapter.icon,
+        "color": chapter.color,
+        "hpMul": _fixed(hp_base * (1.1 if boss else 1.0), 2),
+        "spdMul": _fixed(0.92 + 0.40 * pow(t_c, 1.25), 2),
+        "hpGrow": _fixed(1.16 + 0.085 * t_c, 3),
+        "affixAdd": _fixed(-0.08 + 0.53 * pow(t_c, 1.15), 2),
+        "wall": max(10, 15 - int(round(10.0 * t_c))),
+        "obstacles": min(7, 4 + int(floor(4.0 * t_c))),
+        "killTarget": int(round((400.0 + 600.0 * t_c) / 50.0)) * 50 + kx * 50 + kw * 25,
+        "goldMul": _fixed(0.6 + 2.9 * pow(t_c, 1.3) + kx * 0.12 + kw * 0.06, 2),
+        "firstGold": int(round((180.0 + 1620.0 * pow(t_c, 1.35)) / 10.0)) * 10 + kx * 90 + kw * 45,
+        "field": slot.field,
+        "bossName": chapter.boss if boss else null,
+        "bossKit": boss_kits[slot.ch] if boss else null,
+        "eliteWave": false,
+        "rules": slot.rules.duplicate(),
+        "foes": {"tri": slot.tri},
+    }
+    for rule_id in level.rules:
+        _apply_rule(level, rule_id)
+    var theme: Dictionary = theme_of(week, int(floor(k / 16.0)))
+    level["theme"] = theme.id
+    match theme.id:
+        "liaoyuan":
+            level.spdMul = _fixed(level.spdMul * 1.15, 2)
+        "jiancheng":
+            level.hpMul = _fixed(level.hpMul * 1.22, 2)
+            level.spdMul = _fixed(level.spdMul * 0.75, 2)
+        "jifeng":
+            level.hpMul = _fixed(level.hpMul * 0.85, 2)
+            level.spdMul = _fixed(level.spdMul * 1.48, 2)
+    var rule_names := PackedStringArray()
+    for rule_id in level.rules:
+        rule_names.append(str(catalog.by_id("level_rules", rule_id).short))
+    var rule_text := "·".join(rule_names)
+    level["desc"] = "敌血×%s · 杀%d%s" % [level.hpMul, level.killTarget, " · " + rule_text if rule_text else ""]
+    return level
+
+func _apply_rule(level: Dictionary, rule_id: String) -> void:
+    match rule_id:
+        "twinBoss":
+            level.eliteWave = true
+        "rush":
+            level.spdMul = _fixed(level.spdMul * 1.08, 2)
+        "ruin":
+            level.wall = max(3, level.wall - 2)
+        "rich":
+            level.goldMul = _fixed(level.goldMul * 1.5, 2)
+        "rocks":
+            level.obstacles = min(9, level.obstacles + 2)
+        "elite":
+            level.affixAdd = _fixed(level.affixAdd + 0.15, 2)
+        "smoke":
+            level.archerRngMul = 0.65
+        "mud":
+            level.cavChargeMul = 0.55
+        "crossbow":
+            level.rangedMul = 2.2
+
+func _fixed(value: float, digits: int) -> float:
+    var factor := pow(10.0, digits)
+    return round(value * factor) / factor
+
 func _field_bag(rng, field_ids: Array) -> Array:
     var source := field_ids.duplicate()
     source.append_array(field_ids)
