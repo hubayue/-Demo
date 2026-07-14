@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractConstExpression } from "../scripts/extract-demo-content.mjs";
+import { buildSnapshot, extractConstExpression } from "../scripts/extract-demo-content.mjs";
 
 test("extracts a nested constant without stopping inside strings or functions", () => {
   const source = `
@@ -12,4 +12,16 @@ test("extracts a nested constant without stopping inside strings or functions", 
   assert.equal(value.length, 1);
   assert.equal(value[0].id, "a;still-a");
   assert.equal(value[0].fn().value, 2);
+});
+
+test("builds a JSON-safe snapshot from a supplied manifest", () => {
+  const source = `
+    const GAME_VERSION = "1.2.3";
+    const ITEMS = [{ id: "one", name: "一", apply: () => 3 }];
+  `;
+  const snapshot = buildSnapshot(source, { items: "ITEMS" });
+  assert.deepEqual(snapshot, {
+    version: "1.2.3",
+    items: [{ id: "one", name: "一" }],
+  });
 });

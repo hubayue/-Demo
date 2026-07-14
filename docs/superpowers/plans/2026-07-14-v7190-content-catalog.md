@@ -16,7 +16,7 @@
 - Create: `tests/extract-demo-content.test.mjs`
 - Create: `scripts/extract-demo-content.mjs`
 
-- [ ] **Step 1: Write the failing scanner test**
+- [x] **Step 1: Write the failing scanner test**
 
 ```javascript
 import assert from "node:assert/strict";
@@ -36,13 +36,13 @@ test("extracts a nested constant without stopping inside strings or functions", 
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `node --test tests/extract-demo-content.test.mjs`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `scripts/extract-demo-content.mjs`.
 
-- [ ] **Step 3: Implement the scanner**
+- [x] **Step 3: Implement the scanner**
 
 ```javascript
 import fs from "node:fs";
@@ -106,7 +106,7 @@ export function evaluateConst(source, name, context = {}) {
 }
 ```
 
-- [ ] **Step 4: Run the scanner test and verify GREEN**
+- [x] **Step 4: Run the scanner test and verify GREEN**
 
 Run: `node --test tests/extract-demo-content.test.mjs`
 
@@ -118,7 +118,7 @@ Expected: one passing test.
 - Modify: `scripts/extract-demo-content.mjs`
 - Create: `godot-demo/data/content-v7.19.0.json`
 
-- [ ] **Step 1: Add the exact extraction manifest and CLI**
+- [x] **Step 1: Add the exact extraction manifest and CLI**
 
 Append to `scripts/extract-demo-content.mjs`:
 
@@ -150,10 +150,10 @@ const CONTENT_NAMES = {
   items: "ITEMS_DEF"
 };
 
-export function buildSnapshot(source) {
+export function buildSnapshot(source, manifest = CONTENT_NAMES) {
   const context = { Math, Set, W: 480, H: 800 };
   const snapshot = { version: evaluateConst(source, "GAME_VERSION", context) };
-  for (const [key, name] of Object.entries(CONTENT_NAMES)) {
+  for (const [key, name] of Object.entries(manifest)) {
     const value = evaluateConst(source, name, context);
     context[name] = value;
     snapshot[key] = value;
@@ -171,7 +171,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 }
 ```
 
-- [ ] **Step 2: Generate the JSON**
+- [x] **Step 2: Generate the JSON**
 
 Run:
 
@@ -181,7 +181,7 @@ node scripts/extract-demo-content.mjs reference/web-v7.19.0/index.html godot-dem
 
 Expected: a UTF-8 JSON file with `version` equal to `7.19.0`.
 
-- [ ] **Step 3: Verify the source inventory counts**
+- [x] **Step 3: Verify the source inventory counts**
 
 Run:
 
@@ -197,7 +197,7 @@ Expected: `7.19.0 45 18 8 64 30`.
 - Create: `godot-demo/tests/test_content_catalog.gd`
 - Create: `godot-demo/src/content/content_catalog.gd`
 
-- [ ] **Step 1: Write the failing Godot catalog test**
+- [x] **Step 1: Write the failing Godot catalog test**
 
 ```gdscript
 extends SceneTree
@@ -221,7 +221,7 @@ func _init() -> void:
     quit(0)
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run:
 
@@ -231,7 +231,7 @@ Run:
 
 Expected: non-zero exit because `content_catalog.gd` does not exist.
 
-- [ ] **Step 3: Implement the catalog**
+- [x] **Step 3: Implement the catalog**
 
 ```gdscript
 class_name ContentCatalog
@@ -280,11 +280,11 @@ func by_id(key: String, id: String) -> Dictionary:
     return indexes[key].get(id, {})
 ```
 
-- [ ] **Step 4: Run catalog and regression tests**
+- [x] **Step 4: Run catalog and regression tests**
 
 Expected: content catalog, main flow and progression tests print `PASS`; `npm test` remains green.
 
-- [ ] **Step 5: Commit and push**
+- [x] **Step 5: Commit and push**
 
 ```text
 feat: add v7.19.0 Godot content catalog
