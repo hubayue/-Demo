@@ -157,25 +157,25 @@ feat: add first in-run growth draft
 **Files:**
 - Modify: `godot-demo/src/app/main.gd`
 - Modify: `godot-demo/tests/test_main_flow.gd`
-- Modify: `godot-demo/tests/capture_map_screen.gd`
+- Create: `godot-demo/tests/capture_battle_screen.gd`
 
-- [ ] **Step 1: Write failing integration assertions**
+- [x] **Step 1: Write failing integration assertions**
 
 After selecting an opening hero, assert `battle_run` exists, contains that hero in one legal slot, has a two-second wave timer, and retains city wall/kill target. Advance deterministic time and assert the UI model shows real enemies/kills/XP rather than the old `battle_tick` counter. When cards appear, clicking the first card must apply it and resume.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `test_main_flow.gd` and confirm failure on missing `battle_run`.
 
-- [ ] **Step 3: Integrate and render**
+- [x] **Step 3: Integrate and render**
 
 Construct `BattleRun` in `select_opening_hero()`, delegate `_process(delta)` to it, route card clicks before battlefield clicks, and render: HUD wave/wall/kill/XP, enemy bodies with HP and triangle badges, 3x5 grid, obstacles, units with star/HP/class color, ruler on the wall, fixed `2倍速`, wave countdown/催战 text, and the bottom card overlay.
 
-- [ ] **Step 4: Rendered verification**
+- [x] **Step 4: Rendered verification**
 
 Capture `output/godot/v7.19.2-battle-foundation.png` and `output/godot/v7.19.2-first-growth-draft.png` using the normal Godot renderer. Inspect both at original resolution.
 
-- [ ] **Step 5: Full regression and independent review**
+- [x] **Step 5: Full regression and independent review**
 
 Run all Godot headless tests, `npm test`, Godot headless import, rendered capture, and `git diff --check`. Request independent review for Important-or-higher parity or runtime issues and resolve any findings.
 

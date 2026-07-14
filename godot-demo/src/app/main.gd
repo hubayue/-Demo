@@ -3,6 +3,8 @@ extends Control
 const ContentCatalogSource = preload("res://src/content/content_catalog.gd")
 const WeeklyMapSource = preload("res://src/progression/weekly_map.gd")
 const OpeningPickerSource = preload("res://src/progression/opening_picker.gd")
+const Mulberry32Source = preload("res://src/core/mulberry32.gd")
+const BattleRunSource = preload("res://src/battle/battle_run.gd")
 
 const VIEW_SIZE := Vector2(480.0, 800.0)
 const CURRENT_WEEK := 2948
@@ -19,6 +21,10 @@ const RED := Color("ff8a6a")
 const RULER_IDS := ["caocao", "liubei", "sunquan", "yuanshao", "liubiao", "gongsunzan", "dongzhuo", "yuanshu"]
 const REGION_NAMES := ["东部", "南部", "西部", "北部"]
 const CLASS_NAMES := {"cav": "骑兵", "spear": "枪兵", "archer": "弓兵", "mage": "谋士"}
+const CLASS_COLORS := {
+	"spear": Color("8b4b3b"), "cav": Color("66502f"), "archer": Color("365d43"),
+	"shield": Color("455b73"), "support": Color("65466f"), "granary": Color("76623b"),
+}
 const TRI_DISPLAY := {
 	"badao": {"name": "霸道", "icon": "✊", "color": Color("ff6b4a"), "counter": "rende"},
 	"liangmou": {"name": "良谋", "icon": "✌", "color": Color("4aa8ff"), "counter": "badao"},
@@ -50,10 +56,7 @@ var current_region := 0
 var state_popup := -1
 var week_clears: Dictionary = {}
 var map_message := ""
-var battle_time := 0.0
-var battle_tick := 0.0
-var kills := 0
-var level := 1
+var battle_run
 
 func _ready() -> void:
 	catalog = ContentCatalogSource.new()
@@ -112,10 +115,10 @@ func roll_opening_heroes() -> void:
 func select_opening_hero(hero_id: String) -> void:
 	selected_hero = hero_id
 	phase = "battle"
-	battle_time = 0.0
-	battle_tick = 0.0
-	kills = 0
-	level = 1
+	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
+	var seed := CURRENT_WEEK * 1009 + selected_city * 131 + RULER_IDS.find(selected_ruler) * 17
+	battle_run = BattleRunSource.new(catalog, Mulberry32Source.new(seed))
+	battle_run.start(city, selected_ruler, selected_hero)
 	queue_redraw()
 
 func city_is_cleared(index: int) -> bool:
@@ -132,15 +135,9 @@ func region_clear_count(region: int) -> int:
 	return cleared
 
 func _process(delta: float) -> void:
-	if phase != "battle":
+	if phase != "battle" or battle_run == null:
 		return
-	battle_time += delta
-	battle_tick += delta
-	if battle_tick >= 0.45:
-		battle_tick -= 0.45
-		kills += 1 + int(level / 3)
-		if kills >= level * 8:
-			level = mini(level + 1, 15)
+	battle_run.advance_real(delta)
 	queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
@@ -165,6 +162,13 @@ func _handle_pointer(point: Vector2) -> void:
 				if _hero_card_rect(index).has_point(point):
 					select_opening_hero(opening_hero_ids[index])
 					return
+		"battle":
+			if battle_run != null and battle_run.awaiting_card_choice:
+				for index in battle_run.card_choices.size():
+					if _growth_card_rect(index).has_point(point):
+						battle_run.choose_card(index)
+						queue_redraw()
+						return
 
 func _handle_map_pointer(point: Vector2) -> void:
 	if state_popup >= 0:
@@ -358,6 +362,9 @@ func _ruler_rect(index: int) -> Rect2:
 func _hero_card_rect(index: int) -> Rect2:
 	return Rect2(8 + index * 158, 278, 148, 232)
 
+func _growth_card_rect(index: int) -> Rect2:
+	return Rect2(8 + index * 158, 278, 148, 244)
+
 func _short_text(text: String, max_characters: int) -> String:
 	return text if text.length() <= max_characters else text.left(max_characters) + "…"
 
@@ -371,24 +378,103 @@ func _draw_grid(top: float) -> void:
 	_text_center("主公立于城墙 · 阵地15格", top + 258, 14, PALE_GOLD)
 
 func _draw_battle() -> void:
-	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
-	var hero: Dictionary = catalog.by_id("heroes", selected_hero)
-	_text("Lv.%d" % level, Vector2(18, 36), 24, GOLD)
-	_text("第1波", Vector2(18, 69), 20, PALE_GOLD)
-	_text("击破 %d / %d" % [kills, city.killTarget], Vector2(170, 34), 17, Color.WHITE)
-	draw_rect(Rect2(170, 43, 280, 12), Color("433b31"), true)
-	draw_rect(Rect2(170, 43, min(280.0, kills / float(city.killTarget) * 280.0), 12), GREEN, true)
-	_text(str(city.name), Vector2(18, 114), 14, BLUE)
-	for index in 7:
-		var x := 48.0 + float((index * 67) % 390)
-		var y := 145.0 + fmod(battle_time * 48.0 + index * 61.0, 260.0)
-		draw_circle(Vector2(x, y), 20, Color("4f7f3f"))
-		draw_arc(Vector2(x, y), 21, 0, TAU, 32, GREEN, 2)
-		_text("兵", Vector2(x - 11, y + 7), 16, Color.WHITE)
-	_draw_grid(490)
-	var hero_pos := Vector2(150, 638)
-	draw_circle(hero_pos, 31, Color("3c5572"))
-	draw_arc(hero_pos, 32, 0, TAU, 48, BLUE, 3)
-	_text(str(hero.name), hero_pos + Vector2(-22, 6), 13, Color.WHITE)
-	_text("自动迎敌 · 2倍速", Vector2(270, 755), 14, PALE_GOLD)
-	_text("主公：%s" % catalog.by_id("rulers", selected_ruler).name, Vector2(18, 780), 12, MUTED)
+	if battle_run == null:
+		_text_center("战场载入中…", 400, 22, PALE_GOLD)
+		return
+	var city: Dictionary = battle_run.city
+	_draw_battle_entities()
+	_draw_battle_formation()
+	# The Web battlefield spawns enemies above the playfield. Keep that motion,
+	# but paint the opaque HUD last so newly spawned units cannot obscure it.
+	draw_rect(Rect2(0, 0, 480, 108), INK, true)
+	_text("Lv.%d" % battle_run.level, Vector2(14, 30), 22, GOLD)
+	_text("第%d波" % battle_run.wave, Vector2(14, 58), 17, PALE_GOLD)
+	_text("城防 %d/%d" % [battle_run.wall, battle_run.wall_max], Vector2(116, 28), 14, RED)
+	_text("击破 %d / %d" % [battle_run.kills, city.killTarget], Vector2(278, 28), 14, Color.WHITE)
+	draw_rect(Rect2(116, 38, 334, 10), Color("433b31"), true)
+	draw_rect(Rect2(116, 38, minf(334.0, battle_run.kills / float(city.killTarget) * 334.0), 10), GREEN, true)
+	draw_rect(Rect2(14, 70, 436, 8), Color("433b31"), true)
+	draw_rect(Rect2(14, 70, minf(436.0, battle_run.xp / maxf(1.0, battle_run.xp_need) * 436.0), 8), BLUE, true)
+	_text("经验 %.1f / %.0f" % [battle_run.xp, battle_run.xp_need], Vector2(14, 96), 12, Color("b9dfff"))
+	_text(str(city.name), Vector2(190, 96), 12, BLUE)
+	_text("固定 2倍速", Vector2(384, 96), 11, PALE_GOLD)
+	var field_clear: bool = battle_run.spawn_queue.is_empty() and battle_run.enemies.is_empty()
+	draw_rect(Rect2(128, 109, 224, 27), Color("17120ce6"), true)
+	if battle_run.wave == 0 and battle_run.enemies.is_empty():
+		_text_center("黄巾来袭 %.1fs" % maxf(0.0, battle_run.wave_timer), 130, 16, PALE_GOLD)
+	elif field_clear:
+		_text_center("下波压境 %.1fs" % maxf(0.0, battle_run.wave_timer), 130, 15, PALE_GOLD)
+	else:
+		var pressure_left := maxf(0.0, battle_run.wave_budget - battle_run.wave_clock)
+		_text_center("第%d波 · 催战 %.1fs" % [battle_run.wave, pressure_left], 130, 14, RED if pressure_left < 5.0 else MUTED)
+	if battle_run.awaiting_card_choice:
+		_draw_growth_cards()
+	elif battle_run.status != "play":
+		draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.68), true)
+		_text_center("攻城告捷" if battle_run.status == "win" else "城墙失守", 350, 36, GOLD if battle_run.status == "win" else RED)
+
+func _draw_battle_entities() -> void:
+	for projectile in battle_run.projectiles:
+		draw_circle(Vector2(float(projectile.x), float(projectile.y)), 4.0, GOLD)
+	for charge in battle_run.charges:
+		draw_circle(Vector2(float(charge.x), float(charge.y)), 10.0, Color("ffe0a0"))
+	for enemy in battle_run.enemies:
+		var position := Vector2(float(enemy.x), float(enemy.y))
+		var radius := float(enemy.r)
+		var tri: Dictionary = TRI_DISPLAY.get(str(enemy.tri), TRI_DISPLAY.badao)
+		draw_circle(position, radius, Color("394632") if not bool(enemy.get("big", false)) else Color("5a3d29"))
+		draw_arc(position, radius + 1.0, 0, TAU, 32, tri.color, 2.0)
+		var enemy_char: String = {"spear": "枪", "cav": "骑", "archer": "弓"}.get(str(enemy.cls), "兵")
+		_text_centered_in_rect(enemy_char, Rect2(position.x - radius, position.y - 9, radius * 2, 20), 13, Color.WHITE)
+		_text(str(tri.icon), position + Vector2(radius - 7, -radius + 9), 9, tri.color)
+		var hp_width := radius * 2.0
+		draw_rect(Rect2(position.x - radius, position.y - radius - 7, hp_width, 3), Color("4a211b"), true)
+		draw_rect(Rect2(position.x - radius, position.y - radius - 7, hp_width * maxf(0.0, float(enemy.hp) / maxf(1.0, float(enemy.hp_max))), 3), RED, true)
+
+func _draw_battle_formation() -> void:
+	for row in BattleRunSource.GRID_ROWS:
+		for col in BattleRunSource.GRID_COLS:
+			var key := "%d,%d" % [row, col]
+			var rect := Rect2(BattleRunSource.GRID_X + col * BattleRunSource.CELL + 2, BattleRunSource.GRID_Y + row * BattleRunSource.CELL + 2, BattleRunSource.CELL - 4, BattleRunSource.CELL - 4)
+			draw_rect(rect, Color("30281d"), true)
+			draw_rect(rect, Color("54462f"), false, 1.0)
+			if battle_run.traits.has(key):
+				_text(str(battle_run.traits[key]).left(1).to_upper(), rect.position + Vector2(5, 14), 9, MUTED)
+			if battle_run.obstacles.has(key):
+				draw_circle(rect.get_center(), 24, Color("50493d"))
+				draw_arc(rect.get_center(), 25, 0, TAU, 28, Color("756b58"), 2)
+				_text_centered_in_rect("岩", Rect2(rect.position.x, rect.position.y + 27, rect.size.x, 24), 16, Color("c4b99f"))
+				continue
+			var unit = battle_run.grid[row][col]
+			if unit == null:
+				continue
+			var hero: Dictionary = unit.hero
+			var tri: Dictionary = TRI_DISPLAY.get(str(hero.elem), TRI_DISPLAY.badao)
+			var center := rect.get_center()
+			var class_color: Color = CLASS_COLORS.get(str(hero.cls), Color("435064"))
+			draw_circle(center, 27, class_color.darkened(0.25))
+			draw_arc(center, 28, 0, TAU, 36, tri.color, 2.5)
+			_text_centered_in_rect(str(hero.char), Rect2(rect.position.x, rect.position.y + 26, rect.size.x, 24), 18, Color.WHITE)
+			_text_centered_in_rect(str(hero.name), Rect2(rect.position.x, rect.position.y + 50, rect.size.x, 17), 10, PALE_GOLD)
+			var unit_hp_ratio := maxf(0.0, float(unit.hp) / maxf(1.0, float(unit.hp_max)))
+			draw_rect(Rect2(rect.position.x + 6, rect.position.y + 67, rect.size.x - 12, 4), Color("4a211b"), true)
+			draw_rect(Rect2(rect.position.x + 6, rect.position.y + 67, (rect.size.x - 12) * unit_hp_ratio, 4), GREEN, true)
+			_text("★".repeat(int(unit.level)), rect.position + Vector2(4, 77), 8, GOLD)
+	draw_rect(Rect2(0, BattleRunSource.DEFENSE_LINE, 480, 800 - BattleRunSource.DEFENSE_LINE), Color("5b4024"), true)
+	var ruler: Dictionary = catalog.by_id("rulers", selected_ruler)
+	_text("主公：%s" % ruler.name, Vector2(16, 778), 13, PALE_GOLD)
+	_text("城墙", Vector2(214, 778), 13, Color("d9c49a"))
+	_text("自动迎敌", Vector2(386, 778), 12, MUTED)
+
+func _draw_growth_cards() -> void:
+	draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.76), true)
+	_text_center("升级！三选一", 226, 28, GOLD)
+	_text_center("战斗已暂停", 252, 13, Color("d5c9a8"))
+	for index in battle_run.card_choices.size():
+		var card: Dictionary = battle_run.card_choices[index]
+		var rect := _growth_card_rect(index)
+		_panel(rect, Color("332714"), PALE_GOLD, 2.5)
+		_text_centered_in_rect(str(card.get("icon", "策")), Rect2(rect.position.x, rect.position.y + 25, rect.size.x, 40), 28, GOLD)
+		_text_centered_in_rect(_short_text(str(card.title), 8), Rect2(rect.position.x + 4, rect.position.y + 78, rect.size.x - 8, 28), 16, Color.WHITE)
+		_text_centered_in_rect(_short_text(str(card.get("desc", "")), 11), Rect2(rect.position.x + 8, rect.position.y + 126, rect.size.x - 16, 38), 12, BLUE)
+		_text_centered_in_rect("点击选择", Rect2(rect.position.x, rect.end.y - 38, rect.size.x, 24), 12, PALE_GOLD)

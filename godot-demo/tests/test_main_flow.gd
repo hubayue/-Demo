@@ -88,9 +88,35 @@ func _run() -> void:
     if not _expect(main.selected_hero == first_opening_hero, "Selected opening hero must be retained"):
         return
 
-    var kills_before: int = main.kills
-    await create_timer(0.6).timeout
-    if not _expect(main.kills > kills_before, "SceneTree processing must advance automatic battle"):
+    var battle_run = main.get("battle_run")
+    if not _expect(battle_run != null, "Entering battle must construct the authoritative BattleRun model"):
+        return
+    if not _expect(battle_run.city.k == 0 and battle_run.ruler_id == "caocao", "BattleRun must retain the selected city and ruler"):
+        return
+    if not _expect(battle_run.units().size() == 1 and battle_run.units()[0].hero.id == first_opening_hero, "BattleRun must place the selected opening hero"):
+        return
+    if not _expect(battle_run.wave == 0 and is_equal_approx(battle_run.wave_timer, 2.0), "Integrated battle must preserve the two-second opening rest"):
+        return
+    if not _expect(battle_run.wall == 15 and battle_run.wall_max == 15 and battle_run.city.killTarget == 450, "Integrated HUD values must come from the selected city model"):
+        return
+    main.set_process(false)
+    var time_before: float = battle_run.game_time
+    main._process(1.0)
+    if not _expect(battle_run.game_time > time_before and battle_run.wave == 1 and battle_run.spawn_queue.size() == 13, "Main processing must start the real first wave after the fixed-speed opening rest"):
+        return
+    main._process(0.01)
+    if not _expect(battle_run.enemies.size() == 1 and battle_run.spawn_queue.size() == 12, "Integrated wave scheduling must spawn the first real enemy"):
+        return
+    var victim: Dictionary = battle_run.enemies[0]
+    victim.xp = 10.0
+    victim.hp = 1.0
+    battle_run.damage_enemy(victim, 1.0, str(victim.tri))
+    if not _expect(battle_run.kills == 1 and battle_run.level == 2, "A real enemy death must feed integrated kills and XP progression"):
+        return
+    if not _expect(battle_run.awaiting_card_choice and battle_run.card_choices.size() == 3, "Main battle screen must expose the first growth draft"):
+        return
+    _click(main, Vector2(80, 380))
+    if not _expect(not battle_run.awaiting_card_choice, "Clicking a growth card must apply it and resume the battle"):
         return
 
     print("Godot main input and runtime flow: PASS")
