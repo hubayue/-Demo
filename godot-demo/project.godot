@@ -8,6 +8,7 @@ config_version=5
 config/name="不一样三国 2.0"
 config/icon="res://icon.svg"
 config/features=PackedStringArray("4.7")
+run/main_scene="res://scenes/main.tscn"
 
 [display]
 

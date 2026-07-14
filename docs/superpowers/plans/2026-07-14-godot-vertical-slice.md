@@ -15,7 +15,7 @@
 **Files:**
 - Create: `godot-demo/tests/test_main_flow.gd`
 
-- [ ] **Step 1: Write the failing scene-flow test**
+- [x] **Step 1: Write the failing scene-flow test**
 
 ```gdscript
 extends SceneTree
@@ -41,7 +41,7 @@ func _init() -> void:
     quit(0)
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Expected: non-zero exit because `res://scenes/main.tscn` does not exist.
 
@@ -52,11 +52,11 @@ Expected: non-zero exit because `res://scenes/main.tscn` does not exist.
 - Create: `godot-demo/src/app/main.gd`
 - Modify: `godot-demo/project.godot`
 
-- [ ] **Step 1: Create a full-viewport `Control` main scene**
+- [x] **Step 1: Create a full-viewport `Control` main scene**
 
 The scene attaches `src/app/main.gd` and receives mouse/touch input.
 
-- [ ] **Step 2: Implement explicit transition methods**
+- [x] **Step 2: Implement explicit transition methods**
 
 ```gdscript
 func advance_from_title() -> void
@@ -67,28 +67,28 @@ func select_opening_hero(hero_id: String) -> void
 
 Each method updates only the required selection and phase, then calls `queue_redraw()`.
 
-- [ ] **Step 3: Draw the five states at 480×800**
+- [x] **Step 3: Draw the five states at 480×800**
 
 Preserve the current dark brown/gold visual language, four-region/64-city wording, eight-ruler presentation, three opening hero cards, 5×3 formation grid, wall, ruler badge, and visible automatic battle feedback.
 
-- [ ] **Step 4: Add pointer transitions**
+- [x] **Step 4: Add pointer transitions**
 
 - Title: click/tap enters the map.
 - Map: click the first city enters ruler selection.
 - Ruler: click one of eight rows selects that ruler.
 - Pick: click one of three cards starts battle.
 
-- [ ] **Step 5: Set `run/main_scene` in `project.godot`**
+- [x] **Step 5: Set `run/main_scene` in `project.godot`**
 
-- [ ] **Step 6: Run the headless flow test and project import**
+- [x] **Step 6: Run the headless flow test and project import**
 
 Expected: `Godot main flow: PASS`, progression parity still passes, and project import exits 0.
 
-- [ ] **Step 7: Launch the project and capture a screenshot**
+- [x] **Step 7: Launch the project and capture a screenshot**
 
 Expected: the 480×800 Godot window opens on the title screen and accepts input through the five-state flow.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```text
 feat: add playable Godot vertical slice
