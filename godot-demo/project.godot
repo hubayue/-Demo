@@ -1,0 +1,24 @@
+; Engine configuration file.
+; Edit through the Godot editor when possible.
+
+config_version=5
+
+[application]
+
+config/name="不一样三国 2.0"
+config/icon="res://icon.svg"
+config/features=PackedStringArray("4.7")
+
+[display]
+
+window/size/viewport_width=480
+window/size/viewport_height=800
+window/size/window_width_override=480
+window/size/window_height_override=800
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.0902, 0.0706, 0.0471, 1)

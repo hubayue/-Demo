@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20" fill="#241c10"/>
+  <path d="M24 28h80v58H24z" fill="#8b6535" stroke="#e8c86a" stroke-width="6"/>
+  <path d="M18 86h92v22H18z" fill="#593d22" stroke="#e8c86a" stroke-width="6"/>
+  <path d="M32 28v18m21-18v18m22-18v18m21-18v18" stroke="#241c10" stroke-width="8"/>
+  <circle cx="64" cy="68" r="18" fill="#ffe45a"/>
+  <text x="64" y="77" text-anchor="middle" font-size="24" font-family="sans-serif" font-weight="700" fill="#241c10">三</text>
+</svg>

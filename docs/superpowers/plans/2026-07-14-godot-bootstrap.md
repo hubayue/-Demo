@@ -16,7 +16,7 @@
 - Create: `godot-demo/project.godot`
 - Create: `godot-demo/icon.svg`
 
-- [ ] **Step 1: Add a 480×800 Godot 4 project configuration**
+- [x] **Step 1: Add a 480×800 Godot 4 project configuration**
 
 ```ini
 [application]
@@ -35,7 +35,7 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 ```
 
-- [ ] **Step 2: Import the project headlessly**
+- [x] **Step 2: Import the project headlessly**
 
 Run:
 
@@ -51,7 +51,7 @@ Expected: exit code 0 with no parse or import error.
 - Create: `godot-demo/tests/test_progression.gd`
 - Create: `godot-demo/src/core/progression.gd`
 
-- [ ] **Step 1: Write the failing headless test**
+- [x] **Step 1: Write the failing headless test**
 
 ```gdscript
 extends SceneTree
@@ -67,7 +67,7 @@ func _init() -> void:
     quit(0)
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run:
 
@@ -77,7 +77,7 @@ Run:
 
 Expected: non-zero exit because `src/core/progression.gd` does not exist.
 
-- [ ] **Step 3: Implement the pure GDScript rules**
+- [x] **Step 3: Implement the pure GDScript rules**
 
 ```gdscript
 class_name Progression
@@ -98,15 +98,15 @@ static func star_damage_multiplier(level: int, has_phoenix_feather: bool) -> flo
         * pow(ascended_2, max(0, level - 10))
 ```
 
-- [ ] **Step 4: Run the test and verify GREEN**
+- [x] **Step 4: Run the test and verify GREEN**
 
 Expected: `Godot progression parity: PASS` and exit code 0.
 
-- [ ] **Step 5: Re-run Web tests and Godot project import**
+- [x] **Step 5: Re-run Web tests and Godot project import**
 
 Expected: all Web tests pass; Godot import exits 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```text
 feat: bootstrap Godot project with progression parity
