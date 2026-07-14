@@ -89,19 +89,19 @@ feat: port v7.19.2 battle start and first wave
 - Modify: `godot-demo/src/battle/battle_run.gd`
 - Modify: `godot-demo/tests/test_battle_run.gd`
 
-- [ ] **Step 1: Write failing time and combat assertions**
+- [x] **Step 1: Write failing time and combat assertions**
 
 Assert that one real second advances the model by two game seconds, the rest timer starts wave one, the queue spawns enemies by delay, enemies move toward the defense line, a reaching enemy damages the wall and disappears, and a lethal correctly-countering hit uses `x1.5`, increments kills, and awards enemy XP.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run the focused test and confirm the first missing scheduler/combat assertion fails for the intended reason.
 
-- [ ] **Step 3: Implement the minimum authoritative loop**
+- [x] **Step 3: Implement the minimum authoritative loop**
 
 Add `advance_real(delta)` that performs two Web-style update steps. Implement wave preparation/start, queued spawning, basic enemy movement, wall impact, and the shared triangle table (`霸道 -> 良谋 -> 仁德 -> 霸道`) with correct-hit `x1.5`, wrong-hit `x0.6`, and same-triangle `x1.0`. Implement baseline spear direct attacks, cavalry lane charges, archer projectiles/range, shield no-attack behavior, and support no-damage behavior using catalog damage/rate/range.
 
-- [ ] **Step 4: Implement XP thresholds and pause-on-card behavior**
+- [x] **Step 4: Implement XP thresholds and pause-on-card behavior**
 
 On a kill, add XP. At each threshold, subtract the old requirement, increment level, set:
 
@@ -111,11 +111,11 @@ xp_need = round(10 + (level - 1) * 9 + pow(level, 1.72))
 
 and pause battle updates while a card choice is open.
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run the focused test and all existing Godot tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```text
 feat: add fixed-speed auto battle loop
