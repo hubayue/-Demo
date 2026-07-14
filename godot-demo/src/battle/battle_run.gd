@@ -1,6 +1,8 @@
 class_name BattleRun
 extends RefCounted
 
+const BattleCardsScript = preload("res://src/battle/battle_cards.gd")
+
 const GRID_ROWS := 3
 const GRID_COLS := 5
 const CELL := 82.0
@@ -15,9 +17,12 @@ const TRAIT_KEYS := ["atk", "haste", "guard", "heal", "crit", "elem"]
 
 var catalog
 var rng
+var card_system
 var city: Dictionary = {}
 var ruler_id := ""
 var status := "play"
+var shen_period := 0
+var shen_ids: Array = []
 var speed := 2
 var wall := 0
 var wall_max := 0
@@ -33,6 +38,12 @@ var xp := 0.0
 var xp_need := 10.0
 var awaiting_card_choice := false
 var pending_picks := 0
+var card_choices: Array = []
+var card_picks: Dictionary = {}
+var buffs: Dictionary = {}
+var lord_atk_buff := 0.0
+var lord_atk_gap := 1.0
+var permanent_tactics: Dictionary = {}
 var kills := 0
 var grid: Array = []
 var obstacles: Dictionary = {}
@@ -47,11 +58,14 @@ var next_wave_preview: Dictionary = {}
 func _init(content_catalog, random_source) -> void:
 	catalog = content_catalog
 	rng = random_source
+	card_system = BattleCardsScript.new(catalog, rng)
 
 func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String) -> void:
 	city = level_data.duplicate(true)
 	ruler_id = selected_ruler_id
 	status = "play"
+	shen_period = 0
+	shen_ids = []
 	speed = 2
 	wall = int(city.wall)
 	wall_max = wall
@@ -67,6 +81,26 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	xp_need = 10.0
 	awaiting_card_choice = false
 	pending_picks = 0
+	card_choices = []
+	card_picks = {}
+	buffs = {
+		"dmg": 1.0,
+		"rate": 1.0,
+		"xpGain": 1.0,
+		"critCh": 0.0,
+		"extraShot": 0,
+		"ultHaste": 0.0,
+		"spearAura": 0.0,
+		"cavWide": 0.0,
+		"archerDmg": 0.0,
+		"cavDmg": 0.0,
+		"shieldReflect": 0.0,
+		"rippleRad": 0.0,
+		"elemBoost": {"badao": 0.0, "liangmou": 0.0, "rende": 0.0},
+	}
+	lord_atk_buff = 0.0
+	lord_atk_gap = 1.0
+	permanent_tactics = {}
 	kills = 0
 	grid = []
 	for row in GRID_ROWS:
@@ -125,6 +159,14 @@ func gain_xp(amount: float) -> void:
 			pending_picks += 1
 		else:
 			awaiting_card_choice = true
+			card_choices = card_system.roll(self)
+			if card_choices.is_empty():
+				awaiting_card_choice = false
+
+func choose_card(index: int) -> bool:
+	if not awaiting_card_choice or index < 0 or index >= card_choices.size():
+		return false
+	return card_system.apply(self, card_choices[index])
 
 func _update_step(delta: float) -> void:
 	game_time += delta
@@ -310,6 +352,40 @@ func empty_slots(include_obstacles := false) -> Array:
 			result.append([row, col])
 	return result
 
+func add_unit(hero_id: String) -> bool:
+	return add_unit_data(catalog.by_id("heroes", hero_id))
+
+func add_unit_data(hero: Dictionary) -> bool:
+	var slots := empty_slots()
+	if slots.is_empty():
+		return false
+	var slot: Array = _pick(slots)
+	var unit := _make_unit(hero, int(slot[0]), int(slot[1]))
+	grid[unit.row][unit.col] = unit
+	return true
+
+func upgrade_hero(hero_id: String) -> bool:
+	var target: Dictionary = {}
+	for unit in units():
+		if str(unit.hero.id) != hero_id or int(unit.level) >= 15:
+			continue
+		if target.is_empty() or int(unit.level) < int(target.level):
+			target = unit
+	if target.is_empty():
+		return false
+	target.level = int(target.level) + 1
+	target.hp_max = _unit_max_hp(target.hero, int(target.level))
+	target.hp = target.hp_max
+	return true
+
+func remove_random_obstacle() -> bool:
+	if obstacles.is_empty():
+		return false
+	var keys := obstacles.keys()
+	var key: String = _pick(keys)
+	obstacles.erase(key)
+	return true
+
 func prepare_next_wave() -> void:
 	if not next_queue.is_empty():
 		return
@@ -396,22 +472,19 @@ func _roll_layout() -> void:
 			traits[_cell_key(row, col)] = _pick(TRAIT_KEYS)
 
 func _place_opening_hero(hero_id: String) -> void:
-	var slots := empty_slots()
-	if slots.is_empty():
-		return
-	var slot: Array = _pick(slots)
-	var hero: Dictionary = catalog.by_id("heroes", hero_id)
+	add_unit(hero_id)
+
+func _make_unit(hero: Dictionary, row: int, col: int) -> Dictionary:
 	var max_hp := _unit_max_hp(hero)
-	var unit := {
+	return {
 		"hero": hero,
-		"row": int(slot[0]),
-		"col": int(slot[1]),
+		"row": row,
+		"col": col,
 		"level": 1,
 		"hp": max_hp,
 		"hp_max": max_hp,
 		"cd": _randf(0.0, 0.3),
 	}
-	grid[unit.row][unit.col] = unit
 
 func _unit_max_hp(hero: Dictionary, stars := 1) -> int:
 	var base := float(hero.get("hp", 0))

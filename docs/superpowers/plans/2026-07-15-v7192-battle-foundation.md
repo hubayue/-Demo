@@ -128,23 +128,23 @@ feat: add fixed-speed auto battle loop
 - Create: `godot-demo/tests/test_battle_cards.gd`
 - Modify: `godot-demo/src/battle/battle_run.gd`
 
-- [ ] **Step 1: Write failing card-pool and application tests**
+- [x] **Step 1: Write failing card-pool and application tests**
 
 Require three unique weighted cards. The initial pool must include unowned hero cards, one lowest-star upgrade per owned hero, the capped common tactics `全军猛攻`, `击鼓进军`, `青囊秘术`, `招贤纳士`, `神机妙算`, class-conditional tactics, terrain clearing when obstacles remain, triangle refinement for owned attacking elements, ruler basic-attack growth, permanent tactic anchors, `校场演武`, `自刎归天`, and `乐不思蜀`. Verify at minimum unit, upgrade, common buff, element buff, and terrain application mutate real run state.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `test_battle_cards.gd`; expect failure because `battle_cards.gd` does not exist.
 
-- [ ] **Step 3: Implement weighted draw without replacement**
+- [x] **Step 3: Implement weighted draw without replacement**
 
 Follow Web `rollCards()`: compute total weight, consume one RNG roll per chosen card, remove all cards sharing the selected title, and return three choices. Keep card dictionaries presentation-ready (`kind`, `title`, `icon`, `desc`, optional hero/class/element fields).
 
-- [ ] **Step 4: Implement card application and resume**
+- [x] **Step 4: Implement card application and resume**
 
 Apply the selected card, clear choices, process queued level-ups, and resume only when no choice remains. New heroes land on legal empty cells; upgrades target the lowest-star duplicate and heal it to full.
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Run both battle tests, then commit:
 

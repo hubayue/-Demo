@@ -221,5 +221,48 @@
     ],
     "weakElem": "rende",
     "mutation": null
+  },
+  "growthDraft": {
+    "shenPeriod": 5900,
+    "shenIds": [
+      "zhoutai",
+      "taishici",
+      "yanliang",
+      "machao",
+      "huanggai",
+      "xuhuang"
+    ],
+    "cards": [
+      {
+        "kind": "unit",
+        "title": "神·太史慈出征",
+        "weight": 24,
+        "hero": "taishici",
+        "buff": null,
+        "elem": null,
+        "tp": null,
+        "desc": "两箭齐发"
+      },
+      {
+        "kind": "unit",
+        "title": "蔡文姬出征",
+        "weight": 8,
+        "hero": "caiwenji",
+        "buff": null,
+        "elem": null,
+        "tp": null,
+        "desc": "一圈解封还回血"
+      },
+      {
+        "kind": "upgrade",
+        "title": "张飞练兵",
+        "weight": 13,
+        "hero": null,
+        "buff": null,
+        "elem": null,
+        "tp": null,
+        "desc": "伤害×1.9"
+      }
+    ]
   }
 }

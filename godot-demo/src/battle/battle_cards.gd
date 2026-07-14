@@ -1,0 +1,254 @@
+class_name BattleCards
+extends RefCounted
+
+const TRI_KE := {"badao": "liangmou", "liangmou": "rende", "rende": "badao"}
+const NON_ATTACKING := {"shield": true, "support": true, "granary": true, "egg": true, "dragon": true}
+const ELEM_COSMETIC := {
+	"huatuo": true, "xiaoqiao": true, "lusu": true, "daqiao": true,
+	"xuhuang": true, "caiwenji": true, "simayi": true, "xushu": true,
+	"caohong": true, "granary": true, "dragonegg": true, "yinglong": true,
+}
+
+var catalog
+var rng
+
+func _init(content_catalog, random_source) -> void:
+	catalog = content_catalog
+	rng = random_source
+
+func build_pool(run) -> Array:
+	var pool := []
+	var units: Array = run.units()
+	var owned := {}
+	var counts := {"spear": 0, "cav": 0, "archer": 0, "shield": 0, "support": 0}
+	for unit in units:
+		owned[str(unit.hero.id)] = true
+		var hero_class := str(unit.hero.cls)
+		if counts.has(hero_class):
+			counts[hero_class] += 1
+	if not run.empty_slots().is_empty():
+		for hero in catalog.list("heroes"):
+			var hero_id := str(hero.id)
+			if owned.has(hero_id):
+				continue
+			var weight := 8.0
+			var class_count := int(counts.get(str(hero.cls), 0))
+			if class_count == 1 or class_count == 3:
+				weight += 4.0
+			if not ELEM_COSMETIC.has(hero_id):
+				weight += _element_weight(str(hero.elem), str(run.city.get("foes", {}).get("tri", "")))
+			if _completes_bond(hero_id, owned):
+				weight += 8.0
+			var shen: bool = run.shen_ids.has(hero_id)
+			if shen:
+				weight += 6.0
+			if _is_kin(hero_id, run.ruler_id):
+				weight += 6.0
+			pool.append({
+				"kind": "unit", "hero_id": hero_id, "weight": maxf(2.0, weight),
+				"title": ("神·" if shen else "") + str(hero.name) + "出征",
+				"icon": "", "desc": str(hero.desc), "cls": str(hero.cls), "elem": str(hero.elem),
+			})
+	var seen := {}
+	for unit in units:
+		var hero: Dictionary = unit.hero
+		var hero_id := str(hero.id)
+		if seen.has(hero_id) or int(unit.level) >= 15 or ["granary", "egg", "dragon"].has(str(hero.cls)):
+			continue
+		seen[hero_id] = true
+		var lowest: Dictionary = unit
+		for other in units:
+			if str(other.hero.id) == hero_id and int(other.level) < int(lowest.level):
+				lowest = other
+		var next_star := int(lowest.level) + 1
+		var desc := "伤害×1.9"
+		if str(hero.cls) == "shield":
+			desc = "更耐打，反伤更疼"
+		elif str(hero.cls) == "support":
+			desc = "水波更勤快，人更耐打"
+		elif next_star > 10:
+			desc = "二阶升华：伤害×1.3"
+		elif next_star > 5:
+			desc = "升华星：伤害×1.4"
+		pool.append({
+			"kind": "upgrade", "hero_id": hero_id, "weight": 13.0,
+			"title": ("神·" if run.shen_ids.has(hero_id) else "") + str(hero.name) + "练兵",
+			"icon": "", "desc": desc, "cls": str(hero.cls), "elem": str(hero.elem), "stars": next_star,
+		})
+
+	var buffs: Dictionary = run.buffs
+	_add_capped_buff(pool, buffs.dmg < 3.0, "dmg", 0.25, 9, "全军猛攻", "⚔️", "全军伤害+25%（叠到+200%封顶）")
+	_add_capped_buff(pool, buffs.rate < 2.0, "rate", 0.2, 9, "击鼓进军", "🥁", "全军出手快+20%（叠到+100%封顶）")
+	_add_capped_buff(pool, buffs.critCh < 0.5, "critCh", 0.1, 7, "青囊秘术", "💥", "多10%机会双倍暴击（叠到50%封顶）")
+	_add_capped_buff(pool, buffs.xpGain < 2.0, "xpGain", 0.25, 6, "招贤纳士", "📜", "杀敌经验+25%（叠到+100%封顶）")
+	_add_capped_buff(pool, buffs.ultHaste < 0.48, "ultHaste", 0.12, 8, "神机妙算", "🧠", "武将大招转快12%（有封顶）")
+	_add_capped_buff(pool, counts.spear >= 1 and buffs.spearAura < 0.2, "spearAura", 0.05, 8, "战阵精修", "🔱", "枪兵带人变强再+5%（有封顶）")
+	_add_capped_buff(pool, counts.cav >= 1 and buffs.cavWide < 100.0, "cavWide", 10.0, 8, "铁骑列装", "🐎", "骑兵冲得更宽+10（有封顶）")
+	_add_capped_buff(pool, counts.cav >= 1 and buffs.cavDmg < 1.2, "cavDmg", 0.12, 8, "冲势如虹", "🐎", "骑兵伤害+12%（叠到+120%封顶）")
+	_add_capped_buff(pool, counts.archer >= 1 and buffs.archerDmg < 1.0, "archerDmg", 0.1, 8, "箭术精修", "🏹", "弓兵伤害+10%（叠到+100%封顶）")
+	_add_capped_buff(pool, counts.shield >= 1 and buffs.shieldReflect < 0.1, "shieldReflect", 0.01, 8, "荆棘重甲", "🛡️", "盾兵反弹更疼 +25%（有封顶）")
+	_add_capped_buff(pool, counts.support >= 1 and buffs.rippleRad < 175.0, "rippleRad", 35.0, 8, "波纹深远", "🎐", "辅兵那圈更大+35（有封顶）")
+
+	if not run.obstacles.is_empty():
+		pool.append({"kind": "terrain", "weight": 16.0 if run.obstacles.size() >= 6 else 8.0, "title": "开山凿石", "icon": "🧹", "desc": "炸掉 1 块石头，露出宝地"})
+	else:
+		pool.append({"kind": "merit", "weight": 5.0, "value": mini(150, 25 + run.wave), "title": "犒赏三军", "icon": "💰", "desc": "金币落袋为安"})
+	if run.ruler_id == "caocao" and not run.empty_slots().is_empty():
+		pool.append({"kind": "granary", "weight": 15.0, "title": "屯田粮仓", "icon": "🌾", "desc": "产粮喂旁边武将升星，敌人能拆它"})
+
+	var owned_elements := {}
+	for unit in units:
+		var hero: Dictionary = unit.hero
+		if float(hero.get("dmg", 0.0)) > 0 and not ELEM_COSMETIC.has(str(hero.id)):
+			owned_elements[str(hero.elem)] = true
+	for element in ["badao", "liangmou", "rende"]:
+		if not owned_elements.has(element) or float(buffs.elemBoost[element]) >= 0.9:
+			continue
+		pool.append({
+			"kind": "elem", "elem": element, "value": 0.3,
+			"weight": maxf(3.0, 7.0 + _element_weight(element, str(run.city.get("foes", {}).get("tri", "")))),
+			"title": _element_name(element) + "淬炼", "icon": _element_icon(element),
+			"desc": _element_icon(element) + _element_name(element) + "系伤害 +30%",
+		})
+	if counts.archer >= 1 and int(buffs.extraShot) < 2:
+		_add_capped_buff(pool, true, "extraShot", 1, 4, "万箭齐发", "🌠", "弓兵多射一箭")
+	if run.wall < run.wall_max:
+		pool.append({"kind": "heal", "weight": 8.0, "title": "修筑城防", "icon": "🏯", "desc": "城墙补3点血"})
+	pool.append({"kind": "lordatk", "weight": 7.0, "title": "御驾亲征", "icon": "🎯", "desc": "主公亲射伤害+40%（叠到+200%封顶）"})
+	if run.lord_atk_gap > 0.4:
+		pool.append({"kind": "lordhaste", "weight": 5.0, "title": "神机连弩", "icon": "⚙️", "desc": "主公亲射出手快25%"})
+	if not run.permanent_tactics.has("luanshi") and not run.obstacles.is_empty():
+		pool.append({"kind": "tacperm", "tactic": "luanshi", "weight": 6.0, "title": "乱石穿空", "icon": "🪨", "desc": "此后每波障碍齐射"})
+	if not run.permanent_tactics.has("huoshao") and (run.ruler_id == "dongzhuo" or _has_burn_unit(units)):
+		pool.append({"kind": "tacperm", "tactic": "huoshao", "weight": 6.0, "title": "火烧连营", "icon": "🔥", "desc": "着火的贼死亡时爆燃传火"})
+	if not run.permanent_tactics.has("zhanshou"):
+		pool.append({"kind": "tacperm", "tactic": "zhanshou", "weight": 6.0, "title": "擒贼擒王", "icon": "🎯", "desc": "精锐/贼首登场挨主公重击"})
+	if not run.permanent_tactics.has("luojing"):
+		pool.append({"kind": "tacperm", "tactic": "luojing", "weight": 6.0, "title": "落井下石", "icon": "🕳️", "desc": "受制的贼挨打+30%"})
+	if not run.permanent_tactics.has("shuiyan"):
+		pool.append({"kind": "tacperm", "tactic": "shuiyan", "weight": 8.0 if run.ruler_id == "sunquan" else 5.0, "title": "水淹七军", "icon": "🌊", "desc": "每波自动起江减速增伤"})
+	if run.wall_max > 6 and not run.permanent_tactics.has("pofu"):
+		pool.append({"kind": "pofu", "weight": 5.0, "title": "破釜沉舟", "icon": "🍳", "desc": "城墙上限-2，全军伤害×1.5"})
+	pool.append({"kind": "reroll", "weight": 5.0, "title": "偷梁换柱", "icon": "🎲", "desc": "这手牌全不要，当场重摸一手"})
+	pool.append({"kind": "levelup", "weight": 4.0, "title": "校场演武", "icon": "🎓", "desc": "立刻升一级，当场再摸一手牌"})
+	pool.append({"kind": "seppuku", "weight": 3.0, "title": "自刎归天", "icon": "🗡️", "desc": "当场收兵，本局分数+10%"})
+	pool.append({"kind": "dance", "weight": 3.0, "title": "乐不思蜀", "icon": "💃", "desc": "全军攻击+30%，自动抽卡挂机"})
+	return pool
+
+func roll(run) -> Array:
+	var pool := build_pool(run)
+	for card in pool:
+		var picked := int(run.card_picks.get(str(card.title), 0))
+		if picked > 0 and str(card.kind) != "egg":
+			card.weight = maxf(1.0, float(card.weight) / (1.0 + picked * 0.4))
+	var result := []
+	for draw_index in 3:
+		if pool.is_empty():
+			break
+		var total := 0.0
+		for card in pool:
+			total += float(card.weight)
+		var value: float = rng.next_float() * total
+		var selected_index := 0
+		for index in pool.size():
+			value -= float(pool[index].weight)
+			if value <= 0:
+				selected_index = index
+				break
+		var selected: Dictionary = pool[selected_index]
+		result.append(selected)
+		var title := str(selected.title)
+		for index in range(pool.size() - 1, -1, -1):
+			if str(pool[index].title) == title:
+				pool.remove_at(index)
+	return result
+
+func apply(run, card) -> bool:
+	if card == null:
+		return false
+	var data: Dictionary = card
+	run.card_picks[data.title] = int(run.card_picks.get(data.title, 0)) + 1
+	var applied := true
+	match str(data.kind):
+		"unit": applied = run.add_unit(str(data.hero_id))
+		"upgrade": applied = run.upgrade_hero(str(data.hero_id))
+		"buff": run.buffs[data.buff] = float(run.buffs[data.buff]) + float(data.value)
+		"elem": run.buffs.elemBoost[data.elem] = float(run.buffs.elemBoost[data.elem]) + float(data.value)
+		"terrain": applied = run.remove_random_obstacle()
+		"heal": run.wall = mini(run.wall_max, run.wall + 3)
+		"lordatk": run.lord_atk_buff = minf(2.0, run.lord_atk_buff + 0.4)
+		"lordhaste": run.lord_atk_gap = maxf(0.4, snappedf(run.lord_atk_gap * 0.75, 0.001))
+		"tacperm": run.permanent_tactics[data.tactic] = true
+		"pofu":
+			run.permanent_tactics.pofu = true
+			run.wall_max = maxi(3, run.wall_max - 2)
+			run.wall = mini(run.wall, run.wall_max)
+		"granary":
+			applied = run.add_unit_data({"id": "granary", "name": "粮仓", "char": "仓", "cls": "granary", "elem": "badao", "rng": 0, "dmg": 0, "rate": 99, "speed": 0, "hp": 240, "desc": "产粮喂星"})
+		"levelup":
+			run.level += 1
+			run.xp_need = round(10.0 + (run.level - 1) * 9.0 + pow(run.level, 1.72))
+			run.pending_picks += 1
+		"seppuku": run.status = "over"
+		"dance": run.permanent_tactics.gewu = true
+		"merit": pass
+		"reroll": run.pending_picks += 1
+		_: applied = false
+	_finish_choice(run)
+	return applied
+
+func _finish_choice(run) -> void:
+	run.card_choices = []
+	if run.status != "play":
+		run.awaiting_card_choice = false
+		run.pending_picks = 0
+		return
+	if run.pending_picks > 0:
+		run.pending_picks -= 1
+		run.card_choices = roll(run)
+		run.awaiting_card_choice = not run.card_choices.is_empty()
+	else:
+		run.awaiting_card_choice = false
+
+func _add_capped_buff(pool: Array, allowed: bool, key: String, value: float, weight: float, title: String, icon: String, desc: String) -> void:
+	if allowed:
+		pool.append({"kind": "buff", "buff": key, "value": value, "weight": weight, "title": title, "icon": icon, "desc": desc})
+
+func _element_weight(hero_element: String, enemy_element: String) -> float:
+	if not enemy_element:
+		return 0.0
+	if TRI_KE.get(hero_element, "") == enemy_element:
+		return 10.0
+	if TRI_KE.get(enemy_element, "") == hero_element:
+		return -5.0
+	return 0.0
+
+func _completes_bond(hero_id: String, owned: Dictionary) -> bool:
+	for bond in catalog.list("bonds"):
+		if not bond.members.has(hero_id):
+			continue
+		var complete := true
+		for member in bond.members:
+			if str(member) != hero_id and not owned.has(str(member)):
+				complete = false
+				break
+		if complete:
+			return true
+	return false
+
+func _is_kin(hero_id: String, ruler_id: String) -> bool:
+	if hero_id == "jiaxu":
+		return true
+	return catalog.content.get("lord_kin", {}).get(ruler_id, []).has(hero_id)
+
+func _has_burn_unit(units: Array) -> bool:
+	for unit in units:
+		if bool(unit.hero.get("burn", false)) or bool(unit.hero.get("firebrand", false)) or str(unit.hero.id) == "huanggai":
+			return true
+	return false
+
+func _element_name(element: String) -> String:
+	return {"badao": "霸道", "liangmou": "良谋", "rende": "仁德"}.get(element, element)
+
+func _element_icon(element: String) -> String:
+	return {"badao": "✊", "liangmou": "✌️", "rende": "✋"}.get(element, "")

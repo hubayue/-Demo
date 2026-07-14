@@ -56,6 +56,8 @@ func _run() -> void:
 		return
 	if not _test_triangle_damage_and_xp(catalog, fixture.city, seed):
 		return
+	if not _test_growth_draft_flow(catalog, fixture.city, seed):
+		return
 	if not _test_spear_auto_attack(catalog, fixture.city, seed):
 		return
 	if not _test_ranged_and_cavalry_entities(catalog, fixture.city, seed):
@@ -143,6 +145,21 @@ func _test_triangle_damage_and_xp(catalog, city: Dictionary, seed: int) -> bool:
 	var wall_before: int = run.wall
 	run.advance_real(1.0)
 	if not _expect(run.wall == wall_before, "battle simulation must stay paused while choosing a card"):
+		return false
+	return true
+
+func _test_growth_draft_flow(catalog, city: Dictionary, seed: int) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(seed))
+	run.start(city, "caocao", "zhangfei")
+	run.gain_xp(10.0)
+	if not _expect(run.awaiting_card_choice and run.card_choices.size() == 3, "level-up must immediately offer three in-run growth cards"):
+		return false
+	var selected_title := str(run.card_choices[0].title)
+	if not _expect(run.choose_card(0), "choosing a visible growth card must apply it"):
+		return false
+	if not _expect(not run.awaiting_card_choice and run.card_choices.is_empty(), "choosing the only pending draft must resume battle"):
+		return false
+	if not _expect(int(run.card_picks.get(selected_title, 0)) == 1, "chosen growth card must be recorded for later weighting"):
 		return false
 	return true
 
