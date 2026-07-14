@@ -36,6 +36,14 @@ func _run() -> void:
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.2-active-bond.png")):
 		return
+	run.card_choices = run.card_system.roll_relics(run)
+	run.awaiting_card_choice = true
+	run.picking_relic = true
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-relic-draft.png")):
+		return
 	print("Godot battle screenshots: PASS")
 	quit(0)
 

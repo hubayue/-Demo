@@ -129,6 +129,18 @@ func _run() -> void:
         return
     if not _expect("老当益壮" in main.active_bond_text(), "Battle UI must name the active old-generals bond"):
         return
+    battle_run.relic_ids = ["jinlan"]
+    if not _expect(main.has_method("active_relic_text") and not main.active_relic_text().is_empty(), "Battle UI must expose equipped relics from the run"):
+        return
+    battle_run.relic_ids.append("yiji")
+    battle_run.card_choices = battle_run.card_system.roll(battle_run)
+    if not _expect(battle_run.card_choices.size() == 4 and main._growth_card_rect(3).end.x <= 480.0, "Yiji's fourth growth card must remain fully clickable inside the 480px viewport"):
+        return
+    if not _expect("四选一" in main.card_draft_heading(), "Yiji's expanded growth draft heading must say four choices"):
+        return
+    battle_run.picking_relic = true
+    if not _expect(main.has_method("card_draft_heading") and "遗宝" in main.card_draft_heading(), "a relic draft must identify itself instead of claiming to be a level-up draft"):
+        return
 
     print("Godot main input and runtime flow: PASS")
     quit(0)

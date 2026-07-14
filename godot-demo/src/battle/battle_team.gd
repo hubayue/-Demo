@@ -74,6 +74,10 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 	var effects := bond_fx(run, str(hero.id))
 	damage_multiplier *= float(effects.dmg)
 	rate_multiplier *= float(effects.rate)
+	if run.relic_ids.has("dilu") and hero_class == "cav":
+		damage_multiplier *= 1.3
+	if run.relic_ids.has("bagua"):
+		rate_multiplier *= 1.1
 	var field: Dictionary = catalog.by_id("fields", str(run.city.get("field", "")))
 	if hero_class == "cav":
 		damage_multiplier *= float(field.get("cavMul", 1.0))

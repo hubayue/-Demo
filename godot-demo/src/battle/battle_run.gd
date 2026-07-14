@@ -15,6 +15,7 @@ const TRI_KEYS := ["badao", "liangmou", "rende"]
 const TRI_KE := {"badao": "liangmou", "liangmou": "rende", "rende": "badao"}
 const MUTATION_KEYS := ["frenzy", "horde", "volley", "ironhide", "fat", "eastwind", "rainstorm"]
 const TRAIT_KEYS := ["atk", "haste", "guard", "heal", "crit", "elem"]
+const BOSS_NAMES := ["程远志", "邓茂", "波才", "张梁", "张宝", "张角"]
 
 var catalog
 var rng
@@ -40,6 +41,8 @@ var xp := 0.0
 var xp_need := 10.0
 var awaiting_card_choice := false
 var pending_picks := 0
+var pending_relic_picks := 0
+var picking_relic := false
 var card_choices: Array = []
 var card_picks: Dictionary = {}
 var buffs: Dictionary = {}
@@ -47,6 +50,8 @@ var lord_atk_buff := 0.0
 var lord_atk_gap := 1.0
 var permanent_tactics: Dictionary = {}
 var relic_ids: Array = []
+var wall_regen_timer := 30.0
+var baihu_ready := false
 var kills := 0
 var grid: Array = []
 var obstacles: Dictionary = {}
@@ -86,6 +91,8 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	xp_need = 10.0
 	awaiting_card_choice = false
 	pending_picks = 0
+	pending_relic_picks = 0
+	picking_relic = false
 	card_choices = []
 	card_picks = {}
 	buffs = {
@@ -107,6 +114,8 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	lord_atk_gap = 1.0
 	permanent_tactics = {}
 	relic_ids = []
+	wall_regen_timer = 30.0
+	baihu_ready = false
 	kills = 0
 	grid = []
 	for row in GRID_ROWS:
@@ -160,6 +169,8 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "") -> int:
 		gain_xp(float(enemy.get("xp", 0.0)))
 		if kills >= int(city.get("killTarget", 450)):
 			status = "win"
+		elif bool(enemy.get("boss", false)):
+			queue_relic_draft()
 		var index := enemies.find(enemy)
 		if index >= 0:
 			enemies.remove_at(index)
@@ -170,7 +181,7 @@ func gain_xp(amount: float) -> void:
 	while xp >= xp_need:
 		xp -= xp_need
 		level += 1
-		xp_need = round(10.0 + (level - 1) * 9.0 + pow(level, 1.72))
+		xp_need = round((10.0 + (level - 1) * 9.0 + pow(level, 1.72)) * (0.88 if relic_ids.has("hanshu") else 1.0))
 		if awaiting_card_choice:
 			pending_picks += 1
 		else:
@@ -184,8 +195,21 @@ func choose_card(index: int) -> bool:
 		return false
 	return card_system.apply(self, card_choices[index])
 
+func queue_relic_draft() -> void:
+	if awaiting_card_choice:
+		pending_relic_picks += 1
+		return
+	card_choices = card_system.roll_relics(self)
+	picking_relic = not card_choices.is_empty()
+	awaiting_card_choice = picking_relic
+
 func _update_step(delta: float) -> void:
 	game_time += delta
+	if relic_ids.has("qixing") and wall < wall_max:
+		wall_regen_timer -= delta
+		if wall_regen_timer <= 0:
+			wall = mini(wall_max, wall + 1)
+			wall_regen_timer += 30.0
 	var field_clear := spawn_queue.is_empty() and enemies.is_empty()
 	if field_clear:
 		prepare_next_wave()
@@ -210,6 +234,7 @@ func _update_step(delta: float) -> void:
 func _start_next_wave() -> void:
 	prepare_next_wave()
 	wave += 1
+	baihu_ready = relic_ids.has("baihu")
 	spawn_queue = next_queue
 	next_queue = []
 	next_wave_preview = {}
@@ -245,7 +270,10 @@ func _update_enemies(delta: float) -> void:
 			enemy.armorBreakT = maxf(0.0, float(enemy.armorBreakT) - delta)
 		enemy.y = float(enemy.y) + float(enemy.base_speed) * (0.55 if slowed else 1.0) * delta
 		if float(enemy.y) > DEFENSE_LINE - 6.0:
-			wall = maxi(0, wall - int(enemy.dmg))
+			var wall_damage := int(enemy.dmg)
+			if relic_ids.has("lianhuan"):
+				wall_damage = maxi(1, wall_damage - 1)
+			wall = maxi(0, wall - wall_damage)
 			enemy.dead = true
 			if wall <= 0:
 				status = "over"
@@ -452,8 +480,11 @@ func add_unit_at(hero_id: String, row: int, col: int) -> bool:
 
 func _hit_enemy(enemy: Dictionary, amount: float, attacker_tri: String, critical_chance: float) -> int:
 	var final_amount := amount
-	if critical_chance > 0 and rng.next_float() < critical_chance:
+	if baihu_ready or (critical_chance > 0 and rng.next_float() < critical_chance):
+		baihu_ready = false
 		final_amount *= 3.0 if relic_ids.has("qinggang") else 2.0
+	if relic_ids.has("guding") and (bool(enemy.get("boss", false)) or enemy.get("affix") != null):
+		final_amount *= 1.25
 	return damage_enemy(enemy, final_amount, attacker_tri)
 
 func _cast_ripple(unit: Dictionary) -> void:
@@ -468,7 +499,8 @@ func _cast_ripple(unit: Dictionary) -> void:
 			if center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y) + 8.0)) > radius * radius:
 				continue
 			if kind == "slow":
-				enemy.slowT = maxf(float(enemy.get("slowT", 0.0)), 2.5)
+				var duration := 2.5 * (1.3 if relic_ids.has("jiaowei") else 1.0)
+				enemy.slowT = maxf(float(enemy.get("slowT", 0.0)), duration)
 			else:
 				var duration := 7.0 if relic_ids.has("shuijingshu") else 4.0
 				enemy.armorBreakT = maxf(float(enemy.get("armorBreakT", 0.0)), duration)
@@ -564,6 +596,34 @@ func build_wave(number: int) -> Array:
 			"xp": base_xp * (4.0 if affix != null else 3.0) if big else base_xp,
 			"dmg": 3 if big else 1,
 		})
+	if number % 5 == 0:
+		var boss_name := str(city.get("bossName", ""))
+		if boss_name.is_empty():
+			boss_name = BOSS_NAMES[mini(number / 5 - 1, BOSS_NAMES.size() - 1)]
+		var mega := boss_name.contains("张角")
+		var boss_tri: String = foe_tri if not foe_tri.is_empty() else str(_pick(TRI_KEYS))
+		var boss_spec := {
+			"delay": 1.2,
+			"hp": hp * (26 if mega else 16),
+			"speed": base_speed * 0.45,
+			"r": 46 if mega else 40,
+			"cls": _pick(ENEMY_CLASSES),
+			"big": true,
+			"boss": true,
+			"bossName": boss_name,
+			"affix": "shield" if mega or str(city.get("bossKit", "")) == "affixlord" else null,
+			"special": null,
+			"tri": boss_tri,
+			"xp": base_xp * (25.0 if mega else 14.0),
+			"dmg": 10 if mega else 6,
+		}
+		queue.append(boss_spec)
+		if bool(city.get("eliteWave", false)):
+			var shadow: Dictionary = boss_spec.duplicate(true)
+			shadow.delay = 2.5
+			shadow.hp = roundi(float(boss_spec.hp) * 0.75)
+			shadow.bossName = boss_name + "·影"
+			queue.append(shadow)
 	return queue
 
 func _roll_mutations() -> Dictionary:

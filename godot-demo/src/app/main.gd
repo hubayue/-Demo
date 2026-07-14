@@ -363,6 +363,8 @@ func _hero_card_rect(index: int) -> Rect2:
 	return Rect2(8 + index * 158, 278, 148, 232)
 
 func _growth_card_rect(index: int) -> Rect2:
+	if battle_run != null and battle_run.card_choices.size() >= 4:
+		return Rect2(4 + index * 119, 278, 114, 244)
 	return Rect2(8 + index * 158, 278, 148, 244)
 
 func active_bond_text() -> String:
@@ -374,6 +376,21 @@ func active_bond_text() -> String:
 		if not bond.is_empty():
 			names.append(str(bond.name))
 	return " · ".join(names)
+
+func active_relic_text() -> String:
+	if battle_run == null:
+		return ""
+	var labels: Array[String] = []
+	for relic_id in battle_run.relic_ids:
+		var relic: Dictionary = catalog.by_id("relics", str(relic_id))
+		if not relic.is_empty():
+			labels.append(str(relic.icon) + str(relic.name))
+	return " ".join(labels)
+
+func card_draft_heading() -> String:
+	if battle_run != null and battle_run.picking_relic:
+		return "遗宝！三选一"
+	return "升级！四选一" if battle_run != null and battle_run.card_choices.size() >= 4 else "升级！三选一"
 
 func _short_text(text: String, max_characters: int) -> String:
 	return text if text.length() <= max_characters else text.left(max_characters) + "…"
@@ -421,6 +438,10 @@ func _draw_battle() -> void:
 	if not bond_text.is_empty():
 		draw_rect(Rect2(66, 140, 348, 25), Color("332714e8"), true)
 		_text_center("🔗 羁绊：%s" % bond_text, 158, 13, GOLD)
+	var relic_text := active_relic_text()
+	if not relic_text.is_empty():
+		draw_rect(Rect2(16, 170, 448, 23), Color("211b12e8"), true)
+		_text_center("遗宝：%s" % _short_text(relic_text, 28), 187, 12, PALE_GOLD)
 	if battle_run.awaiting_card_choice:
 		_draw_growth_cards()
 	elif battle_run.status != "play":
@@ -491,7 +512,7 @@ func _draw_battle_formation() -> void:
 
 func _draw_growth_cards() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.76), true)
-	_text_center("升级！三选一", 226, 28, GOLD)
+	_text_center(card_draft_heading(), 226, 28, GOLD)
 	_text_center("战斗已暂停", 252, 13, Color("d5c9a8"))
 	for index in battle_run.card_choices.size():
 		var card: Dictionary = battle_run.card_choices[index]

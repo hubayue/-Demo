@@ -8,6 +8,7 @@ const ELEM_COSMETIC := {
 	"xuhuang": true, "caiwenji": true, "simayi": true, "xushu": true,
 	"caohong": true, "granary": true, "dragonegg": true, "yinglong": true,
 }
+const ACTIVE_RELIC_IDS := ["qinggang", "dilu", "lianhuan", "qixing", "yiji", "bagua", "guding", "hanshu", "liannu", "baihu", "jiaowei", "shuijingshu", "jinlan"]
 
 var catalog
 var rng
@@ -142,7 +143,8 @@ func roll(run) -> Array:
 		if picked > 0 and str(card.kind) != "egg":
 			card.weight = maxf(1.0, float(card.weight) / (1.0 + picked * 0.4))
 	var result := []
-	for draw_index in 3:
+	var draw_count := 4 if run.relic_ids.has("yiji") else 3
+	for draw_index in draw_count:
 		if pool.is_empty():
 			break
 		var total := 0.0
@@ -161,6 +163,31 @@ func roll(run) -> Array:
 		for index in range(pool.size() - 1, -1, -1):
 			if str(pool[index].title) == title:
 				pool.remove_at(index)
+	return result
+
+func build_relic_pool(run) -> Array:
+	var result := []
+	for relic in catalog.list("relics"):
+		var relic_id := str(relic.id)
+		if not ACTIVE_RELIC_IDS.has(relic_id) or run.relic_ids.has(relic_id) or not _relic_available(run, relic_id):
+			continue
+		result.append(relic)
+	return result
+
+func roll_relics(run) -> Array:
+	var pool := build_relic_pool(run).duplicate()
+	for index in range(pool.size() - 1, 0, -1):
+		var swap_index := int(floor(rng.next_float() * (index + 1)))
+		var temporary = pool[index]
+		pool[index] = pool[swap_index]
+		pool[swap_index] = temporary
+	var result := []
+	for index in mini(3, pool.size()):
+		var relic: Dictionary = pool[index]
+		result.append({
+			"kind": "relic", "relic_id": str(relic.id), "title": str(relic.name),
+			"icon": str(relic.icon), "desc": str(relic.desc), "info": str(relic.get("who", "")),
+		})
 	return result
 
 func apply(run, card) -> bool:
@@ -187,28 +214,62 @@ func apply(run, card) -> bool:
 			applied = run.add_unit_data({"id": "granary", "name": "粮仓", "char": "仓", "cls": "granary", "elem": "badao", "rng": 0, "dmg": 0, "rate": 99, "speed": 0, "hp": 240, "desc": "产粮喂星"})
 		"levelup":
 			run.level += 1
-			run.xp_need = round(10.0 + (run.level - 1) * 9.0 + pow(run.level, 1.72))
+			run.xp_need = round((10.0 + (run.level - 1) * 9.0 + pow(run.level, 1.72)) * (0.88 if run.relic_ids.has("hanshu") else 1.0))
 			run.pending_picks += 1
 		"seppuku": run.status = "over"
 		"dance": run.permanent_tactics.gewu = true
 		"merit": pass
 		"reroll": run.pending_picks += 1
+		"relic":
+			var relic_id := str(data.relic_id)
+			if run.relic_ids.has(relic_id):
+				applied = false
+			else:
+				run.relic_ids.append(relic_id)
 		_: applied = false
 	_finish_choice(run)
 	return applied
 
 func _finish_choice(run) -> void:
 	run.card_choices = []
+	run.picking_relic = false
 	if run.status != "play":
 		run.awaiting_card_choice = false
 		run.pending_picks = 0
+		run.pending_relic_picks = 0
 		return
-	if run.pending_picks > 0:
+	if run.pending_relic_picks > 0:
+		run.pending_relic_picks -= 1
+		run.card_choices = roll_relics(run)
+		run.picking_relic = not run.card_choices.is_empty()
+		run.awaiting_card_choice = run.picking_relic
+	elif run.pending_picks > 0:
 		run.pending_picks -= 1
 		run.card_choices = roll(run)
 		run.awaiting_card_choice = not run.card_choices.is_empty()
 	else:
 		run.awaiting_card_choice = false
+
+func _relic_available(run, relic_id: String) -> bool:
+	var units: Array = run.units()
+	var owned := {}
+	for unit in units:
+		owned[str(unit.hero.id)] = true
+	match relic_id:
+		"longxian": return units.any(func(unit): return str(unit.hero.cls) == "egg")
+		"jiguan": return owned.has("weiyan") or owned.has("huangyueying")
+		"huoyou": return units.any(func(unit): return bool(unit.hero.get("burn", false)) or str(unit.hero.id) == "huanggai")
+		"xuantie": return owned.has("zhugeliang")
+		"chensha": return owned.has("diaochan") or owned.has("zhangliao")
+		"madeng": return int(run.team.counts.get("cav", 0)) >= 1
+		"jili": return owned.has("xuchu") or owned.has("xuhuang")
+		"dujing": return owned.has("wutugu")
+		"jiaowei": return owned.has("daqiao")
+		"shuijingshu": return owned.has("xushu")
+		"jinlan": return not run.team.active_bonds.is_empty()
+		"fenghuang": return units.any(func(unit): return int(unit.level) >= 5 and not ["granary", "egg", "dragon"].has(str(unit.hero.cls)))
+		"hufu": return int(run.team.counts.get("shield", 0)) >= 1
+	return true
 
 func _add_capped_buff(pool: Array, allowed: bool, key: String, value: float, weight: float, title: String, icon: String, desc: String) -> void:
 	if allowed:
