@@ -105,6 +105,7 @@ func cast_card(run, card_id: String) -> void:
 		"ramwall":
 			run.wall = maxi(0, run.wall - 3)
 		"dispel":
+			run.army_buff = {}
 			run.wuxing_time = 0.0
 		"drop":
 			_summon(run, "assassin", 2, true)

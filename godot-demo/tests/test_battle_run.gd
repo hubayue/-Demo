@@ -270,7 +270,7 @@ func _test_support_ripple(catalog) -> bool:
 	run.enemies = [enemy]
 	run.spawn_queue = []
 	run.advance_real(0.01)
-	if not _expect(float(enemy.slowT) > 0.0 and run.ripples.size() == 1, "Da Qiao must cast a visible Erqiao-expanded slow ripple on enemies inside 308px"):
+	if not _expect(float(enemy.slowT) > 0.0 and run.ripples.any(func(ripple): return str(ripple.kind) == "slow" and is_equal_approx(float(ripple.max), 308.0)), "Da Qiao must cast a visible Erqiao-expanded slow ripple on enemies inside 308px"):
 		return false
 	var y_before := float(enemy.y)
 	run.advance_real(0.1)

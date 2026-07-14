@@ -61,11 +61,15 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 	var hero: Dictionary = unit.hero
 	var hero_class := str(hero.cls)
 	var damage_multiplier := float(buffs.dmg) * (1.0 + float(run.tyranny) / 100.0)
+	if not run.army_buff.is_empty():
+		damage_multiplier *= float(run.army_buff.get("mul", 1.0))
 	if bool(run.permanent_tactics.get("gewu", false)):
 		damage_multiplier *= 1.3
 	if float(run.foe_curse_time) > 0:
 		damage_multiplier *= 0.75
 	var rate_multiplier := float(buffs.rate)
+	if not run.army_haste.is_empty() and hero_class != "shield":
+		rate_multiplier *= float(run.army_haste.get("mul", 1.0))
 	var critical_chance := float(buffs.critCh)
 	var pierce_add := 0
 	damage_multiplier *= 1.0 + float(buffs.elemBoost.get(str(hero.elem), 0.0))

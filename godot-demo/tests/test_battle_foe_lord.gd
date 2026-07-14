@@ -84,8 +84,9 @@ func _test_bounded_cards(catalog) -> bool:
 	if not _expect(run.wall == 0 and run.status == "play", "Ramwall may reduce the wall to zero but must not call the loss transition by itself"):
 		return false
 	run.wuxing_time = 5.0
+	run.army_buff = {"t": 6.0, "mul": 1.3}
 	run.foe_system.cast_card(run, "dispel")
-	if not _expect(run.wuxing_time == 0.0, "Dispel must clear the active Wuxing temporary buff"):
+	if not _expect(run.wuxing_time == 0.0 and run.army_buff.is_empty(), "Dispel must clear Wuxing and the active army damage buff"):
 		return false
 	var base_mods: Dictionary = run.team.unit_mods(run, units[0])
 	run.foe_system.cast_card(run, "curse")

@@ -510,6 +510,30 @@ func _draw_battle_entities() -> void:
 			"soothe": ripple_color = Color("bfe8ff")
 			"cdr", "sunder": ripple_color = Color("c9a8ff")
 		draw_arc(Vector2(float(ripple.x), float(ripple.y)), float(ripple.r), 0, TAU, 48, ripple_color, 2.0)
+	if not battle_run.blockade.is_empty():
+		var blockade_y := float(battle_run.blockade.y)
+		draw_rect(Rect2(28, blockade_y - 5, 424, 10), Color("b8934f"), true)
+		_text_center("🚧 虎痴拒马 %.1fs" % float(battle_run.blockade.t), blockade_y - 10, 11, PALE_GOLD)
+	for palisade in battle_run.palisades:
+		var pal_rect := Rect2(float(palisade.x) - float(palisade.width), float(palisade.y) - 5, float(palisade.width) * 2.0, 10)
+		draw_rect(pal_rect, Color("9f7a45"), true)
+		draw_rect(pal_rect, Color("e8c96a"), false, 1.5)
+	for trap in battle_run.traps:
+		draw_circle(Vector2(float(trap.x), float(trap.y)), float(trap.r), Color("7fa34a44"))
+		draw_arc(Vector2(float(trap.x), float(trap.y)), float(trap.r), 0, TAU, 20, Color("9adf5a"), 1.5)
+		_text_centered_in_rect("伏", Rect2(float(trap.x) - 10, float(trap.y) - 8, 20, 16), 10, Color("d8efaa"))
+	for pit in battle_run.fire_pits:
+		draw_circle(Vector2(float(pit.x), float(pit.y)), float(pit.r), Color("ff6a2a22"))
+		draw_arc(Vector2(float(pit.x), float(pit.y)), float(pit.r), 0, TAU, 28, Color("ff7a3a"), 1.5)
+	for turret in battle_run.turrets:
+		var turret_pos := Vector2(float(turret.x), float(turret.y))
+		draw_circle(turret_pos, 13, Color("70634d"))
+		draw_arc(turret_pos, 14, 0, TAU, 24, GOLD, 2.0)
+		_text_centered_in_rect("弩", Rect2(turret_pos.x - 10, turret_pos.y - 8, 20, 16), 10, Color.WHITE)
+	if not battle_run.death_link.is_empty() and battle_run.death_link.members.size() >= 2:
+		var members: Array = battle_run.death_link.members
+		for index in members.size() - 1:
+			draw_line(Vector2(float(members[index].x), float(members[index].y)), Vector2(float(members[index + 1].x), float(members[index + 1].y)), Color("c9a8ff"), 2.0)
 	for projectile in battle_run.projectiles:
 		draw_circle(Vector2(float(projectile.x), float(projectile.y)), 4.0, GOLD)
 	for charge in battle_run.charges:
@@ -532,12 +556,28 @@ func _draw_battle_entities() -> void:
 			_text_centered_in_rect("晕", Rect2(position.x - 10, position.y - radius - 24, 20, 16), 10, Color("b9e8ff"))
 		elif float(enemy.get("burnT", 0.0)) > 0:
 			_text_centered_in_rect("火", Rect2(position.x - 10, position.y - radius - 24, 20, 16), 10, Color("ff9a5a"))
+		var control_mark := ""
+		var control_color := Color("b9e8ff")
+		if float(enemy.get("sleepT", 0.0)) > 0:
+			control_mark = "眠"; control_color = Color("bfe8ff")
+		elif float(enemy.get("fearT", 0.0)) > 0:
+			control_mark = "惧"; control_color = GOLD
+		elif float(enemy.get("charmT", 0.0)) > 0:
+			control_mark = "魅"; control_color = Color("ff9ad2")
+		elif float(enemy.get("silencedT", 0.0)) > 0:
+			control_mark = "封"; control_color = Color("c9a8ff")
+		if not control_mark.is_empty():
+			_text_centered_in_rect(control_mark, Rect2(position.x - 10, position.y - radius - 39, 20, 16), 10, control_color)
 	for trace in battle_run.lord_attack_traces:
 		draw_line(Vector2(float(trace.x1), float(trace.y1)), Vector2(float(trace.x2), float(trace.y2)), Color(str(trace.color)), 3.0)
 	for event in battle_run.lord_command_events:
 		var command: Dictionary = BattleLordSource.COMMANDS.get(str(event.id), {})
 		if not command.is_empty():
 			_text_center("主公号令 · %s！" % command.name, 264, 20, GOLD)
+
+	for event in battle_run.ult_events:
+		var event_color: Color = {"dmg": Color("ff9a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": GOLD}.get(str(event.type), GOLD)
+		_text_center("绝技【%s】" % str(event.name), 238, 20, event_color)
 
 func _draw_battle_formation() -> void:
 	for row in BattleRunSource.GRID_ROWS:
@@ -562,6 +602,15 @@ func _draw_battle_formation() -> void:
 			var class_color: Color = CLASS_COLORS.get(str(hero.cls), Color("435064"))
 			draw_circle(center, 27, class_color.darkened(0.25))
 			draw_arc(center, 28, 0, TAU, 36, tri.color, 2.5)
+			var ult: Dictionary = battle_run.ult_system.definition(str(hero.id))
+			if not ult.is_empty():
+				var ult_max: float = maxf(0.01, battle_run.ult_system.cooldown_max(battle_run, unit))
+				var ult_progress := 1.0 - clampf(float(unit.get("ultCd", 0.0)) / ult_max, 0.0, 1.0)
+				var ult_color: Color = {"dmg": Color("ff8a5a"), "ctrl": Color("6ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": GOLD}.get(str(ult.type), GOLD)
+				if ult_progress >= 0.999:
+					draw_arc(center, 31, 0, TAU, 40, ult_color, 4.0)
+				elif ult_progress > 0.01:
+					draw_arc(center, 31, -PI / 2.0, -PI / 2.0 + TAU * ult_progress, 32, ult_color, 3.0)
 			_text_centered_in_rect(str(hero.char), Rect2(rect.position.x, rect.position.y + 26, rect.size.x, 24), 18, Color.WHITE)
 			_text_centered_in_rect(str(hero.name), Rect2(rect.position.x, rect.position.y + 50, rect.size.x, 17), 10, PALE_GOLD)
 			var unit_hp_ratio := maxf(0.0, float(unit.hp) / maxf(1.0, float(unit.hp_max)))

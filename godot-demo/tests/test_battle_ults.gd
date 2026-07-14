@@ -1,0 +1,254 @@
+extends SceneTree
+
+const ContentCatalog = preload("res://src/content/content_catalog.gd")
+const Mulberry32 = preload("res://src/core/mulberry32.gd")
+const BattleRun = preload("res://src/battle/battle_run.gd")
+const BattleUlts = preload("res://src/battle/battle_ults.gd")
+
+func _init() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	var catalog = ContentCatalog.new()
+	if not _expect(catalog.load_from("res://data/content-v7.19.2.json") == OK, "content must load"):
+		return
+	if not _test_authority_definitions():
+		return
+	if not _test_cooldown_and_conditions(catalog):
+		return
+	if not _test_damage_control_and_support(catalog):
+		return
+	if not _test_status_consequences(catalog):
+		return
+	if not _test_persistent_battle_entities(catalog):
+		return
+	if not _test_unique_projectile_geometries(catalog):
+		return
+	if not _test_automatic_cast(catalog):
+		return
+	print("Godot v7.19.2 hero ultimates: PASS")
+	quit(0)
+
+func _test_authority_definitions() -> bool:
+	var defs: Dictionary = BattleUlts.DEFINITIONS
+	var expected := [
+		"zhangfei", "zhaoyun", "machao", "huangzhong", "xiahouyuan", "luxun", "guanyu", "lvbu", "zhangliao",
+		"taishici", "dianwei", "sunce", "xuchu", "weiyan", "ganning", "diaochan", "zhouyu", "jiangwei",
+		"zhugeliang", "caoren", "zhoutai", "huatuo", "xiaoqiao", "lusu", "huanggai", "xuhuang", "daqiao",
+		"huangyueying", "caiwenji", "gaoshun", "zhanghe", "zhurong", "wutugu", "pangde", "yanliang",
+		"sunshangxiang", "yanyan", "caohong", "xushu", "simayi", "jiaxu", "zuoci", "dengai", "menghuo", "wenchou",
+	]
+	if not _expect(defs.size() == 45 and expected.all(func(hero_id): return defs.has(hero_id)), "all forty-five Web ultimate definitions must exist"):
+		return false
+	return _expect(str(defs.zhangfei.name) == "燕人怒喝" and int(defs.zhangfei.cd) == 13 \
+		and str(defs.huangzhong.type) == "exec" and int(defs.xiaoqiao.cd) == 20 \
+		and str(defs.wenchou.name) == "阵前枭首", "names, categories, and base cooldowns must match the frozen authority")
+
+func _test_cooldown_and_conditions(catalog) -> bool:
+	var run = _make_run(catalog, "guanyu")
+	var guanyu: Dictionary = run.units()[0]
+	if not _expect(float(guanyu.ultCd) >= 12.0 * 0.4 and float(guanyu.ultCd) <= 12.0 * 0.7, "new fighters must start at forty to seventy percent of base ultimate cooldown"):
+		return false
+	run.buffs.ultHaste = 0.2
+	if not _expect(is_equal_approx(run.ult_system.cooldown_max(run, guanyu), 9.6), "ultimate haste must reduce the real cooldown maximum"):
+		return false
+	run.enemies = [_enemy(guanyu, 0.0, -160.0), _enemy(guanyu, 20.0, -120.0)]
+	if not _expect(run.ult_system.is_ready(run, guanyu), "Guan Yu must ready with two enemies in his column"):
+		return false
+	run.enemies[1].x += 180.0
+	if not _expect(not run.ult_system.is_ready(run, guanyu), "Guan Yu must not ready when only one enemy remains in his column"):
+		return false
+	var duel = _make_run(catalog, "wenchou")
+	duel.enemies = [_enemy(duel.units()[0], 0.0, -100.0)]
+	if not _expect(not duel.ult_system.is_ready(duel, duel.units()[0]), "Wen Chou requires a duel target"):
+		return false
+	duel.enemies[0].duelT = 2.0
+	return _expect(duel.ult_system.is_ready(duel, duel.units()[0]), "Wen Chou must ready when a duel target exists")
+
+func _test_damage_control_and_support(catalog) -> bool:
+	var sniper = _make_run(catalog, "huangzhong")
+	var ordinary := _enemy(sniper.units()[0], -80.0, -120.0)
+	var elite := _enemy(sniper.units()[0], 80.0, -160.0)
+	elite.big = true
+	elite.hp = 1000.0
+	elite.hp_max = 1000.0
+	sniper.enemies = [ordinary, elite]
+	sniper.ult_system.cast(sniper, sniper.units()[0])
+	if not _expect(float(elite.hp) < 1000.0 and is_equal_approx(float(ordinary.hp), 100.0), "Hundred-Pace Shot must hit the toughest elite target only"):
+		return false
+
+	var fear = _make_run(catalog, "zhangliao")
+	fear.enemies = [_enemy(fear.units()[0], -50.0, -120.0), _enemy(fear.units()[0], 50.0, -150.0)]
+	fear.enemies[1].boss = true
+	fear.ult_system.cast(fear, fear.units()[0])
+	if not _expect(is_equal_approx(float(fear.enemies[0].fearT), 2.5) and is_equal_approx(float(fear.enemies[1].fearT), 1.2), "Xiaoyao Ford must fear ordinary foes for 2.5 seconds and bosses for 1.2"):
+		return false
+
+	var healer = _make_run(catalog, "huatuo")
+	healer.add_unit_at("zhangfei", 0, 0)
+	var hurt: Dictionary = healer.grid[0][0]
+	hurt.hp = float(hurt.hp_max) * 0.4
+	hurt.sealedT = 3.0
+	healer.ult_system.cast(healer, healer.units().filter(func(unit): return str(unit.hero.id) == "huatuo")[0])
+	if not _expect(float(hurt.hp) >= float(hurt.hp_max) * 0.75 and float(hurt.sealedT) == 0.0 and is_equal_approx(float(hurt.rbuffs.heal), 6.0), "Qingnang Relief must heal 35%, clear seals, and apply six seconds of medicine fragrance"):
+		return false
+
+	var strategist = _make_run(catalog, "simayi")
+	strategist.clear_formation()
+	strategist.obstacles.clear()
+	for index in 5:
+		strategist.add_unit_at(["simayi", "zhangfei", "zhaoyun", "machao", "huangzhong"][index], 0, index)
+	for unit in strategist.units():
+		unit.ultCd = 12.0
+	var simayi: Dictionary = strategist.units().filter(func(unit): return str(unit.hero.id) == "simayi")[0]
+	strategist.ult_system.cast(strategist, simayi)
+	return _expect(strategist.units().filter(func(unit): return unit != simayi and is_equal_approx(float(unit.ultCd), 2.0)).size() == 4, "Sima Yi must reduce every ally ultimate cooldown by ten seconds")
+
+func _test_persistent_battle_entities(catalog) -> bool:
+	var defense = _make_run(catalog, "xuchu")
+	defense.ult_system.cast(defense, defense.units()[0])
+	if not _expect(not defense.blockade.is_empty() and is_equal_approx(float(defense.blockade.t), 4.0), "Tiger Bulwark must create a four-second real blockade"):
+		return false
+	var traps = _make_run(catalog, "weiyan")
+	traps.enemies = [_enemy(traps.units()[0], 0.0, -160.0)]
+	traps.ult_system.cast(traps, traps.units()[0])
+	if not _expect(traps.traps.size() == 3, "Ziwu Ambush must plant three real traps"):
+		return false
+	var turret = _make_run(catalog, "huangyueying")
+	turret.enemies = [_enemy(turret.units()[0], 0.0, -180.0)]
+	turret.ult_system.cast(turret, turret.units()[0])
+	if not _expect(turret.turrets.size() == 1 and float(turret.turrets[0].t) >= 10.0, "Repeating Crossbow Device must create a ten-second firing turret"):
+		return false
+	var linked = _make_run(catalog, "zhugeliang")
+	var shielded := _enemy(linked.units()[0], -30.0, -140.0)
+	var partner := _enemy(linked.units()[0], 30.0, -160.0)
+	shielded.shield = 20.0
+	linked.enemies = [shielded, partner]
+	linked.ult_system.cast(linked, linked.units()[0])
+	linked.damage_enemy(shielded, 10.0)
+	if not _expect(is_equal_approx(float(partner.hp), 100.0), "Eight Trigrams Link must not propagate damage fully absorbed by the primary target's shield"):
+		return false
+	linked.damage_enemy(shielded, 20.0)
+	return _expect(is_equal_approx(float(partner.hp), 94.0), "Eight Trigrams Link must share fifty-five percent of HP damage after shield absorption")
+
+func _test_status_consequences(catalog) -> bool:
+	var run = _make_run(catalog, "diaochan")
+	var diaochan: Dictionary = run.units()[0]
+	var shaman := _enemy(diaochan, 0.0, -300.0)
+	shaman.special = "shaman"
+	shaman.y = 100.0
+	run.enemies = [shaman]
+	run._update_enemies(0.01)
+	if not _expect(is_equal_approx(float(diaochan.sealedT), 3.0), "an unsilenced shaman must seal a real fighter"):
+		return false
+	diaochan.sealedT = 0.0
+	shaman.sealCastT = 0.0
+	run.ult_system.cast(run, diaochan)
+	run._update_enemies(0.1)
+	if not _expect(float(shaman.silencedT) > 4.8 and is_equal_approx(float(diaochan.sealedT), 0.0), "Closed Moon must suppress a shaman's real seal ability"):
+		return false
+
+	var sleeper := _enemy(diaochan, 0.0, -160.0)
+	sleeper.base_speed = 100.0
+	sleeper.sleepT = 2.0
+	run.enemies = [sleeper]
+	var y_before := float(sleeper.y)
+	run._update_enemies(0.5)
+	if not _expect(is_equal_approx(float(sleeper.y), y_before), "sleep must stop real enemy movement"):
+		return false
+	run.damage_enemy(sleeper, 1.0)
+	if not _expect(is_equal_approx(float(sleeper.sleepT), 0.0), "taking damage must wake a sleeping enemy"):
+		return false
+	sleeper.charmT = 2.0
+	var hp_before := float(sleeper.hp)
+	run.damage_enemy(sleeper, 10.0)
+	if not _expect(is_equal_approx(float(sleeper.hp), hp_before - 13.0), "charm must make a real enemy take thirty percent more damage"):
+		return false
+
+	var guard = _make_run(catalog, "caohong")
+	guard.clear_formation()
+	guard.obstacles.clear()
+	guard.add_unit_at("zhangfei", 0, 0)
+	guard.add_unit_at("caohong", 0, 1)
+	var protected: Dictionary = guard.grid[0][0]
+	var caohong: Dictionary = guard.grid[0][1]
+	guard.ult_system.cast(guard, caohong)
+	var protector_before := float(caohong.hp)
+	var protected_before := float(protected.hp)
+	guard.hurt_unit(protected, 100, 0, 0)
+	return _expect(is_equal_approx(float(caohong.hp), protector_before - 60.0) and float(protected.hp) >= protected_before - 40.0, "Cao Hong's ultimate must redirect sixty percent of adjacent ally damage without killing himself")
+
+func _test_automatic_cast(catalog) -> bool:
+	var run = _make_run(catalog, "zhangfei")
+	var unit: Dictionary = run.units()[0]
+	run.enemies = [
+		_enemy(unit, -20.0, -80.0), _enemy(unit, 15.0, -100.0), _enemy(unit, 35.0, -120.0),
+	]
+	unit.ultCd = 0.0
+	run._update_units(0.01)
+	if not _expect(run.ult_events.size() == 1 and str(run.ult_events[0].hero_id) == "zhangfei", "a ready ultimate must auto-cast once when its condition is met"):
+		return false
+	if not _expect(float(unit.ultCd) > 12.9 and run.ults_used == 1, "an automatic cast must reset cooldown and increment the run counter"):
+		return false
+	var frozen_cd := float(unit.ultCd)
+	unit.sealedT = 1.0
+	run._update_units(0.5)
+	return _expect(is_equal_approx(float(unit.ultCd), frozen_cd), "sealed fighters must not advance their ultimate cooldown")
+
+func _test_unique_projectile_geometries(catalog) -> bool:
+	var zhaoyun = _make_run(catalog, "zhaoyun")
+	zhaoyun.ult_system.cast(zhaoyun, zhaoyun.units()[0])
+	if not _expect(zhaoyun.projectiles.size() == 14 and zhaoyun.projectiles.all(func(projectile): return int(projectile.pierce) == 99), "Seven Probes must launch fourteen independently colliding high-pierce spears"):
+		return false
+	var xiahouyuan = _make_run(catalog, "xiahouyuan")
+	xiahouyuan.ult_system.cast(xiahouyuan, xiahouyuan.units()[0])
+	if not _expect(xiahouyuan.projectiles.size() == 1 and int(xiahouyuan.projectiles[0].wall_bounce) == 6 and is_equal_approx(float(xiahouyuan.projectiles[0].life), 5.0), "Continuous Raid must launch a five-second arrow with six wall bounces"):
+		return false
+	var lvbu = _make_run(catalog, "lvbu")
+	var first_target := _enemy(lvbu.units()[0], 0.0, -100.0)
+	var second_target := _enemy(lvbu.units()[0], 40.0, -160.0)
+	lvbu.enemies = [first_target, second_target]
+	lvbu.ult_system.cast(lvbu, lvbu.units()[0])
+	if not _expect(lvbu.projectiles.size() == 1 and int(lvbu.projectiles[0].bounces) == 9, "Peerless Halberd must create a projectile with nine enemy bounces"):
+		return false
+	for step in 80:
+		lvbu._update_projectiles(0.02)
+	if not _expect(float(first_target.hp) < 100.0 and float(second_target.hp) < 100.0, "Peerless Halberd must redirect after impact and damage a second nearby enemy"):
+		return false
+	var ram: Dictionary = _enemy(lvbu.units()[0], 0.0, -100.0)
+	lvbu.enemies = [ram]
+	ram.special = "ram"
+	ram.fearT = 2.0
+	ram.sleepT = 2.0
+	ram.charmT = 2.0
+	ram.slowT = 2.0
+	ram.stunT = 2.0
+	ram.kb = 100.0
+	lvbu._update_enemies(0.1)
+	return _expect(is_equal_approx(float(ram.fearT), 0.0) and is_equal_approx(float(ram.sleepT), 0.0) and is_equal_approx(float(ram.charmT), 0.0) and float(ram.kb) <= 10.0 and float(ram.stunT) < 1.9, "ram carts must ignore mind control and shake off physical control twice as fast")
+
+func _make_run(catalog, hero_id: String):
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(_base_city(), "caocao", hero_id)
+	run.obstacles.clear()
+	return run
+
+func _enemy(unit: Dictionary, dx: float, dy: float) -> Dictionary:
+	var center := BattleRun.slot_center(int(unit.row), int(unit.col))
+	return {
+		"x": center.x + dx, "y": center.y + dy, "r": 18.0, "base_speed": 0.0,
+		"hp": 100.0, "hp_max": 100.0, "tri": "badao", "xp": 0.0,
+		"dmg": 1, "dead": false, "big": false, "boss": false, "affix": null, "special": null,
+		"slowT": 0.0, "burnT": 0.0, "burnDmg": 0.0, "shield": 0.0, "stunT": 0.0,
+		"fearT": 0.0, "sleepT": 0.0, "charmT": 0.0, "silencedT": 0.0, "duelT": 0.0,
+	}
+
+func _base_city() -> Dictionary:
+	return {"week": 2948, "k": 0, "ch": 1, "wall": 20, "theme": "", "field": "", "hpMul": 1.0, "spdMul": 1.0, "hpGrow": 1.1, "affixAdd": 0.0, "killTarget": 450, "obstacles": 0, "foes": {"tri": "badao"}}
+
+func _expect(condition: bool, message: String) -> bool:
+	if condition:
+		return true
+	push_error(message)
+	quit(1)
+	return false

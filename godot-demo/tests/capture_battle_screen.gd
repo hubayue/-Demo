@@ -90,6 +90,13 @@ func _run() -> void:
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.2-ruler-command.png")):
 		return
+	var zhangfei: Dictionary = run.units().filter(func(unit): return str(unit.hero.id) == "zhangfei")[0]
+	run.ult_system.cast(run, zhangfei)
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-hero-ultimate.png")):
+		return
 	print("Godot battle screenshots: PASS")
 	quit(0)
 
