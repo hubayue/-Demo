@@ -45,6 +45,7 @@ const MAP_TAB_RECTS := [
 ]
 const STATE_GO_RECT := Rect2(150, 648, 180, 44)
 const LORD_COMMAND_RECT := Rect2(324, 751, 146, 42)
+const FOE_LORD_RECT := Rect2(208, 108, 64, 43)
 
 var catalog
 var weekly
@@ -59,6 +60,7 @@ var state_popup := -1
 var week_clears: Dictionary = {}
 var map_message := ""
 var battle_run
+var foe_lord_popup := false
 
 func _ready() -> void:
 	catalog = ContentCatalogSource.new()
@@ -121,6 +123,7 @@ func select_opening_hero(hero_id: String) -> void:
 	var seed := CURRENT_WEEK * 1009 + selected_city * 131 + RULER_IDS.find(selected_ruler) * 17
 	battle_run = BattleRunSource.new(catalog, Mulberry32Source.new(seed))
 	battle_run.start(city, selected_ruler, selected_hero)
+	foe_lord_popup = false
 	queue_redraw()
 
 func city_is_cleared(index: int) -> bool:
@@ -172,12 +175,20 @@ func _handle_pointer(point: Vector2) -> void:
 				battle_run.gewu_auto_timer = 0.0
 				queue_redraw()
 				return
+			if foe_lord_popup:
+				foe_lord_popup = false
+				queue_redraw()
+				return
 			if battle_run.awaiting_card_choice:
 				for index in battle_run.card_choices.size():
 					if _growth_card_rect(index).has_point(point):
 						battle_run.choose_card(index)
 						queue_redraw()
 						return
+			elif FOE_LORD_RECT.has_point(point) and not battle_run.foe_lord.is_empty():
+				foe_lord_popup = true
+				queue_redraw()
+				return
 			elif LORD_COMMAND_RECT.has_point(point):
 				battle_run.cast_lord_command()
 				queue_redraw()
@@ -442,32 +453,42 @@ func _draw_battle() -> void:
 	_text("经验 %.1f / %.0f" % [battle_run.xp, battle_run.xp_need], Vector2(14, 96), 12, Color("b9dfff"))
 	_text(str(city.name), Vector2(190, 96), 12, BLUE)
 	_text("固定 2倍速", Vector2(384, 96), 11, PALE_GOLD)
+	var foe_offset := 46.0 if not battle_run.foe_lord.is_empty() else 0.0
+	if foe_offset > 0:
+		_draw_foe_lord_status()
 	var field_clear: bool = battle_run.spawn_queue.is_empty() and battle_run.enemies.is_empty()
-	draw_rect(Rect2(128, 109, 224, 27), Color("17120ce6"), true)
+	draw_rect(Rect2(128, 109 + foe_offset, 224, 27), Color("17120ce6"), true)
 	if battle_run.wave == 0 and battle_run.enemies.is_empty():
-		_text_center("黄巾来袭 %.1fs" % maxf(0.0, battle_run.wave_timer), 130, 16, PALE_GOLD)
+		_text_center("黄巾来袭 %.1fs" % maxf(0.0, battle_run.wave_timer), 130 + foe_offset, 16, PALE_GOLD)
 	elif field_clear:
-		_text_center("下波压境 %.1fs" % maxf(0.0, battle_run.wave_timer), 130, 15, PALE_GOLD)
+		_text_center("下波压境 %.1fs" % maxf(0.0, battle_run.wave_timer), 130 + foe_offset, 15, PALE_GOLD)
 	else:
 		var pressure_left := maxf(0.0, battle_run.wave_budget - battle_run.wave_clock)
-		_text_center("第%d波 · 催战 %.1fs" % [battle_run.wave, pressure_left], 130, 14, RED if pressure_left < 5.0 else MUTED)
+		_text_center("第%d波 · 催战 %.1fs" % [battle_run.wave, pressure_left], 130 + foe_offset, 14, RED if pressure_left < 5.0 else MUTED)
 	var bond_text := active_bond_text()
 	if not bond_text.is_empty():
-		draw_rect(Rect2(66, 140, 348, 25), Color("332714e8"), true)
-		_text_center("🔗 羁绊：%s" % bond_text, 158, 13, GOLD)
+		draw_rect(Rect2(66, 140 + foe_offset, 348, 25), Color("332714e8"), true)
+		_text_center("🔗 羁绊：%s" % bond_text, 158 + foe_offset, 13, GOLD)
 	var relic_text := active_relic_text()
 	if not relic_text.is_empty():
-		draw_rect(Rect2(16, 170, 448, 23), Color("211b12e8"), true)
-		_text_center("遗宝：%s" % _short_text(relic_text, 28), 187, 12, PALE_GOLD)
+		draw_rect(Rect2(16, 170 + foe_offset, 448, 23), Color("211b12e8"), true)
+		_text_center("遗宝：%s" % _short_text(relic_text, 28), 187 + foe_offset, 12, PALE_GOLD)
 	var lord_effect := _active_lord_effect_text()
 	if not lord_effect.is_empty():
-		draw_rect(Rect2(54, 198, 372, 25), Color("172334e8"), true)
-		_text_center(lord_effect, 216, 13, Color("b9dfff"))
+		draw_rect(Rect2(54, 198 + foe_offset, 372, 25), Color("172334e8"), true)
+		_text_center(lord_effect, 216 + foe_offset, 13, Color("b9dfff"))
+	for event in battle_run.foe_events:
+		var definition: Dictionary = battle_run.foe_lord.get("def", {})
+		_text_center("%s%s：%s" % [definition.get("icon", "贼"), definition.get("name", "渠帅"), event.text], 286, 18, RED if str(event.kind) == "cast" else Color("ffb08a"))
+		if not str(event.get("tip", "")).is_empty():
+			_text_center(str(event.tip), 310, 12, Color("c9a8ff"))
 	if battle_run.taoyuan_time > 0:
 		draw_rect(Rect2(5, 5, 470, 790), Color("ffd27899"), false, 5.0)
 		_text_center("桃园金身 · 全军刀枪不入 %.1fs" % battle_run.taoyuan_time, 246, 18, Color("ffe8b0"))
 	if battle_run.awaiting_card_choice:
 		_draw_growth_cards()
+	elif foe_lord_popup_is_visible():
+		_draw_foe_lord_popup()
 	elif battle_run.status != "play":
 		draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.68), true)
 		_text_center("攻城告捷" if battle_run.status == "win" else "城墙失守", 350, 36, GOLD if battle_run.status == "win" else RED)
@@ -505,6 +526,8 @@ func _draw_battle_entities() -> void:
 		var hp_width := radius * 2.0
 		draw_rect(Rect2(position.x - radius, position.y - radius - 7, hp_width, 3), Color("4a211b"), true)
 		draw_rect(Rect2(position.x - radius, position.y - radius - 7, hp_width * maxf(0.0, float(enemy.hp) / maxf(1.0, float(enemy.hp_max))), 3), RED, true)
+		if float(enemy.get("shield", 0.0)) > 0:
+			draw_arc(position, radius + 4.0, 0, TAU, 30, Color("8ad2ff"), 2.5)
 		if float(enemy.get("stunT", 0.0)) > 0:
 			_text_centered_in_rect("晕", Rect2(position.x - 10, position.y - radius - 24, 20, 16), 10, Color("b9e8ff"))
 		elif float(enemy.get("burnT", 0.0)) > 0:
@@ -545,6 +568,9 @@ func _draw_battle_formation() -> void:
 			draw_rect(Rect2(rect.position.x + 6, rect.position.y + 67, rect.size.x - 12, 4), Color("4a211b"), true)
 			draw_rect(Rect2(rect.position.x + 6, rect.position.y + 67, (rect.size.x - 12) * unit_hp_ratio, 4), GREEN, true)
 			_text("★".repeat(int(unit.level)), rect.position + Vector2(4, 77), 8, GOLD)
+			if float(unit.get("sealedT", 0.0)) > 0:
+				draw_rect(rect, Color("7f38b855"), true)
+				_text_centered_in_rect("🌀封 %.1fs" % float(unit.sealedT), Rect2(rect.position.x, rect.position.y + 25, rect.size.x, 20), 11, Color("e0b0ff"))
 	draw_rect(Rect2(0, BattleRunSource.DEFENSE_LINE, 480, 800 - BattleRunSource.DEFENSE_LINE), Color("5b4024"), true)
 	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
 	if battle_run.lord_mount.is_empty():
@@ -583,6 +609,70 @@ func _active_lord_effect_text() -> String:
 	if battle_run.tyranny > 0:
 		return "暴政印记 · 全军攻击+%d%%" % roundi(battle_run.tyranny)
 	return ""
+
+func _draw_foe_lord_status() -> void:
+	var state: Dictionary = battle_run.foe_lord
+	var definition: Dictionary = state.def
+	draw_rect(Rect2(0, 108, 480, 43), Color("4a2c20"), true)
+	for x in range(4, 480, 40):
+		draw_rect(Rect2(x, 108, 24, 7), Color("6a4934"), true)
+	draw_circle(Vector2(240, 127), 16, Color("642a24"))
+	draw_arc(Vector2(240, 127), 17, 0, TAU, 28, RED if battle_run.wave >= 8 and float(state.drawT) <= 10.0 else Color("ffb08a"), 2.0)
+	_text_centered_in_rect(str(definition.name).left(1), Rect2(224, 118, 32, 20), 13, Color("ffd2b8"))
+	_text("%s %s·%s" % [definition.icon, definition.name, definition.title], Vector2(10, 138), 11, Color("ffd2b8"))
+	_text(foe_lord_status_text(), Vector2(310, 130), 10, RED if bool(state.told) else Color("ffc9a8"))
+	_text("点渠帅查看10张牌", Vector2(310, 145), 9, MUTED)
+	if battle_run.foe_curse_time > 0:
+		_text("咒缚 %.1fs" % battle_run.foe_curse_time, Vector2(10, 150), 9, Color("d4a0ff"))
+	elif battle_run.foe_rage_time > 0:
+		_text("贼胆 %.1fs" % battle_run.foe_rage_time, Vector2(10, 150), 9, RED)
+
+func foe_card_rows() -> Array:
+	if battle_run == null or battle_run.foe_lord.is_empty():
+		return []
+	var counts := {}
+	for card_id in battle_run.foe_lord.def.get("deck", []):
+		counts[card_id] = int(counts.get(card_id, 0)) + 1
+	var rows := []
+	for card_id in counts:
+		rows.append({"id": str(card_id), "count": int(counts[card_id]), "card": catalog.content.get("foe_cards", {}).get(card_id, {})})
+	rows.sort_custom(func(a, b):
+		if int(a.count) != int(b.count):
+			return int(a.count) > int(b.count)
+		return str(a.id) < str(b.id)
+	)
+	return rows
+
+func foe_lord_status_text() -> String:
+	if battle_run == null or battle_run.foe_lord.is_empty():
+		return ""
+	var state: Dictionary = battle_run.foe_lord
+	if battle_run.wave < 8:
+		return "第8波开手"
+	if not bool(state.told):
+		return "下一手 %.0fs" % float(state.drawT)
+	var next_card: Dictionary = catalog.content.get("foe_cards", {}).get(battle_run.foe_system.next_card_id(battle_run), {})
+	return "%.0fs后「%s」" % [float(state.drawT), next_card.get("name", "未知")]
+
+func foe_lord_popup_is_visible() -> bool:
+	return foe_lord_popup and battle_run != null and battle_run.status == "play"
+
+func _draw_foe_lord_popup() -> void:
+	var rows := foe_card_rows()
+	var height := 104.0 + rows.size() * 26.0
+	var rect := Rect2(36, 150, 408, height)
+	draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.72), true)
+	_panel(rect, Color("17100cee"), Color("ff8a6a"), 2.0)
+	var definition: Dictionary = battle_run.foe_lord.def
+	_text_center("%s %s·%s" % [definition.icon, definition.name, definition.title], 178, 18, RED)
+	_text_center("整套10张·抽完重洗·出牌前30秒亮牌", 204, 11, MUTED)
+	var y := 232.0
+	for row in rows:
+		var card: Dictionary = row.card
+		_text("「%s」×%d" % [card.get("name", row.id), row.count], Vector2(54, y), 12, PALE_GOLD)
+		_text(str(card.get("tip", "")), Vector2(190, y), 10, Color("b8a888"))
+		y += 26.0
+	_text_center("点任意处关闭", rect.end.y - 10.0, 10, MUTED)
 
 func _draw_growth_cards() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.76), true)

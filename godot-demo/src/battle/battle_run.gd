@@ -4,6 +4,7 @@ extends RefCounted
 const BattleCardsScript = preload("res://src/battle/battle_cards.gd")
 const BattleTeamScript = preload("res://src/battle/battle_team.gd")
 const BattleLordScript = preload("res://src/battle/battle_lord.gd")
+const BattleFoeLordScript = preload("res://src/battle/battle_foe_lord.gd")
 
 const GRID_ROWS := 3
 const GRID_COLS := 5
@@ -23,6 +24,7 @@ var rng
 var card_system
 var team
 var lord_system
+var foe_system
 var city: Dictionary = {}
 var ruler_id := ""
 var ruler_level := 1
@@ -32,6 +34,10 @@ var lord_skill_level := 1
 var lord_command_cd := 18.0
 var lord_command_cd_total := 18.0
 var lord_command_used := 0
+var foe_lord: Dictionary = {}
+var foe_events: Array = []
+var foe_curse_time := 0.0
+var foe_rage_time := 0.0
 var status := "play"
 var shen_period := 0
 var shen_ids: Array = []
@@ -93,6 +99,7 @@ func _init(content_catalog, random_source) -> void:
 	card_system = BattleCardsScript.new(catalog, rng)
 	team = BattleTeamScript.new(catalog)
 	lord_system = BattleLordScript.new()
+	foe_system = BattleFoeLordScript.new()
 
 func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String, selected_ruler_level := 1, selected_hero_levels: Dictionary = {}) -> void:
 	city = level_data.duplicate(true)
@@ -105,6 +112,10 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	lord_command_cd = 18.0
 	lord_command_cd_total = 18.0
 	lord_command_used = 0
+	foe_lord = {}
+	foe_events = []
+	foe_curse_time = 0.0
+	foe_rage_time = 0.0
 	status = "play"
 	shen_period = 0
 	shen_ids = []
@@ -180,6 +191,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	_roll_layout()
 	team.recompute(self)
 	_place_opening_hero(opening_hero_id)
+	foe_system.setup(self)
 
 func advance_real(delta: float) -> void:
 	if status != "play":
@@ -227,7 +239,14 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 	if enemy_in_flood(enemy):
 		amount *= 1.0 + float(flood.get("amp", 0.3))
 	var damage := maxi(1, int(round(amount * triangle)))
-	enemy.hp = float(enemy.hp) - damage
+	var hp_damage := damage
+	var shield := float(enemy.get("shield", 0.0))
+	if shield > 0:
+		var absorbed := minf(shield, hp_damage)
+		enemy.shield = shield - absorbed
+		hp_damage -= int(absorbed)
+	if hp_damage > 0:
+		enemy.hp = float(enemy.hp) - hp_damage
 	if float(enemy.hp) <= 0:
 		var drowned := enemy_in_flood(enemy)
 		enemy.dead = true
@@ -304,6 +323,7 @@ func _update_step(delta: float) -> void:
 	_update_projectiles(delta)
 	_update_charges(delta)
 	_update_ripples(delta)
+	_update_foe_lord(delta)
 	_update_lord_command(delta)
 	_update_lord_auto_attack(delta)
 	_update_lord_visuals(delta)
@@ -313,6 +333,12 @@ func _update_lord_auto_attack(delta: float) -> void:
 
 func _update_lord_command(delta: float) -> void:
 	lord_system.update_command(self, delta)
+
+func _update_foe_lord(delta: float) -> void:
+	foe_system.update(self, delta)
+
+func foe_damage_multiplier() -> float:
+	return 1.3 if foe_rage_time > 0 else 1.0
 
 func lord_command_auto_ready() -> bool:
 	return lord_system.auto_ready(self)
@@ -358,8 +384,8 @@ func _start_next_wave() -> void:
 func _spawn_enemy(spec: Dictionary) -> void:
 	var hp := float(spec.hp)
 	var enemy := spec.duplicate(true)
-	enemy["x"] = _randf(40.0, 440.0)
-	enemy["y"] = -40.0
+	enemy["x"] = _randf(40.0, 440.0) if spec.get("x") == null else float(spec.x)
+	enemy["y"] = -40.0 if spec.get("y") == null else float(spec.y)
 	enemy["hp"] = hp
 	enemy["hp_max"] = hp
 	enemy["base_speed"] = float(spec.speed)
@@ -405,7 +431,7 @@ func _update_enemies(delta: float) -> void:
 				if float(enemy.atkT) <= 0:
 					enemy.atkT = 1.6 if bool(enemy.get("boss", false)) else 1.2
 					var base_damage := 30.0 if bool(enemy.get("boss", false)) else (16.0 if bool(enemy.get("big", false)) else 7.0)
-					var hit_damage := roundi(base_damage * (1.0 + wave * 0.06))
+					var hit_damage := roundi(base_damage * (1.0 + wave * 0.06) * foe_damage_multiplier())
 					hurt_unit(blocker.unit, hit_damage, int(blocker.row), int(blocker.col))
 					if str(blocker.unit.hero.cls) == "shield" and not bool(enemy.get("dead", false)):
 						var reflect := roundi(float(blocker.unit.hp_max) * (0.04 + float(buffs.get("shieldReflect", 0.0))))
@@ -481,6 +507,9 @@ func enemy_in_flood(enemy: Dictionary) -> bool:
 
 func _update_units(delta: float) -> void:
 	for unit in units():
+		if float(unit.get("sealedT", 0.0)) > 0:
+			unit.sealedT = maxf(0.0, float(unit.sealedT) - delta)
+			continue
 		var ripple_buffs: Dictionary = unit.rbuffs
 		for key in ripple_buffs.keys():
 			ripple_buffs[key] = float(ripple_buffs[key]) - delta
@@ -531,6 +560,7 @@ func _update_units(delta: float) -> void:
 				"max_distance": attack_range if attack_range > 0 else 1000.0,
 				"crit": float(mods.crit),
 				"pierce": int(hero.get("pierce", 0)) + int(mods.pierceAdd),
+				"owner": unit,
 				"hit": [],
 				"dead": false,
 			})
@@ -543,11 +573,12 @@ func _update_units(delta: float) -> void:
 				"damage": damage,
 				"tri": str(hero.elem),
 				"crit": float(mods.crit),
+				"owner": unit,
 				"hit": [],
 				"dead": false,
 			})
 		else:
-			_hit_enemy(target, damage, str(hero.elem), float(mods.crit))
+			_hit_enemy(target, damage, str(hero.elem), float(mods.crit), unit)
 			var pierce_count := int(hero.get("pierce", 0)) + int(mods.pierceAdd)
 			if pierce_count > 0:
 				var behind := enemies.filter(func(enemy):
@@ -555,7 +586,7 @@ func _update_units(delta: float) -> void:
 				)
 				behind.sort_custom(func(a, b): return float(a.y) > float(b.y))
 				for index in mini(pierce_count, behind.size()):
-					_hit_enemy(behind[index], damage * 0.8, str(hero.elem), float(mods.crit))
+					_hit_enemy(behind[index], damage * 0.8, str(hero.elem), float(mods.crit), unit)
 
 func _update_projectiles(delta: float) -> void:
 	for projectile in projectiles:
@@ -574,7 +605,7 @@ func _update_projectiles(delta: float) -> void:
 			var hit_radius := float(projectile.r) + float(enemy.r)
 			if Vector2(float(projectile.x), float(projectile.y)).distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) <= hit_radius * hit_radius:
 				projectile.hit.append(enemy)
-				_hit_enemy(enemy, float(projectile.damage), str(projectile.tri), float(projectile.crit))
+				_hit_enemy(enemy, float(projectile.damage), str(projectile.tri), float(projectile.crit), projectile.get("owner", {}))
 				if int(projectile.pierce) > 0:
 					projectile.pierce = int(projectile.pierce) - 1
 				else:
@@ -597,7 +628,7 @@ func _update_charges(delta: float) -> void:
 				continue
 			if absf(float(enemy.x) - float(charge.x)) < float(charge.width) + float(enemy.r) * 0.5 and absf(float(enemy.y) - float(charge.y)) < float(enemy.r) + 14.0:
 				charge.hit.append(enemy)
-				_hit_enemy(enemy, float(charge.damage), str(charge.tri), float(charge.crit))
+				_hit_enemy(enemy, float(charge.damage), str(charge.tri), float(charge.crit), charge.get("owner", {}))
 	for index in range(charges.size() - 1, -1, -1):
 		if bool(charges[index].dead):
 			charges.remove_at(index)
@@ -676,14 +707,19 @@ func add_unit_at(hero_id: String, row: int, col: int) -> bool:
 	team.recompute(self)
 	return true
 
-func _hit_enemy(enemy: Dictionary, amount: float, attacker_tri: String, critical_chance: float) -> int:
+func _hit_enemy(enemy: Dictionary, amount: float, attacker_tri: String, critical_chance: float, source_unit: Dictionary = {}) -> int:
 	var final_amount := amount
 	if baihu_ready or (critical_chance > 0 and rng.next_float() < critical_chance):
 		baihu_ready = false
 		final_amount *= 3.0 if relic_ids.has("qinggang") else 2.0
 	if relic_ids.has("guding") and (bool(enemy.get("boss", false)) or enemy.get("affix") != null):
 		final_amount *= 1.25
-	return damage_enemy(enemy, final_amount, attacker_tri)
+	var hp_before := float(enemy.get("hp", 0.0)) + float(enemy.get("shield", 0.0))
+	var dealt := damage_enemy(enemy, final_amount, attacker_tri)
+	if not source_unit.is_empty():
+		var hp_after := maxf(0.0, float(enemy.get("hp", 0.0))) + float(enemy.get("shield", 0.0))
+		source_unit.damage_dealt = float(source_unit.get("damage_dealt", 0.0)) + maxf(0.0, hp_before - hp_after)
+	return dealt
 
 func _cast_ripple(unit: Dictionary) -> void:
 	var center := slot_center(int(unit.row), int(unit.col))
@@ -872,6 +908,7 @@ func _make_unit(hero: Dictionary, row: int, col: int) -> Dictionary:
 		"cd": _randf(0.0, 0.3),
 		"rbuffs": {},
 		"sealedT": 0.0,
+		"damage_dealt": 0.0,
 	}
 
 func _unit_max_hp(hero: Dictionary, stars := 1) -> int:

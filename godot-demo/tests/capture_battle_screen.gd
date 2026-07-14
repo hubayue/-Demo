@@ -19,6 +19,13 @@ func _run() -> void:
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.2-battle-foundation.png")):
 		return
+	main.foe_lord_popup = true
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-foe-commander-deck.png")):
+		return
+	main.foe_lord_popup = false
 	var run = main.battle_run
 	run.gain_xp(maxf(0.0, run.xp_need - run.xp))
 	await process_frame

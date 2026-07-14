@@ -93,6 +93,32 @@ func _run() -> void:
         return
     if not _expect(battle_run.city.k == 0 and battle_run.ruler_id == "caocao", "BattleRun must retain the selected city and ruler"):
         return
+    if not _expect(str(battle_run.foe_lord.def.id) == "heyi", "the integrated weekly city must seat its deterministic foe commander"):
+        return
+    _click(main, Vector2(240, 127))
+    if not _expect(main.foe_lord_popup and main.foe_card_rows().size() > 0, "clicking the mirrored foe commander must open its ten-card deck panel"):
+        return
+    _click(main, Vector2(20, 260))
+    if not _expect(not main.foe_lord_popup, "clicking the foe deck panel must close it"):
+        return
+    battle_run.wave = 8
+    battle_run.foe_lord.deck = ["taunt"]
+    battle_run.foe_lord.idx = 0
+    battle_run.foe_lord.drawT = 90.0
+    battle_run.foe_lord.told = false
+    if not _expect("下一手" in main.foe_lord_status_text() and "口嗨" not in main.foe_lord_status_text(), "outside the 30-second reveal window the foe HUD must hide the next card's name"):
+        return
+    battle_run.foe_lord.drawT = 25.0
+    battle_run.foe_lord.told = true
+    if not _expect("口嗨" in main.foe_lord_status_text(), "inside the reveal window the foe HUD must name the telegraphed card"):
+        return
+    main.foe_lord_popup = true
+    battle_run.status = "win"
+    if not _expect(not main.foe_lord_popup_is_visible(), "the foe deck panel must not cover a completed battle result"):
+        return
+    main.foe_lord_popup = false
+    battle_run.status = "play"
+    battle_run.wave = 0
     if not _expect(battle_run.units().size() == 1 and battle_run.units()[0].hero.id == first_opening_hero, "BattleRun must place the selected opening hero"):
         return
     if not _expect(battle_run.wave == 0 and is_equal_approx(battle_run.wave_timer, 2.0), "Integrated battle must preserve the two-second opening rest"):

@@ -63,6 +63,8 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 	var damage_multiplier := float(buffs.dmg) * (1.0 + float(run.tyranny) / 100.0)
 	if bool(run.permanent_tactics.get("gewu", false)):
 		damage_multiplier *= 1.3
+	if float(run.foe_curse_time) > 0:
+		damage_multiplier *= 0.75
 	var rate_multiplier := float(buffs.rate)
 	var critical_chance := float(buffs.critCh)
 	var pierce_add := 0
