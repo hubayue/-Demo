@@ -1,0 +1,225 @@
+{
+  "source": "Web v7.19.2 browser runtime",
+  "version": "7.19.2",
+  "seed": 20260715,
+  "city": {
+    "k": 0,
+    "ch": 1,
+    "lvIdx": 3,
+    "hpMul": 0.95,
+    "spdMul": 0.93,
+    "hpGrow": 1.164,
+    "affixAdd": -0.06,
+    "wall": 15,
+    "obstacles": 4,
+    "killTarget": 450,
+    "goldMul": 0.66,
+    "field": "gunshi",
+    "foes": {
+      "tri": "badao"
+    }
+  },
+  "layout": {
+    "obstacles": [
+      "1,3",
+      "2,2",
+      "2,3",
+      "2,4"
+    ],
+    "traits": {
+      "0,0": "heal",
+      "0,1": "guard",
+      "0,2": "heal",
+      "0,3": "guard",
+      "0,4": "haste",
+      "1,0": "atk",
+      "1,1": "haste",
+      "1,2": "haste",
+      "1,3": "atk",
+      "1,4": "elem",
+      "2,0": "elem",
+      "2,1": "crit",
+      "2,2": "elem",
+      "2,3": "elem",
+      "2,4": "heal"
+    }
+  },
+  "wave1": [
+    {
+      "delay": 0,
+      "hp": 11,
+      "speed": 32.1677196501866,
+      "r": 15,
+      "cls": "spear",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.5982096696528605,
+      "hp": 11,
+      "speed": 29.87855028951913,
+      "r": 18,
+      "cls": "cav",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "rende",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.6726361440075561,
+      "hp": 11,
+      "speed": 28.429729935497047,
+      "r": 17,
+      "cls": "archer",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.4750835487595759,
+      "hp": 35.2,
+      "speed": 19.344,
+      "r": 26,
+      "cls": "spear",
+      "big": true,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 3.9000000000000004,
+      "dmg": 3
+    },
+    {
+      "delay": 0.8804049756424501,
+      "hp": 11,
+      "speed": 32.69102689918131,
+      "r": 19,
+      "cls": "spear",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "rende",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.5336033154651523,
+      "hp": 11,
+      "speed": 28.069206813409924,
+      "r": 16,
+      "cls": "cav",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.605086962680798,
+      "hp": 11,
+      "speed": 29.03766382981092,
+      "r": 15,
+      "cls": "archer",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "rende",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.39826594428624956,
+      "hp": 11,
+      "speed": 26.446766684554515,
+      "r": 16,
+      "cls": "cav",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.329373276529368,
+      "hp": 11,
+      "speed": 32.23535041578859,
+      "r": 19,
+      "cls": "cav",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.4989087646640837,
+      "hp": 11,
+      "speed": 30.67693216947466,
+      "r": 17,
+      "cls": "archer",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.9405190612166188,
+      "hp": 11,
+      "speed": 28.953181756831707,
+      "r": 19,
+      "cls": "spear",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.4810620961640961,
+      "hp": 11,
+      "speed": 26.34678706330061,
+      "r": 16,
+      "cls": "cav",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    },
+    {
+      "delay": 0.8226360422372818,
+      "hp": 11,
+      "speed": 25.741910526104274,
+      "r": 15,
+      "cls": "cav",
+      "big": false,
+      "affix": null,
+      "special": null,
+      "tri": "badao",
+      "xp": 1.3,
+      "dmg": 1
+    }
+  ],
+  "waveMeta": {
+    "themeElems": [
+      "badao"
+    ],
+    "weakElem": "rende",
+    "mutation": null
+  }
+}
