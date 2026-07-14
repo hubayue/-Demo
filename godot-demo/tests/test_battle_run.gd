@@ -60,6 +60,8 @@ func _run() -> void:
 		return
 	if not _test_spear_auto_attack(catalog, fixture.city, seed):
 		return
+	if not _test_team_modifiers_affect_auto_attack(catalog):
+		return
 	if not _test_ranged_and_cavalry_entities(catalog, fixture.city, seed):
 		return
 	print("Godot v7.19.2 battle run: PASS")
@@ -182,6 +184,31 @@ func _test_spear_auto_attack(catalog, city: Dictionary, seed: int) -> bool:
 	if not _expect(float(unit.cd) > 0.0, "auto-attack must reset the hero attack cooldown"):
 		return false
 	return true
+
+func _test_team_modifiers_affect_auto_attack(catalog) -> bool:
+	var fixture := _load_json("res://tests/fixtures/v7.19.2-team-modifiers.json")
+	var case_data: Dictionary = fixture.cases.filter(func(entry): return entry.id == "adjacent_spears")[0]
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(case_data.city, "caocao", "zhangfei")
+	run.clear_formation()
+	run.obstacles.clear()
+	run.traits.clear()
+	run.add_unit_at("zhangfei", 1, 1)
+	run.add_unit_at("zhaoyun", 1, 2)
+	var zhangfei: Dictionary = run.units().filter(func(unit): return unit.hero.id == "zhangfei")[0]
+	var zhaoyun: Dictionary = run.units().filter(func(unit): return unit.hero.id == "zhaoyun")[0]
+	zhangfei.cd = 0.0
+	zhaoyun.cd = 99.0
+	var center := BattleRun.slot_center(1, 1)
+	var enemy := {
+		"x": center.x, "y": center.y - 100.0, "r": 15, "base_speed": 0.0,
+		"hp": 1000.0, "hp_max": 1000.0, "tri": "badao", "xp": 1.0,
+		"dmg": 1, "dead": false,
+	}
+	run.enemies = [enemy]
+	run.spawn_queue = []
+	run.advance_real(0.01)
+	return _expect(is_equal_approx(float(enemy.hp), 952.0), "automatic spear attack must use the browser-derived adjacent formation damage of 48")
 
 func _test_ranged_and_cavalry_entities(catalog, city: Dictionary, seed: int) -> bool:
 	var archer_run = BattleRun.new(catalog, Mulberry32.new(seed))

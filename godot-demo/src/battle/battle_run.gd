@@ -242,8 +242,9 @@ func _update_units(delta: float) -> void:
 			continue
 		var hero: Dictionary = unit.hero
 		var hero_class := str(hero.cls)
+		var mods: Dictionary = team.unit_mods(self, unit)
 		if hero_class == "shield" or hero_class == "support" or float(hero.get("dmg", 0.0)) <= 0:
-			unit.cd = maxf(0.4, float(hero.get("rate", 9.0)))
+			unit.cd = maxf(0.4, team.unit_rate(unit, mods))
 			continue
 		var center := slot_center(int(unit.row), int(unit.col))
 		var attack_range := float(hero.get("rng", 0.0))
@@ -259,8 +260,8 @@ func _update_units(delta: float) -> void:
 				target = enemy
 		if target.is_empty():
 			continue
-		unit.cd = float(hero.rate) * pow(0.93, int(unit.level) - 1)
-		var damage := float(hero.dmg) * _star_damage_multiplier(int(unit.level))
+		unit.cd = team.unit_rate(unit, mods)
+		var damage := float(team.unit_damage(self, unit, mods))
 		if hero_class == "archer":
 			var direction := center.direction_to(Vector2(float(target.x), float(target.y)))
 			projectiles.append({

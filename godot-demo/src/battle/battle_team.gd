@@ -52,6 +52,85 @@ func bond_fx(run, hero_id: String) -> Dictionary:
 		result.rippleRad = float(result.rippleRad) * bonus_multiplier
 	return result
 
+func unit_mods(run, unit: Dictionary) -> Dictionary:
+	var buffs: Dictionary = run.buffs
+	var hero: Dictionary = unit.hero
+	var hero_class := str(hero.cls)
+	var damage_multiplier := float(buffs.dmg)
+	var rate_multiplier := float(buffs.rate)
+	var critical_chance := float(buffs.critCh)
+	var pierce_add := 0
+	damage_multiplier *= 1.0 + float(buffs.elemBoost.get(str(hero.elem), 0.0))
+	if hero_class == "spear":
+		damage_multiplier *= 1.65
+	elif hero_class == "cav":
+		damage_multiplier *= 1.15 * (1.0 + float(buffs.cavDmg))
+	elif hero_class == "archer":
+		damage_multiplier *= 1.0 + float(buffs.archerDmg)
+	var effects := bond_fx(run, str(hero.id))
+	damage_multiplier *= float(effects.dmg)
+	rate_multiplier *= float(effects.rate)
+	var field: Dictionary = catalog.by_id("fields", str(run.city.get("field", "")))
+	if hero_class == "cav":
+		damage_multiplier *= float(field.get("cavMul", 1.0))
+	elif hero_class == "archer":
+		damage_multiplier *= float(field.get("archerMul", 1.0))
+	var row := int(unit.row)
+	var col := int(unit.col)
+	var cell_trait := str(run.traits.get("%d,%d" % [row, col], ""))
+	if cell_trait == "atk":
+		damage_multiplier *= 1.15
+	elif cell_trait == "haste":
+		rate_multiplier *= 1.12
+	elif cell_trait == "crit":
+		critical_chance += 0.10
+	var adjacent_spears := 0
+	for near_row in range(maxi(0, row - 1), mini(run.GRID_ROWS - 1, row + 1) + 1):
+		for near_col in range(maxi(0, col - 1), mini(run.GRID_COLS - 1, col + 1) + 1):
+			if near_row == row and near_col == col:
+				continue
+			var neighbour = run.grid[near_row][near_col]
+			if neighbour != null and str(neighbour.hero.cls) == "spear":
+				adjacent_spears += 1
+	if adjacent_spears > 0:
+		damage_multiplier *= 1.0 + mini(3, adjacent_spears) * (0.10 + float(buffs.spearAura))
+	var class_count := int(counts.get(hero_class, 0))
+	if hero_class == "spear":
+		if class_count >= 2:
+			damage_multiplier *= 1.25
+		if class_count >= 4:
+			damage_multiplier *= 1.25
+	elif hero_class == "archer":
+		if class_count >= 2:
+			rate_multiplier *= 1.2
+		if class_count >= 4:
+			rate_multiplier *= 1.2
+	elif hero_class == "cav":
+		if class_count >= 2:
+			pierce_add += 1
+		if class_count >= 4:
+			damage_multiplier *= 1.4
+	elif hero_class == "support":
+		if class_count >= 2:
+			rate_multiplier *= 1.15
+		if class_count >= 4:
+			rate_multiplier *= 1.15
+	return {
+		"dmgMul": damage_multiplier,
+		"rateMul": rate_multiplier,
+		"crit": critical_chance,
+		"pierceAdd": pierce_add,
+	}
+
+func unit_damage(_run, unit: Dictionary, mods: Dictionary) -> int:
+	return roundi(float(unit.hero.get("dmg", 0.0)) * _star_damage_multiplier(int(unit.level)) * float(mods.dmgMul))
+
+func unit_rate(unit: Dictionary, mods: Dictionary) -> float:
+	return float(unit.hero.get("rate", 99.0)) * pow(0.93, int(unit.level) - 1) / float(mods.rateMul)
+
+static func _star_damage_multiplier(stars: int) -> float:
+	return pow(1.9, mini(stars, 5) - 1) * pow(1.4, maxi(0, mini(stars, 10) - 5)) * pow(1.3, maxi(0, stars - 10))
+
 func _reset() -> void:
 	counts = {}
 	for key in CLASS_KEYS:

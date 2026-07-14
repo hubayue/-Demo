@@ -31,9 +31,20 @@ func _run() -> void:
 			return
 		if not _expect(run.team.active_bond_ids() == case_data.activeBonds, "%s active bonds must match browser runtime" % case_data.id):
 			return
+		if not _expect(run.team.has_method("unit_mods") and run.team.has_method("unit_damage") and run.team.has_method("unit_rate"), "BattleTeam must expose Web combat modifier calculations"):
+			return
 		for expected_unit in case_data.units:
 			var actual_fx: Dictionary = run.team.bond_fx(run, str(expected_unit.id))
 			if not _expect(_dictionary_equal_approx(actual_fx, expected_unit.bondFx), "%s %s bond effects must match browser runtime" % [case_data.id, expected_unit.id]):
+				return
+			var unit := _find_unit(run.units(), str(expected_unit.id))
+			var mods: Dictionary = run.team.unit_mods(run, unit)
+			for key in ["dmgMul", "rateMul", "crit", "pierceAdd"]:
+				if not _expect(is_equal_approx(float(mods[key]), float(expected_unit[key])), "%s %s %s must match browser runtime" % [case_data.id, expected_unit.id, key]):
+					return
+			if not _expect(run.team.unit_damage(run, unit, mods) == int(expected_unit.damage), "%s %s damage must match browser runtime" % [case_data.id, expected_unit.id]):
+				return
+			if not _expect(is_equal_approx(run.team.unit_rate(unit, mods), float(expected_unit.rate)), "%s %s rate must match browser runtime" % [case_data.id, expected_unit.id]):
 				return
 	print("Godot v7.19.2 battle team state: PASS")
 	quit(0)
@@ -53,6 +64,12 @@ func _integer_dictionary_equal(actual: Dictionary, expected: Dictionary) -> bool
 		if not actual.has(key) or int(actual[key]) != int(expected[key]):
 			return false
 	return true
+
+func _find_unit(units: Array, hero_id: String) -> Dictionary:
+	for unit in units:
+		if str(unit.hero.id) == hero_id:
+			return unit
+	return {}
 
 func _load_json(path: String) -> Dictionary:
 	var file := FileAccess.open(path, FileAccess.READ)
