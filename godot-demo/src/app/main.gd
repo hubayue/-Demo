@@ -97,15 +97,15 @@ func _handle_pointer(point: Vector2) -> void:
             if point.distance_to(CITY_POSITIONS[0]) <= 42.0:
                 select_city(0)
         "ruler":
-            if point.x >= 16.0 and point.x <= 464.0 and point.y >= 144.0 and point.y < 728.0:
-                var index := int((point.y - 144.0) / 73.0)
-                if index >= 0 and index < RULERS.size():
+            for index in RULERS.size():
+                if _ruler_rect(index).has_point(point):
                     select_ruler(RULERS[index][0])
+                    return
         "pick":
-            if point.y >= 278.0 and point.y <= 510.0:
-                var index := int(point.x / 160.0)
-                if index >= 0 and index < HEROES.size():
+            for index in HEROES.size():
+                if _hero_card_rect(index).has_point(point):
                     select_opening_hero(HEROES[index][0])
+                    return
 
 func _draw() -> void:
     draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), INK)
@@ -169,7 +169,7 @@ func _draw_rulers() -> void:
     _text_center("只能带一位，他的招牌技和被动就是这局底牌", 78, 14, Color("d5c9a8"))
     _text_center("交州贼是仁德，良谋克他", 108, 15, GREEN)
     for index in RULERS.size():
-        var rect := Rect2(16, 144 + index * 73, 448, 64)
+        var rect := _ruler_rect(index)
         _panel(rect, PANEL_2, Color("5d513c"), 1.5)
         _text(RULERS[index][1], Vector2(30, rect.position.y + 27), 21, GOLD)
         _text(RULERS[index][2], Vector2(132, rect.position.y + 26), 14, Color("c9b69a"))
@@ -180,7 +180,7 @@ func _draw_pick() -> void:
     _text_center("敌人过江慢40%，火烧+50%", 78, 14, Color("d5c9a8"))
     _text_center("挑个武将开局", 235, 26, PALE_GOLD)
     for index in HEROES.size():
-        var rect := Rect2(8 + index * 158, 278, 148, 232)
+        var rect := _hero_card_rect(index)
         _panel(rect, Color("3a2c17"), BLUE if index < 2 else GREEN, 3.0)
         draw_circle(Vector2(rect.get_center().x, 335), 28, PANEL)
         draw_arc(Vector2(rect.get_center().x, 335), 29, 0, TAU, 48, BLUE if index < 2 else GREEN, 2)
@@ -188,6 +188,12 @@ func _draw_pick() -> void:
         _text_centered_in_rect(HEROES[index][2], Rect2(rect.position.x, 382, rect.size.x, 32), 13, Color("d5c9a8"))
         _text_centered_in_rect("图鉴 1级", Rect2(rect.position.x, 430, rect.size.x, 24), 13, BLUE)
     _draw_grid(515)
+
+func _ruler_rect(index: int) -> Rect2:
+    return Rect2(16, 144 + index * 73, 448, 64)
+
+func _hero_card_rect(index: int) -> Rect2:
+    return Rect2(8 + index * 158, 278, 148, 232)
 
 func _text_centered_in_rect(text: String, rect: Rect2, size: int, color: Color) -> void:
     draw_string(_font(), Vector2(rect.position.x, rect.position.y + size), text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, size, color)
