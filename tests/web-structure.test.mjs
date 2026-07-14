@@ -13,9 +13,12 @@ test("web shell loads external stylesheet and module entrypoint", async () => {
 
 test("extracted runtime retains the live version and server routes", async () => {
   const source = await readFile("web-demo/src/main.js", "utf8");
+  const apiSource = await readFile("web-demo/src/platform/account-api.js", "utf8");
 
   assert.match(source, /const GAME_VERSION = "7\.18\.8"/);
+  assert.doesNotMatch(source, /\bfetch\s*\(/);
+  const networkSource = `${source}\n${apiSource}`;
   for (const route of ["register", "login", "load", "save", "battle", "board", "version"]) {
-    assert.match(source, new RegExp(`/api/${route}`));
+    assert.match(networkSource, new RegExp(`/api/${route}`));
   }
 });

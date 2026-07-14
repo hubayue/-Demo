@@ -2,6 +2,7 @@ import {
   starDamageMultiplier,
   starParts,
 } from "./core/progression.js";
+import { createAccountApi } from "./platform/account-api.js";
 
 "use strict";
 /* ============================================================
@@ -791,6 +792,10 @@ function earnGold(n) {
 /* —— 账号网络层（浏览器才启用；冒烟测试没有 DOM，自动整层跳过） —— */
 const IS_BROWSER = typeof document !== "undefined" && typeof document.createElement === "function";
 const NET = { name: null, token: null, epoch: 0, timer: 0, board: null, boardAt: 0, stale: false };   // epoch=清档纪元；stale=另一设备档更新→本机停推
+const accountApi = createAccountApi({
+  fetchImpl: globalThis.fetch.bind(globalThis),
+  now: () => Date.now(),
+});
 function netScore() { return Math.round((meta.goldTotal || 0) + frontierLevel() * 500); }
 function buildSummary() {
   // 排行榜只需要这几个数——摘要格式不随游戏改版变，服务端永远不用懂 meta
@@ -823,12 +828,7 @@ function buildSummary() {
   };
 }
 async function api(route, body) {
-  const r = await fetch(route, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body || {}),
-  });
-  return r.json();
+  return accountApi.post(route, body);
 }
 function netPushSoon() {
   if (!IS_BROWSER || !NET.token || NET.stale) return;
@@ -939,7 +939,7 @@ function netLogBattle(type) {
 let newVerSeen = null;
 function netCheckNewVer() {
   if (!IS_BROWSER) return;
-  fetch("/api/version?t=" + Date.now()).then(r => r.json()).then(j => {
+  accountApi.getVersion().then(j => {
     if (j && j.ok && j.ver && j.ver !== GAME_VERSION) newVerSeen = j.ver;
   }).catch(() => {});
 }
@@ -953,7 +953,7 @@ async function netFetchBoard(force = false) {
   if (!IS_BROWSER) return null;
   if (!force && NET.board && Date.now() - NET.boardAt < 60000) return NET.board;
   try {
-    const r = await fetch("/api/board").then((x) => x.json());
+    const r = await accountApi.getBoard();
     if (r.ok) { NET.board = r; NET.boardAt = Date.now(); }
   } catch (e) {}
   return NET.board;

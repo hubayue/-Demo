@@ -18,7 +18,7 @@
 - Modify: `web-demo/src/main.js`
 - Modify: `tests/web-structure.test.mjs`
 
-- [ ] **Step 1: Write failing tests for POST, version, and board requests**
+- [x] **Step 1: Write failing tests for POST, version, and board requests**
 
 ```js
 const calls = [];
@@ -31,13 +31,13 @@ const client = createAccountApi({ fetchImpl, now: () => 123 });
 
 Assert that `post("/api/login", body)` uses JSON POST options, `getVersion()` requests `/api/version?t=123`, and `getBoard()` requests `/api/board`.
 
-- [ ] **Step 2: Run the account API test and verify RED**
+- [x] **Step 2: Run the account API test and verify RED**
 
 Run: `node --test tests/account-api.test.mjs`
 
 Expected: FAIL because `web-demo/src/platform/account-api.js` does not exist.
 
-- [ ] **Step 3: Implement `createAccountApi`**
+- [x] **Step 3: Implement `createAccountApi`**
 
 ```js
 export function createAccountApi({ fetchImpl, now = Date.now }) {
@@ -64,19 +64,19 @@ export function createAccountApi({ fetchImpl, now = Date.now }) {
 }
 ```
 
-- [ ] **Step 4: Wire the adapter into `main.js`**
+- [x] **Step 4: Wire the adapter into `main.js`**
 
 Keep the existing `api(route, body)` function as a compatibility delegate, and replace only the two direct GET calls.
 
-- [ ] **Step 5: Update the structure test**
+- [x] **Step 5: Update the structure test**
 
 Assert that `main.js` contains no direct `fetch(` call and that the seven current `/api/*` routes remain present across `main.js` plus `platform/account-api.js`.
 
-- [ ] **Step 6: Run all tests and browser smoke verification**
+- [x] **Step 6: Run all tests and browser smoke verification**
 
 Expected: tests pass without warnings; login overlay loads with no new console error.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```text
 refactor: isolate account API transport
