@@ -1,8 +1,8 @@
 {
   "name": "sanguo-demo-modernization",
   "private": true,
+  "type": "module",
   "scripts": {
     "test": "node --test"
   }
 }
-

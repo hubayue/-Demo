@@ -99,7 +99,7 @@ refactor: split web demo shell from runtime
 - Modify: `web-demo/src/main.js`
 - Create: `tests/progression.test.mjs`
 
-- [ ] **Step 1: Write failing tests for the 1-15 star display segments**
+- [x] **Step 1: Write failing tests for the 1-15 star display segments**
 
 ```js
 import assert from "node:assert/strict";
@@ -123,13 +123,13 @@ test("starDamageMultiplier preserves normal and phoenix scaling", () => {
 });
 ```
 
-- [ ] **Step 2: Run the progression tests and verify RED**
+- [x] **Step 2: Run the progression tests and verify RED**
 
 Run: `node --test tests/progression.test.mjs`
 
 Expected: FAIL because `web-demo/src/core/progression.js` does not exist.
 
-- [ ] **Step 3: Implement the pure module**
+- [x] **Step 3: Implement the pure module**
 
 ```js
 export function starParts(level) {
@@ -147,7 +147,7 @@ export function starDamageMultiplier(level, hasPhoenixFeather) {
 }
 ```
 
-- [ ] **Step 4: Import the module in `main.js` and delegate the existing helpers**
+- [x] **Step 4: Import the module in `main.js` and delegate the existing helpers**
 
 ```js
 import { starParts, starDamageMultiplier } from "./core/progression.js";
@@ -155,17 +155,17 @@ import { starParts, starDamageMultiplier } from "./core/progression.js";
 
 The existing rendering-facing `starDmgMul(level)` remains as a compatibility adapter that reads the current relic state and calls `starDamageMultiplier(level, hasPhoenixFeather)`.
 
-- [ ] **Step 5: Run all tests and verify GREEN**
+- [x] **Step 5: Run all tests and verify GREEN**
 
 Run: `npm test`
 
 Expected: all tests PASS.
 
-- [ ] **Step 6: Repeat the Playwright login-screen smoke test**
+- [x] **Step 6: Repeat the Playwright login-screen smoke test**
 
 Expected: no visual or console regression from the baseline.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```text
 refactor: extract progression math from demo runtime

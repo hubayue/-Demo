@@ -1,3 +1,8 @@
+import {
+  starDamageMultiplier,
+  starParts,
+} from "./core/progression.js";
+
 "use strict";
 /* ============================================================
    三国 · 黄巾之乱 —— 塔防肉鸽
@@ -59,11 +64,6 @@ const GRANARY_MAX = 5;  // 粮仓星上限仍是5（10星粮仓=经验聚变堆�
 /* 星显示压缩（用户定的规矩）：最多画5颗——升华星（第6星起）一颗顶两颗。总星s>5时画(s-5)颗升华星+(10-s)颗普通星。
    v5.4.5 用户拍板：升华星不用菱形✦，还是五角星、用烈焰橙红色区分（drawStarRow）；starText 的✦只剩测试在用 */
 /* 星行三段（v7.5.0）：1~5金★ / 6~10一阶升华红★ / 11~15二阶升华蓝★——一行永远≤5颗，颜色报段位 */
-function starParts(lv) {
-  if (lv <= 5) return { t2: 0, hi: 0, lo: lv };
-  if (lv <= 10) return { t2: 0, hi: lv - 5, lo: 10 - lv };
-  return { t2: lv - 10, hi: 15 - lv, lo: 0 };
-}
 function starText(lv) { const p = starParts(lv); return "✪".repeat(p.t2) + "✦".repeat(p.hi) + "★".repeat(p.lo); }
 /* 星行绘制（v5.4.5 用户拍板：升华星不用菱形，同样的五角星换颜色表示）：
    升华星=烈焰橙红★(固定色SUPER_STAR_COLOR，避开转生四色和新星绿)+同色辉光、大一号；
@@ -112,8 +112,7 @@ function drawStarRow(cx, cy, lv, px, color, opts = {}) {
 /* 星级伤害乘区：前5星×1.9/星，6星起（升华星）×1.4/星；凤凰翎遗宝把升华星放大到×1.5 */
 function starDmgMul(lv) {
   const fh = typeof state !== "undefined" && state && state.relics && state.relics.some(r => r.id === "fenghuang");
-  const sub = fh ? 1.5 : 1.4, sub2 = fh ? 1.4 : 1.3;   // 一阶升华×1.4/星、二阶×1.3/星（凤凰翎各+0.1）
-  return Math.pow(1.9, Math.min(lv, 5) - 1) * Math.pow(sub, Math.max(0, Math.min(lv, 10) - 5)) * Math.pow(sub2, Math.max(0, lv - 10));
+  return starDamageMultiplier(lv, fh);   // 一阶升华×1.4/星、二阶×1.3/星（凤凰翎各+0.1）
 }
 const REBIRTH_MUL = 1.4;   // 局内转生已退役（v5.2 转生外迁局外）：乘区代码保留兼容（u.rebirth 恒0）
 const REBIRTH_COLOR = ["#ffe45a", "#ff7ad2", "#c96aff", "#5ae8ff"];   // 0转金/1转品红/2转紫/3转青——局外转生的星色
