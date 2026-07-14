@@ -14,12 +14,45 @@ func _run() -> void:
     _click(main, Vector2(240, 400))
     if not _expect(main.phase == "map", "Title click must enter map"):
         return
-
-    _click(main, Vector2(430, 680))
-    if not _expect(main.phase == "map", "Map background must not select a city"):
+    if not _expect(main.has_method("select_map_region"), "Map must support four-region switching"):
         return
-    _click(main, Vector2(155, 630))
-    if not _expect(main.phase == "ruler", "First city click must enter ruler selection"):
+    if not _expect(main.catalog.version == "7.19.2", "Main scene must load the frozen content catalog"):
+        return
+    if not _expect(main.weekly.make_slots(main.CURRENT_WEEK).size() == 64, "Main scene must bind all 64 weekly cities"):
+        return
+    if not _expect(main.current_region == 0, "Map must start in the East region"):
+        return
+    if not _expect(main.has_method("region_clear_count") and main.has_method("city_is_cleared") and main.has_method("city_is_unlocked"), "Map must expose clear-state presentation helpers"):
+        return
+    main.week_clears[0] = true
+    if not _expect(main.region_clear_count(0) == 1 and main.city_is_cleared(0), "East clear count and city clear state must reflect offline progress"):
+        return
+    if not _expect(main.city_is_unlocked(1), "Clearing city 0 must unlock city 1"):
+        return
+    for city in 16:
+        main.week_clears[city] = true
+    if not _expect(main.region_clear_count(0) == 16 and main.city_is_unlocked(16), "Clearing East must unlock the first South city"):
+        return
+    main.week_clears.clear()
+
+    _click(main, Vector2(192, 723))
+    if not _expect(main.current_region == 1, "South tab click must switch regions"):
+        return
+    _click(main, Vector2(168, 650))
+    if not _expect(main.state_popup == -1, "Locked South city must not open"):
+        return
+    _click(main, Vector2(94, 723))
+    if not _expect(main.current_region == 0, "East tab click must switch back"):
+        return
+    _click(main, Vector2(168, 650))
+    if not _expect(main.phase == "map" and main.state_popup == 0, "First city click must open details without marching"):
+        return
+    _click(main, Vector2(20, 780))
+    if not _expect(main.phase == "map" and main.state_popup == -1, "Popup background click must close details"):
+        return
+    _click(main, Vector2(168, 650))
+    _click(main, Vector2(240, 670))
+    if not _expect(main.phase == "ruler", "March button must enter ruler selection"):
         return
 
     _click(main, Vector2(100, 212))
