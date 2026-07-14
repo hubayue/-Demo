@@ -1,0 +1,367 @@
+{
+  "source": "Web v7.19.2 browser runtime",
+  "version": "7.19.2",
+  "cases": [
+    {
+      "id": "laojiang",
+      "field": "gunshi",
+      "theme": "tuanjie",
+      "heroes": [
+        "huangzhong",
+        "yanyan"
+      ],
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "city": {
+        "k": 0,
+        "ch": 1,
+        "lvIdx": 3,
+        "n": 3,
+        "hpMul": 0.95,
+        "spdMul": 0.93,
+        "hpGrow": 1.164,
+        "affixAdd": -0.06,
+        "wall": 15,
+        "obstacles": 4,
+        "killTarget": 450,
+        "goldMul": 0.66,
+        "firstGold": 210,
+        "field": "gunshi",
+        "bossName": null,
+        "bossKit": null,
+        "eliteWave": false,
+        "rules": [],
+        "foes": {
+          "tri": "badao"
+        },
+        "theme": "tuanjie",
+        "week": 2948,
+        "name": "team-fixture",
+        "icon": "🧪"
+      },
+      "counts": {
+        "spear": 0,
+        "cav": 0,
+        "archer": 1,
+        "shield": 1,
+        "support": 0,
+        "granary": 0,
+        "egg": 0,
+        "dragon": 0
+      },
+      "activeBonds": [
+        "laojiang"
+      ],
+      "units": [
+        {
+          "id": "huangzhong",
+          "bondFx": {
+            "dmg": 1.585,
+            "rate": 1,
+            "hp": 1.585,
+            "rippleRad": 0
+          },
+          "dmgMul": 1.585,
+          "rateMul": 1,
+          "crit": 0,
+          "pierceAdd": 0,
+          "damage": 38,
+          "rate": 1.5
+        },
+        {
+          "id": "yanyan",
+          "bondFx": {
+            "dmg": 1.585,
+            "rate": 1,
+            "hp": 1.585,
+            "rippleRad": 0
+          },
+          "dmgMul": 1.585,
+          "rateMul": 1,
+          "crit": 0,
+          "pierceAdd": 0,
+          "damage": 0,
+          "rate": 99
+        }
+      ]
+    },
+    {
+      "id": "nanman_overlap",
+      "field": "gunshi",
+      "theme": "tuanjie",
+      "heroes": [
+        "menghuo",
+        "zhurong",
+        "wutugu"
+      ],
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "city": {
+        "k": 0,
+        "ch": 1,
+        "lvIdx": 3,
+        "n": 3,
+        "hpMul": 0.95,
+        "spdMul": 0.93,
+        "hpGrow": 1.164,
+        "affixAdd": -0.06,
+        "wall": 15,
+        "obstacles": 4,
+        "killTarget": 450,
+        "goldMul": 0.66,
+        "firstGold": 210,
+        "field": "gunshi",
+        "bossName": null,
+        "bossKit": null,
+        "eliteWave": false,
+        "rules": [],
+        "foes": {
+          "tri": "badao"
+        },
+        "theme": "tuanjie",
+        "week": 2948,
+        "name": "team-fixture",
+        "icon": "🧪"
+      },
+      "counts": {
+        "spear": 0,
+        "cav": 0,
+        "archer": 1,
+        "shield": 2,
+        "support": 0,
+        "granary": 0,
+        "egg": 0,
+        "dragon": 0
+      },
+      "activeBonds": [
+        "manwang",
+        "nanman"
+      ],
+      "units": [
+        {
+          "id": "menghuo",
+          "bondFx": {
+            "dmg": 1.806,
+            "rate": 1,
+            "hp": 1.9815,
+            "rippleRad": 0
+          },
+          "dmgMul": 1.806,
+          "rateMul": 1,
+          "crit": 0,
+          "pierceAdd": 0,
+          "damage": 0,
+          "rate": 99
+        },
+        {
+          "id": "zhurong",
+          "bondFx": {
+            "dmg": 1.806,
+            "rate": 1,
+            "hp": 1.9815,
+            "rippleRad": 0
+          },
+          "dmgMul": 1.806,
+          "rateMul": 1,
+          "crit": 0,
+          "pierceAdd": 0,
+          "damage": 36,
+          "rate": 1.6
+        },
+        {
+          "id": "wutugu",
+          "bondFx": {
+            "dmg": 1.26,
+            "rate": 1,
+            "hp": 1.3900000000000001,
+            "rippleRad": 0
+          },
+          "dmgMul": 1.26,
+          "rateMul": 1,
+          "crit": 0,
+          "pierceAdd": 0,
+          "damage": 0,
+          "rate": 99
+        }
+      ]
+    },
+    {
+      "id": "adjacent_spears",
+      "field": "gunshi",
+      "theme": null,
+      "heroes": [
+        "zhangfei",
+        "zhaoyun"
+      ],
+      "cells": [
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "city": {
+        "k": 0,
+        "ch": 1,
+        "lvIdx": 3,
+        "n": 3,
+        "hpMul": 0.95,
+        "spdMul": 0.93,
+        "hpGrow": 1.164,
+        "affixAdd": -0.06,
+        "wall": 15,
+        "obstacles": 4,
+        "killTarget": 450,
+        "goldMul": 0.66,
+        "firstGold": 210,
+        "field": "gunshi",
+        "bossName": null,
+        "bossKit": null,
+        "eliteWave": false,
+        "rules": [],
+        "foes": {
+          "tri": "badao"
+        },
+        "theme": null,
+        "week": 2948,
+        "name": "team-fixture",
+        "icon": "🧪"
+      },
+      "counts": {
+        "spear": 2,
+        "cav": 0,
+        "archer": 0,
+        "shield": 0,
+        "support": 0,
+        "granary": 0,
+        "egg": 0,
+        "dragon": 0
+      },
+      "activeBonds": [],
+      "units": [
+        {
+          "id": "zhangfei",
+          "bondFx": {
+            "dmg": 1,
+            "rate": 1,
+            "hp": 1,
+            "rippleRad": 0
+          },
+          "dmgMul": 2.26875,
+          "rateMul": 1,
+          "crit": 0,
+          "pierceAdd": 0,
+          "damage": 48,
+          "rate": 1.1
+        },
+        {
+          "id": "zhaoyun",
+          "bondFx": {
+            "dmg": 1,
+            "rate": 1,
+            "hp": 1,
+            "rippleRad": 0
+          },
+          "dmgMul": 2.26875,
+          "rateMul": 1,
+          "crit": 0,
+          "pierceAdd": 0,
+          "damage": 36,
+          "rate": 0.9
+        }
+      ]
+    },
+    {
+      "id": "gaodi_archer",
+      "field": "gaodi",
+      "theme": null,
+      "heroes": [
+        "huangzhong"
+      ],
+      "cells": [
+        [
+          1,
+          2
+        ]
+      ],
+      "city": {
+        "k": 0,
+        "ch": 1,
+        "lvIdx": 3,
+        "n": 3,
+        "hpMul": 0.95,
+        "spdMul": 0.93,
+        "hpGrow": 1.164,
+        "affixAdd": -0.06,
+        "wall": 15,
+        "obstacles": 4,
+        "killTarget": 450,
+        "goldMul": 0.66,
+        "firstGold": 210,
+        "field": "gaodi",
+        "bossName": null,
+        "bossKit": null,
+        "eliteWave": false,
+        "rules": [],
+        "foes": {
+          "tri": "badao"
+        },
+        "theme": null,
+        "week": 2948,
+        "name": "team-fixture",
+        "icon": "🧪"
+      },
+      "counts": {
+        "spear": 0,
+        "cav": 0,
+        "archer": 1,
+        "shield": 0,
+        "support": 0,
+        "granary": 0,
+        "egg": 0,
+        "dragon": 0
+      },
+      "activeBonds": [],
+      "units": [
+        {
+          "id": "huangzhong",
+          "bondFx": {
+            "dmg": 1,
+            "rate": 1,
+            "hp": 1,
+            "rippleRad": 0
+          },
+          "dmgMul": 1.4,
+          "rateMul": 1,
+          "crit": 0,
+          "pierceAdd": 0,
+          "damage": 34,
+          "rate": 1.5
+        }
+      ]
+    }
+  ]
+}
