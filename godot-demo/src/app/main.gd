@@ -2,6 +2,7 @@ extends Control
 
 const ContentCatalogSource = preload("res://src/content/content_catalog.gd")
 const WeeklyMapSource = preload("res://src/progression/weekly_map.gd")
+const OpeningPickerSource = preload("res://src/progression/opening_picker.gd")
 
 const VIEW_SIZE := Vector2(480.0, 800.0)
 const CURRENT_WEEK := 2948
@@ -16,7 +17,6 @@ const BLUE := Color("62b8ff")
 const RED := Color("ff8a6a")
 
 const RULER_IDS := ["caocao", "liubei", "sunquan", "yuanshao", "liubiao", "gongsunzan", "dongzhuo", "yuanshu"]
-const OPENING_HERO_IDS := ["jiangwei", "zhangliao", "xuchu"]
 const REGION_NAMES := ["东部", "南部", "西部", "北部"]
 const CLASS_NAMES := {"cav": "骑兵", "spear": "枪兵", "archer": "弓兵", "mage": "谋士"}
 const TRI_DISPLAY := {
@@ -40,10 +40,12 @@ const STATE_GO_RECT := Rect2(150, 648, 180, 44)
 
 var catalog
 var weekly
+var opening_picker
 var phase := "title"
 var selected_city := -1
 var selected_ruler := ""
 var selected_hero := ""
+var opening_hero_ids: Array = []
 var current_region := 0
 var state_popup := -1
 var week_clears: Dictionary = {}
@@ -61,6 +63,7 @@ func _ready() -> void:
 		set_process(false)
 		return
 	weekly = WeeklyMapSource.new(catalog)
+	opening_picker = OpeningPickerSource.new()
 	set_process(true)
 	queue_redraw()
 
@@ -93,8 +96,18 @@ func select_city(index: int) -> void:
 
 func select_ruler(ruler_id: String) -> void:
 	selected_ruler = ruler_id
+	roll_opening_heroes()
 	phase = "pick"
 	queue_redraw()
+
+func roll_opening_heroes() -> void:
+	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
+	opening_hero_ids = opening_picker.pick_ids(
+		catalog.list("heroes"),
+		selected_ruler,
+		str(city.foes.tri),
+		catalog.content.get("lord_kin", {}),
+	)
 
 func select_opening_hero(hero_id: String) -> void:
 	selected_hero = hero_id
@@ -148,9 +161,9 @@ func _handle_pointer(point: Vector2) -> void:
 					select_ruler(RULER_IDS[index])
 					return
 		"pick":
-			for index in OPENING_HERO_IDS.size():
+			for index in opening_hero_ids.size():
 				if _hero_card_rect(index).has_point(point):
-					select_opening_hero(OPENING_HERO_IDS[index])
+					select_opening_hero(opening_hero_ids[index])
 					return
 
 func _handle_map_pointer(point: Vector2) -> void:
@@ -326,8 +339,8 @@ func _draw_pick() -> void:
 	_text_center(str(city.name), 48, 24, GOLD)
 	_text_center("%s：%s" % [field.name, field.desc], 78, 13, Color("d5c9a8"))
 	_text_center("挑个武将开局", 235, 26, PALE_GOLD)
-	for index in OPENING_HERO_IDS.size():
-		var hero: Dictionary = catalog.by_id("heroes", OPENING_HERO_IDS[index])
+	for index in opening_hero_ids.size():
+		var hero: Dictionary = catalog.by_id("heroes", opening_hero_ids[index])
 		var rect := _hero_card_rect(index)
 		var tri: Dictionary = TRI_DISPLAY[str(hero.elem)]
 		_panel(rect, Color("3a2c17"), tri.color, 3.0)

@@ -61,6 +61,18 @@ func _run() -> void:
     _click(main, Vector2(100, 170))
     if not _expect(main.phase == "pick", "First ruler row must enter opening pick"):
         return
+    if not _expect(main.has_method("roll_opening_heroes"), "Ruler selection must use the 45-hero opening picker"):
+        return
+    if not _expect(main.opening_hero_ids.size() == 3 and _unique_count(main.opening_hero_ids) == 3, "Opening draft must contain three unique heroes"):
+        return
+    var non_dps := 0
+    for hero_id in main.opening_hero_ids:
+        var hero: Dictionary = main.catalog.by_id("heroes", hero_id)
+        if hero.cls == "shield" or hero.cls == "support":
+            non_dps += 1
+    if not _expect(non_dps <= 1, "Opening draft must contain at least two damage classes"):
+        return
+    var first_opening_hero: String = main.opening_hero_ids[0]
 
     _click(main, Vector2(161, 320))
     if not _expect(main.phase == "pick", "Gap between hero cards must not select a hero"):
@@ -73,7 +85,7 @@ func _run() -> void:
         return
     if not _expect(main.selected_ruler == "caocao", "Selected ruler must be retained"):
         return
-    if not _expect(main.selected_hero == "jiangwei", "Selected hero must be retained"):
+    if not _expect(main.selected_hero == first_opening_hero, "Selected opening hero must be retained"):
         return
 
     var kills_before: int = main.kills
@@ -90,6 +102,12 @@ func _click(main: Control, position: Vector2) -> void:
     event.position = position
     event.pressed = true
     main._gui_input(event)
+
+func _unique_count(values: Array) -> int:
+    var unique := {}
+    for value in values:
+        unique[value] = true
+    return unique.size()
 
 func _expect(condition: bool, message: String) -> bool:
     if condition:
