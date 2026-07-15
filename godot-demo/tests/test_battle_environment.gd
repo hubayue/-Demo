@@ -67,9 +67,18 @@ func _test_static_fields(catalog) -> bool:
 	return _expect(float(enemy.y) < 420.0 + 100.0 * 0.1 * 0.7, "mud band must slow only enemies inside its Y range")
 
 func _test_dragon_egg(catalog) -> bool:
+	var locked = BattleRun.new(catalog, Mulberry32.new(9))
+	locked.start(_city(""), "liubiao", "zhangfei", 1)
+	locked.wave = 10
+	locked.city.metaWins = 7
+	var locked_cards = BattleCards.new(catalog, SequenceRng.new([0.0]))
+	if not _expect(not locked_cards.build_pool(locked).any(func(card): return str(card.kind) == "egg"), "dragon eggs must stay locked before eight account wins outside suppression"): return false
+	locked.endless = true
+	if not _expect(locked_cards.build_pool(locked).any(func(card): return str(card.kind) == "egg"), "entering suppression must reveal the dragon egg even before eight account wins"): return false
 	var run = BattleRun.new(catalog, Mulberry32.new(10))
 	run.start(_city(""), "liubiao", "zhangfei", 1)
 	run.wave = 10
+	run.city.metaWins = 8
 	run.obstacles.clear(); run.traits.clear()
 	var cards = BattleCards.new(catalog, SequenceRng.new([0.75, 0.0, 0.0]))
 	var place: Dictionary = cards.build_pool(run).filter(func(card): return str(card.kind) == "egg" and str(card.sub) == "place")[0]

@@ -1,6 +1,8 @@
 class_name BattleEnvironment
 extends RefCounted
 
+const BattleRecords = preload("res://src/progression/battle_records.gd")
+
 var volcano_time := 10.0
 var tower_time := 5.0
 var boulder_time := 8.0
@@ -62,6 +64,8 @@ func on_enemy_death(run, enemy: Dictionary) -> void:
 	var mutation: String = str(run.mutations.get(run.wave, ""))
 	if run.relic_ids.has("tongque") and not mutation.is_empty() and not ["fat", "eastwind"].has(mutation):
 		gold_gain *= 1.5
+	if run.endless and run.win_wave > 0:
+		gold_gain *= BattleRecords.endless_gold_multiplier(run.wave, run.win_wave)
 	run.run_gold += gold_gain
 
 func _update_field_events(run, delta: float) -> void:

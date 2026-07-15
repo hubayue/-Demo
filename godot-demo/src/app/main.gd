@@ -7,6 +7,9 @@ const Mulberry32Source = preload("res://src/core/mulberry32.gd")
 const BattleRunSource = preload("res://src/battle/battle_run.gd")
 const BattleLordSource = preload("res://src/battle/battle_lord.gd")
 const BattleFoesSource = preload("res://src/battle/battle_foes.gd")
+const BattleRecordsSource = preload("res://src/progression/battle_records.gd")
+const LocalProfileSource = preload("res://src/progression/local_profile.gd")
+const RunSettlementSource = preload("res://src/progression/run_settlement.gd")
 
 const VIEW_SIZE := Vector2(480.0, 800.0)
 const CURRENT_WEEK := 2948
@@ -49,6 +52,8 @@ const MAP_TAB_RECTS := [
 const STATE_GO_RECT := Rect2(150, 648, 180, 44)
 const LORD_COMMAND_RECT := Rect2(324, 751, 146, 42)
 const FOE_LORD_RECT := Rect2(208, 108, 64, 43)
+const RESULT_BTN1 := Rect2(38, 690, 404, 42)
+const RESULT_BTN2 := Rect2(38, 744, 404, 42)
 
 var catalog
 var weekly
@@ -64,6 +69,10 @@ var week_clears: Dictionary = {}
 var map_message := ""
 var battle_run
 var foe_lord_popup := false
+var profile_path := "user://v7.19.2-local-profile.json"
+var profile: Dictionary = {}
+var settlement_summary: Dictionary = {}
+var suppression_summary: Dictionary = {}
 
 func _ready() -> void:
 	catalog = ContentCatalogSource.new()
@@ -74,6 +83,8 @@ func _ready() -> void:
 		return
 	weekly = WeeklyMapSource.new(catalog)
 	opening_picker = OpeningPickerSource.new()
+	profile = LocalProfileSource.load_from(profile_path, CURRENT_WEEK)
+	week_clears = profile.week_clears
 	set_process(true)
 	queue_redraw()
 
@@ -112,6 +123,7 @@ func select_ruler(ruler_id: String) -> void:
 
 func roll_opening_heroes() -> void:
 	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
+	city.metaWins = int(profile.get("wins", 0))
 	opening_hero_ids = opening_picker.pick_ids(
 		catalog.list("heroes"),
 		selected_ruler,
@@ -123,10 +135,14 @@ func select_opening_hero(hero_id: String) -> void:
 	selected_hero = hero_id
 	phase = "battle"
 	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
+	city.metaWins = int(profile.get("wins", 0))
+	city.weekGuest = BattleRecordsSource.week_guest_lords(CURRENT_WEEK).has(selected_ruler)
 	var seed := CURRENT_WEEK * 1009 + selected_city * 131 + RULER_IDS.find(selected_ruler) * 17
 	battle_run = BattleRunSource.new(catalog, Mulberry32Source.new(seed))
-	battle_run.start(city, selected_ruler, selected_hero)
+	battle_run.start(city, selected_ruler, selected_hero, LocalProfileSource.ruler_level(profile, selected_ruler), LocalProfileSource.hero_levels(profile))
 	foe_lord_popup = false
+	settlement_summary = {}
+	suppression_summary = {}
 	queue_redraw()
 
 func city_is_cleared(index: int) -> bool:
@@ -146,7 +162,34 @@ func _process(delta: float) -> void:
 	if phase != "battle" or battle_run == null:
 		return
 	battle_run.advance_real(delta)
+	_sync_battle_result()
 	queue_redraw()
+
+func _sync_battle_result() -> void:
+	if battle_run.status == "win" and not battle_run.clear_settled:
+		settlement_summary = RunSettlementSource.settle_clear(profile, battle_run, selected_city, _theme_fit())
+		_save_profile()
+	if battle_run.endless and battle_run.score_revision > 0 and int(suppression_summary.get("revision", 0)) < battle_run.score_revision:
+		suppression_summary = RunSettlementSource.record_suppression(profile, battle_run, selected_city, bool(battle_run.city.get("weekGuest", false)))
+		suppression_summary.revision = battle_run.score_revision
+		_save_profile()
+	if battle_run.status == "over" and not battle_run.over_settled:
+		var over_summary: Dictionary = RunSettlementSource.settle_over(profile, battle_run, selected_city)
+		for key in over_summary: settlement_summary[key] = over_summary[key]
+		_save_profile()
+
+func _save_profile() -> void:
+	var error := LocalProfileSource.save_to(profile_path, profile)
+	if error != OK: push_error("Unable to save local profile: %s" % error_string(error))
+
+func _theme_fit() -> bool:
+	match str(battle_run.city.get("theme", "")):
+		"tuanjie": return battle_run.bond_ever
+		"liaoyuan": return battle_run.units().any(func(unit): return bool(unit.hero.get("burn", false)) or str(battle_run.ult_system.definition(str(unit.hero.id)).get("name", "")).contains("火"))
+		"yunchou": return battle_run.lord_command_used > 0
+		"jifeng": return int(battle_run.team.counts.get("spear", 0)) + int(battle_run.team.counts.get("cav", 0)) + int(battle_run.team.counts.get("shield", 0)) >= 3
+		"jiancheng": return int(battle_run.team.counts.get("archer", 0)) > 0 and battle_run.units().any(func(unit): return float(unit.hero.get("splash", 0.0)) > 0)
+	return false
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -173,6 +216,9 @@ func _handle_pointer(point: Vector2) -> void:
 		"battle":
 			if battle_run == null:
 				return
+			if battle_run.status != "play":
+				_handle_result_pointer(point)
+				return
 			if bool(battle_run.permanent_tactics.get("gewu", false)):
 				battle_run.permanent_tactics.gewu = false
 				battle_run.gewu_auto_timer = 0.0
@@ -196,6 +242,27 @@ func _handle_pointer(point: Vector2) -> void:
 				battle_run.cast_lord_command()
 				queue_redraw()
 				return
+
+func _handle_result_pointer(point: Vector2) -> void:
+	if RESULT_BTN1.has_point(point):
+		if battle_run.status == "win":
+			battle_run.continue_endless()
+		else:
+			_return_to_map()
+	elif RESULT_BTN2.has_point(point):
+		if battle_run.status == "win":
+			_return_to_map()
+		else:
+			phase = "title"
+			battle_run = null
+	queue_redraw()
+
+func _return_to_map() -> void:
+	phase = "map"
+	current_region = clampi(int(floor(selected_city / 16.0)), 0, 3)
+	state_popup = -1
+	battle_run = null
+	foe_lord_popup = false
 
 func _handle_map_pointer(point: Vector2) -> void:
 	if state_popup >= 0:
@@ -337,7 +404,16 @@ func _draw_state_popup(k: int) -> void:
 		_text("首通大赏：%d 金 · 金币倍率×%s" % [city.firstGold, city.goldMul], Vector2(58, 478), 14, GOLD)
 	_panel(Rect2(42, 526, 396, 88), Color("211a10"), Color("6c5835"), 1.0)
 	_text("🎖 我的战绩", Vector2(58, 552), 17, PALE_GOLD)
-	_text("已破城 · 本地战绩已记录" if cleared else "尚未破城 · 威望与讨伐记录为空", Vector2(58, 584), 14, GREEN if cleared else MUTED)
+	if cleared:
+		var best: Dictionary = profile.week_best.get(str(k), {})
+		var best_stars := int(best.get("stars", 1))
+		var best_waves := int(best.get("endless", 0))
+		var top_mark := " · 🏅十大功绩" if BattleRecordsSource.is_top_suppression(profile.week_best, k) else ""
+		var guest_mark := " · 客卿" if bool(best.get("guest", false)) else ""
+		_text("威望 %s%s · 讨伐 +%d波%s%s" % ["★".repeat(best_stars), "☆".repeat(3 - best_stars), best_waves, guest_mark, top_mark], Vector2(58, 580), 13, GOLD)
+		_text("城池贡献 %d 势力" % int(best.get("score", 0)), Vector2(58, 603), 12, BLUE)
+	else:
+		_text("尚未破城 · 威望与讨伐记录为空", Vector2(58, 584), 14, MUTED)
 	_panel(STATE_GO_RECT, Color("5a4426"), GOLD, 2.5)
 	_text_centered_in_rect("⚔ 进军", STATE_GO_RECT, 20, Color("fff3c4"))
 
@@ -359,10 +435,11 @@ func _draw_rulers() -> void:
 	for index in RULER_IDS.size():
 		var ruler: Dictionary = catalog.by_id("rulers", RULER_IDS[index])
 		var rect := _ruler_rect(index)
+		var is_guest := BattleRecordsSource.week_guest_lords(CURRENT_WEEK).has(RULER_IDS[index])
 		_panel(rect, PANEL_2, Color("5d513c"), 1.5)
-		_text(str(ruler.name), Vector2(30, rect.position.y + 27), 21, GOLD)
+		_text(str(ruler.name) + (" · 客卿" if is_guest else ""), Vector2(30, rect.position.y + 27), 21 if not is_guest else 18, GOLD)
 		_text(_short_text(str(ruler.desc), 24), Vector2(126, rect.position.y + 26), 13, Color("c9b69a"))
-		_text("Lv.1", Vector2(30, rect.position.y + 49), 12, BLUE)
+		_text("Lv.%d%s" % [LocalProfileSource.ruler_level(profile, RULER_IDS[index]), " · 讨伐×1.3" if is_guest else ""], Vector2(30, rect.position.y + 49), 12, BLUE)
 
 func _draw_pick() -> void:
 	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
@@ -483,7 +560,10 @@ func _draw_battle() -> void:
 		_text_center(_short_text("下波 %.1fs%s" % [maxf(0.0, battle_run.wave_timer), " · " + threat if not threat.is_empty() else ""], 34), 130 + foe_offset, 14, PALE_GOLD)
 	else:
 		var pressure_left := maxf(0.0, battle_run.wave_budget - battle_run.wave_clock)
-		_text_center("第%d波 · 催战 %.1fs" % [battle_run.wave, pressure_left], 130 + foe_offset, 14, RED if pressure_left < 5.0 else MUTED)
+		var pressure_note := ""
+		if not battle_run.endless_mod.is_empty(): pressure_note = " · 军令「%s」" % str(battle_run.endless_mod.name)
+		elif battle_run.foe_tenacity() < 0.999: pressure_note = " · 攻坚·控效%d%%" % roundi(battle_run.foe_tenacity() * 100.0)
+		_text_center(_short_text("第%d波 · 催战 %.1fs%s" % [battle_run.wave, pressure_left, pressure_note], 34), 130 + foe_offset, 14, RED if pressure_left < 5.0 else MUTED)
 	var bond_text := active_bond_text()
 	if not bond_text.is_empty():
 		draw_rect(Rect2(66, 140 + foe_offset, 348, 25), Color("332714e8"), true)
@@ -513,8 +593,63 @@ func _draw_battle() -> void:
 	elif foe_lord_popup_is_visible():
 		_draw_foe_lord_popup()
 	elif battle_run.status != "play":
-		draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.68), true)
-		_text_center("攻城告捷" if battle_run.status == "win" else "城墙失守", 350, 36, GOLD if battle_run.status == "win" else RED)
+		_draw_result()
+
+func _draw_result() -> void:
+	draw_rect(Rect2(0, 0, 480, 800), Color("140e06ed"), true)
+	var won: bool = battle_run.status == "win"
+	var glory: bool = not won and battle_run.win_wave > 0
+	_text_center("🎉 大获全胜" if won else ("🎖 虽败犹荣" if glory else "💀 大败而归"), 76, 36, GOLD if won else (Color("ffb84a") if glory else RED))
+	var field: Dictionary = catalog.by_id("fields", str(battle_run.city.get("field", "")))
+	var extra_waves := maxi(0, battle_run.scored_wave - battle_run.win_wave)
+	_text_center("%s · %s · 第%d波%s" % [str(battle_run.city.name), str(field.get("name", "")), battle_run.wave, " · 讨伐+%d波" % extra_waves if glory else ""], 105, 12, MUTED)
+
+	_panel(Rect2(26, 126, 428, 190), Color("211a10"), Color("6c5835"), 1.5)
+	_text_center("—— 成绩 ——", 151, 13, MUTED)
+	if won:
+		var stars_text := "★".repeat(battle_run.stars) + "☆".repeat(3 - battle_run.stars)
+		var verdict := "完美通关" if battle_run.stars == 3 else ("城墙受损" if battle_run.wall_hurt else "有武将阵亡")
+		_text_center("%s  %s" % [stars_text, verdict], 184, 20, GOLD)
+	var best: Dictionary = profile.week_best.get(str(selected_city), {})
+	_text("🏅 本城贡献", Vector2(48, 217), 13, Color("a89a76"))
+	_text("%d 势力" % int(best.get("score", 0)), Vector2(326, 217), 14, BLUE)
+	_text("⚖ 我的势力值", Vector2(48, 245), 13, Color("a89a76"))
+	_text("%d" % BattleRecordsSource.week_score(profile.week_best), Vector2(358, 245), 14, BLUE)
+	_text("🧠 韬略分", Vector2(48, 269), 13, Color("a89a76"))
+	_text("%d" % int(settlement_summary.get("tech_score", profile.week_tech.get(str(selected_city), 0))), Vector2(358, 269), 14, BLUE)
+	_text("💰 金币", Vector2(48, 291), 13, Color("a89a76"))
+	_text("+%d · 累计 %d%s" % [roundi(battle_run.run_gold) + int(settlement_summary.get("first_clear_gold", 0)) + battle_run.band_gold, int(profile.gold), " · 含跨段%d" % battle_run.band_gold if battle_run.band_gold > 0 else ""], Vector2(246, 291), 13, Color("ffb84a"))
+	var lord_xp: Dictionary = settlement_summary.get("lord_xp", {})
+	if not lord_xp.is_empty():
+		_text("👑 主公经验", Vector2(48, 312), 12, Color("a89a76"))
+		_text("+%d · Lv.%d" % [int(lord_xp.get("gain", 0)), int(lord_xp.get("to", 1))], Vector2(332, 312), 13, Color("c9a8ff"))
+
+	_panel(Rect2(26, 330, 428, 174), Color("211a10"), Color("6c5835"), 1.5)
+	_text_center("—— 战报 ——", 355, 13, MUTED)
+	_text("⚔ 击破", Vector2(48, 389), 13, Color("a89a76")); _text("%d 个贼" % battle_run.kills, Vector2(352, 389), 14, GREEN)
+	_text("💢 最重一击", Vector2(48, 418), 13, Color("a89a76")); _text("%d" % battle_run.max_hit, Vector2(366, 418), 14, GREEN)
+	_text("💥 绝技施放", Vector2(48, 447), 13, Color("a89a76")); _text("%d 次" % battle_run.ults_used, Vector2(366, 447), 14, GREEN)
+	var counter_pct := roundi(battle_run.counter_damage / battle_run.total_damage * 100.0) if battle_run.total_damage > 0 else 0
+	_text("☱ 克制伤害占比", Vector2(48, 476), 13, Color("a89a76")); _text("%d%%" % counter_pct, Vector2(366, 476), 14, GREEN if counter_pct >= 35 else PALE_GOLD)
+
+	_panel(Rect2(26, 518, 428, 150), Color("211a10"), Color("6c5835"), 1.5)
+	_text_center("—— 阵容 ——", 543, 13, MUTED)
+	var unit_names: Array[String] = []
+	for unit in battle_run.units(): unit_names.append("%s%d★" % [str(unit.hero.name), int(unit.level)])
+	_text(_short_text("出战  " + "  ".join(unit_names), 42), Vector2(44, 578), 12, PALE_GOLD)
+	var relic_names: Array[String] = []
+	for relic_id in battle_run.relic_ids:
+		var relic: Dictionary = catalog.by_id("relics", str(relic_id))
+		relic_names.append(str(relic.icon) + str(relic.name))
+	_text(_short_text("遗宝  " + "  ".join(relic_names), 42), Vector2(44, 609), 12, GOLD)
+	if extra_waves > 0:
+		var guest: bool = bool(battle_run.city.get("weekGuest", false))
+		_text("讨伐  +%d波 · 讨伐值 %d%s" % [extra_waves, BattleRecordsSource.city_suppression(selected_city, battle_run.stars, extra_waves, guest), " · 客卿×1.3" if guest else ""], Vector2(44, 640), 12, BLUE)
+
+	_panel(RESULT_BTN1, Color("7a3a2a") if won else Color("3a5a2a"), GOLD if won else GREEN, 2.0)
+	_text_centered_in_rect("⚔ 继续讨伐——多撑一波分更高" if won else "🗺 回地图，重整旗鼓", RESULT_BTN1, 15, Color.WHITE)
+	_panel(RESULT_BTN2, Color("5a4a3a"), PALE_GOLD, 2.0)
+	_text_centered_in_rect("🗺 收兵回城（回地图）" if won else "🏠 返回首页", RESULT_BTN2, 15, Color.WHITE)
 
 func _draw_battle_entities() -> void:
 	var field: Dictionary = catalog.by_id("fields", str(battle_run.city.get("field", "")))
@@ -662,6 +797,9 @@ func _next_wave_threat_text() -> String:
 	if battle_run == null or battle_run.next_wave_preview.is_empty(): return ""
 	var preview: Dictionary = battle_run.next_wave_preview
 	var parts := []
+	var endless_rule: Dictionary = battle_run.endless_pending if not battle_run.endless_pending.is_empty() else battle_run.endless_mod
+	if not endless_rule.is_empty():
+		parts.append("下波军令「%s」" % str(endless_rule.name) if not battle_run.endless_pending.is_empty() else "军令「%s」生效" % str(endless_rule.name))
 	var mutation_id := str(preview.get("mutation", ""))
 	if not mutation_id.is_empty():
 		var mutation: Dictionary = catalog.content.get("mutations", {}).get(mutation_id, {})

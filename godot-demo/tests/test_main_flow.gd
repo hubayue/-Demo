@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MainScene = preload("res://scenes/main.tscn")
+const LocalProfile = preload("res://src/progression/local_profile.gd")
 
 func _init() -> void:
     call_deferred("_run")
@@ -8,6 +9,10 @@ func _init() -> void:
 func _run() -> void:
     var main = MainScene.instantiate()
     root.add_child(main)
+    main.profile_path = "user://codex-main-flow-profile-test.json"
+    DirAccess.remove_absolute(ProjectSettings.globalize_path(main.profile_path))
+    main.profile = LocalProfile.defaults(main.CURRENT_WEEK)
+    main.week_clears = main.profile.week_clears
     if not _expect(main.phase == "title", "Scene must start on title"):
         return
 
@@ -73,6 +78,7 @@ func _run() -> void:
     if not _expect(non_dps <= 1, "Opening draft must contain at least two damage classes"):
         return
     var first_opening_hero: String = main.opening_hero_ids[0]
+    main.profile.wins = 8
 
     _click(main, Vector2(161, 320))
     if not _expect(main.phase == "pick", "Gap between hero cards must not select a hero"):
@@ -92,6 +98,8 @@ func _run() -> void:
     if not _expect(battle_run != null, "Entering battle must construct the authoritative BattleRun model"):
         return
     if not _expect(battle_run.city.k == 0 and battle_run.ruler_id == "caocao", "BattleRun must retain the selected city and ruler"):
+        return
+    if not _expect(int(battle_run.city.metaWins) == 8, "the playable battle must receive account wins for exact dragon-egg gating"):
         return
     if not _expect(str(battle_run.foe_lord.def.id) == "heyi", "the integrated weekly city must seat its deterministic foe commander"):
         return
@@ -188,6 +196,42 @@ func _run() -> void:
     battle_run.picking_relic = true
     if not _expect(main.has_method("card_draft_heading") and "遗宝" in main.card_draft_heading(), "a relic draft must identify itself instead of claiming to be a level-up draft"):
         return
+
+    battle_run.picking_relic = false
+    battle_run.awaiting_card_choice = false
+    battle_run.card_choices = []
+    battle_run.status = "play"
+    battle_run.clear_formation()
+    battle_run.obstacles.clear()
+    battle_run.add_unit_at("zhurong", 1, 2)
+    battle_run.city.theme = "liaoyuan"
+    if not _expect(main._theme_fit(), "Liaoyuan strategy fit must recognize a hero whose ultimate name contains fire even without a burn field"):
+        return
+    battle_run.wave = 7
+    battle_run.wall = battle_run.wall_max
+    battle_run.unit_deaths = 0
+    battle_run.run_gold = 12.0
+    battle_run.finish("win")
+    main._process(0.0)
+    if not _expect(battle_run.stars == 3 and main.city_is_cleared(0) and not main.settlement_summary.is_empty(), "a real victory must settle prestige and local city progress"):
+        return
+    _click(main, main.RESULT_BTN1.get_center())
+    if not _expect(battle_run.status == "play" and battle_run.endless, "the first victory result button must continue the same run in suppression mode"):
+        return
+    battle_run.wave = 9
+    battle_run.scored_wave = 9
+    battle_run.score_revision = 1
+    main._process(0.0)
+    if not _expect(int(main.profile.week_best["0"].endless) == 2, "cleared suppression waves must persist through the main flow"):
+        return
+    battle_run.status = "play"
+    battle_run.finish("over")
+    main._process(0.0)
+    _click(main, main.RESULT_BTN1.get_center())
+    if not _expect(main.phase == "map" and main.battle_run == null and main.city_is_unlocked(1), "suppression defeat must return to the map with the next city unlocked"):
+        return
+
+    DirAccess.remove_absolute(ProjectSettings.globalize_path(main.profile_path))
 
     print("Godot main input and runtime flow: PASS")
     quit(0)

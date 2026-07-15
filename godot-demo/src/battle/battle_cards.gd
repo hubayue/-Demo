@@ -103,7 +103,7 @@ func build_pool(run) -> Array:
 		pool.append({"kind": "merit", "weight": 5.0, "value": mini(150, 25 + run.wave), "title": "犒赏三军", "icon": "💰", "desc": "金币落袋为安"})
 	if run.ruler_id == "caocao" and not run.empty_slots().is_empty():
 		pool.append({"kind": "granary", "weight": 15.0, "title": "屯田粮仓", "icon": "🌾", "desc": "产粮喂旁边武将升星，敌人能拆它"})
-	if run.ruler_id == "liubiao" and run.wave >= 10:
+	if run.ruler_id == "liubiao" and (run.endless or (int(run.city.get("metaWins", 0)) >= 8 and run.wave >= 10)):
 		var egg = units.filter(func(unit): return str(unit.hero.cls) == "egg").front() if units.any(func(unit): return str(unit.hero.cls) == "egg") else null
 		if egg != null and int(egg.level) >= EGG_MAX:
 			pool.append({"kind": "egg", "sub": "awaken", "weight": 14.0, "title": "应龙觉醒", "icon": "🐉", "desc": "破壳觉醒，龙息镇压最强威胁"})

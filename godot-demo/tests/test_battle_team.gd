@@ -60,6 +60,8 @@ func _run() -> void:
 		return
 	if not _test_erqiao_ripple_radius(catalog):
 		return
+	if not _test_hero_meta_growth(catalog):
+		return
 	print("Godot v7.19.2 battle team state: PASS")
 	quit(0)
 
@@ -92,6 +94,20 @@ func _test_erqiao_ripple_radius(catalog) -> bool:
 	run.add_unit_at("xiaoqiao", 1, 2)
 	var daqiao: Dictionary = _find_unit(run.units(), "daqiao")
 	return _expect(is_equal_approx(run.team.ripple_max(run, daqiao), 308.0), "Erqiao plus tuanjie must expand Da Qiao's slow ripple from 230 to 308")
+
+func _test_hero_meta_growth(catalog) -> bool:
+	var baseline = BattleRun.new(catalog, Mulberry32.new(7192))
+	baseline.start(_base_city(""), "caocao", "zhangfei")
+	var baseline_unit: Dictionary = _find_unit(baseline.units(), "zhangfei")
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(_base_city(""), "caocao", "zhangfei", 1, {"zhangfei": 10})
+	var unit: Dictionary = _find_unit(run.units(), "zhangfei")
+	if not _expect(int(unit.level) == 3, "hero account level ten must unlock the level-four and level-ten starting stars"): return false
+	var mods: Dictionary = run.team.unit_mods(run, unit)
+	var expected_damage := roundi(float(unit.hero.dmg) * pow(1.9, 2) * float(mods.dmgMul) * 1.72)
+	if not _expect(run.team.unit_damage(run, unit, mods) == expected_damage, "hero account level ten must add 72 percent damage after star scaling"): return false
+	var expected_hp := roundi(float(baseline_unit.hp_max) * 1.5 * 1.72)
+	return _expect(int(unit.hp_max) == expected_hp, "hero account level ten must add 72 percent health after starting-star scaling")
 
 func _base_city(theme: String) -> Dictionary:
 	return {"ch": 1, "wall": 20, "theme": theme, "field": "", "hpMul": 1.0, "spdMul": 1.0, "hpGrow": 1.1, "affixAdd": 0.0, "killTarget": 450, "obstacles": 0, "foes": {"tri": ""}}

@@ -37,8 +37,8 @@ const KIT_NAMES := {
 	"avatar": "天公化神",
 }
 
-func roll_special(rng, wave: int, city: Dictionary, mutation) -> Variant:
-	var ranged_multiplier := float(city.get("rangedMul", 1.0)) * (4.0 if str(mutation) == "volley" else 1.0)
+func roll_special(rng, wave: int, city: Dictionary, mutation, endless_ranged_multiplier := 1.0) -> Variant:
+	var ranged_multiplier := float(city.get("rangedMul", 1.0)) * float(endless_ranged_multiplier) * (4.0 if str(mutation) == "volley" else 1.0)
 	var theme_id := str(city.get("weekTheme", city.get("week_theme", city.get("theme", ""))))
 	var theme_multiplier := 1.6 if theme_id == "yunchou" else 1.0
 	var level_index := int(city.get("lvIdx", city.get("idx", 0)))

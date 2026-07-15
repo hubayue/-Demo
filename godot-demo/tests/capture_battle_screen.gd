@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MainScene = preload("res://scenes/main.tscn")
+const LocalProfile = preload("res://src/progression/local_profile.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -149,6 +150,44 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.2-tactics-fields.png")):
+		return
+	run.status = "play"
+	run.wave = 15
+	run.wall = run.wall_max
+	run.unit_deaths = 0
+	run.run_gold = 286.0
+	run.max_hit = 1860
+	run.total_damage = 1000.0
+	run.counter_damage = 620.0
+	run.finish("win")
+	main.profile = LocalProfile.defaults(main.CURRENT_WEEK)
+	main.week_clears = main.profile.week_clears
+	main.profile.gold = 496
+	main.profile.week_clears["0"] = 1
+	main.profile.week_best["0"] = {"stars": 3, "endless": 0, "score": 150}
+	main.settlement_summary = {"first_clear_gold": 210, "tech_score": 171, "lord_xp": {"gain": 12, "to": 2}}
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-result.png")):
+		return
+	run.continue_endless()
+	run.wave = 20
+	run.scored_wave = 19
+	run.status = "play"
+	run.finish("over")
+	main.profile.week_best["0"] = {"stars": 3, "endless": 4, "score": 300}
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-suppression-result.png")):
+		return
+	main._return_to_map()
+	main.state_popup = 0
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-local-record-map.png")):
 		return
 	print("Godot battle screenshots: PASS")
 	quit(0)

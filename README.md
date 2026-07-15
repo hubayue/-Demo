@@ -33,4 +33,16 @@ Git 仓库已初始化。当前线上权威版本为 `v7.19.2`，原始前端源
 
 - Godot 工程：`godot-demo/`
 - 原型工程边界：`docs/architecture/godot-prototype-scope.md`
-- 当前可玩切片：标题 → 地图 → 主公 → 开局选将 → 自动战斗
+- 当前可玩切片：标题 → 64 城周地图 → 主公 → 45 将三选一 → 固定 2 倍速自动战斗 → 威望结算 → 可选继续讨伐 → 本地战绩回写地图
+- 战斗已接入：18 组羁绊、45 将绝技、8 位主公与号令、8 位敌方渠帅及卡组、特种敌军/词缀/首领、遗宝、永久战术、地形天气与无尽军令。
+- 本地存档：`user://v7.19.2-local-profile.json`，保存金币、胜场、周进度、威望/讨伐/韬略最佳战绩、势力跨段奖励及主公/武将成长；每周客卿由周种子确定，不依赖服务器。
+
+## 本地运行与验证
+
+双击 Godot 4.7 打开 `godot-demo/project.godot` 后运行主场景即可游玩；开发环境也可直接执行：
+
+```powershell
+.\.tools\godot-4.7\Godot_v4.7-stable_win64_console.exe --path godot-demo
+```
+
+全量回归包含 19 个 Godot 规则/流程脚本和 13 项 Web 工具测试。Godot 测试位于 `godot-demo/tests/`，Web 测试通过 `cd web-demo; npm test` 执行。

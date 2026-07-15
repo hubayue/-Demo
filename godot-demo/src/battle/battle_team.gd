@@ -28,6 +28,8 @@ func recompute(run) -> void:
 				break
 		if complete:
 			active_bonds[str(bond.id)] = true
+	if not active_bonds.is_empty():
+		run.bond_ever = true
 
 func active_bond_ids() -> Array:
 	var result: Array = active_bonds.keys()
@@ -65,6 +67,8 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 		damage_multiplier *= float(run.army_buff.get("mul", 1.0))
 	if bool(run.permanent_tactics.get("gewu", false)):
 		damage_multiplier *= 1.3
+	if run.ruler_id == "liubiao" and run.endless and run.win_wave > 0:
+		damage_multiplier *= 1.0 + 0.05 * maxi(0, run.wave - run.win_wave)
 	if bool(run.permanent_tactics.get("pofu", false)):
 		damage_multiplier *= 1.5
 	if float(run.foe_curse_time) > 0:
@@ -152,7 +156,8 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 	}
 
 func unit_damage(_run, unit: Dictionary, mods: Dictionary) -> int:
-	return roundi(float(unit.hero.get("dmg", 0.0)) * _star_damage_multiplier(int(unit.level), _run.relic_ids.has("fenghuang")) * float(mods.dmgMul))
+	var hero_level_multiplier := 1.0 + (int(_run.hero_levels.get(str(unit.hero.id), 1)) - 1) * 0.08
+	return roundi(float(unit.hero.get("dmg", 0.0)) * _star_damage_multiplier(int(unit.level), _run.relic_ids.has("fenghuang")) * float(mods.dmgMul) * hero_level_multiplier)
 
 func unit_rate(unit: Dictionary, mods: Dictionary) -> float:
 	return float(unit.hero.get("rate", 99.0)) * pow(0.93, int(unit.level) - 1) / float(mods.rateMul)

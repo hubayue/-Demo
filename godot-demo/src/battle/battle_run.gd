@@ -8,6 +8,7 @@ const BattleFoeLordScript = preload("res://src/battle/battle_foe_lord.gd")
 const BattleUltsScript = preload("res://src/battle/battle_ults.gd")
 const BattleFoesScript = preload("res://src/battle/battle_foes.gd")
 const BattleEnvironmentScript = preload("res://src/battle/battle_environment.gd")
+const BattleRecordsScript = preload("res://src/progression/battle_records.gd")
 
 const GRID_ROWS := 3
 const GRID_COLS := 5
@@ -21,6 +22,13 @@ const TRI_KE := {"badao": "liangmou", "liangmou": "rende", "rende": "badao"}
 const MUTATION_KEYS := ["frenzy", "horde", "volley", "ironhide", "fat", "eastwind", "rainstorm"]
 const TRAIT_KEYS := ["atk", "haste", "guard", "heal", "crit", "elem"]
 const BOSS_NAMES := ["程远志", "邓茂", "波才", "张梁", "张宝", "张角"]
+const ENDLESS_RULES := [
+	{"key": "smoke", "name": "烟瘴弥漫", "tip": "弓兵射程-35%", "mod": {"archerRngMul": 0.65}},
+	{"key": "mud", "name": "泥沼遍地", "tip": "骑兵冲锋只有一半远", "mod": {"cavChargeMul": 0.55}},
+	{"key": "crossbow", "name": "连弩贼", "tip": "弓贼投石兵成倍地来", "mod": {"rangedMul": 2.2}},
+	{"key": "rush", "name": "急行军", "tip": "敌人跑快15%", "mod": {"spdMul": 1.15}},
+	{"key": "shift", "name": "换皮妖法", "tip": "贼换了怕的属性，看预告", "mod": {}},
+]
 
 var catalog
 var rng
@@ -88,7 +96,24 @@ var wall_regen_timer := 30.0
 var baihu_ready := false
 var kills := 0
 var unit_deaths := 0
+var wall_hurt := false
+var stars := 0
+var win_wave := 0
+var endless := false
+var endless_mod: Dictionary = {}
+var endless_pending: Dictionary = {}
+var endless_foes: Dictionary = {}
+var scored_wave := 0
+var score_revision := 0
+var total_damage := 0.0
+var counter_damage := 0.0
+var max_hit := 0
+var bond_ever := false
 var run_gold := 0.0
+var band_gold := 0
+var gold_committed := 0
+var clear_settled := false
+var over_settled := false
 var field_events: Array = []
 var dragon_count := 0
 var grid: Array = []
@@ -201,7 +226,24 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	baihu_ready = false
 	kills = 0
 	unit_deaths = 0
+	wall_hurt = false
+	stars = 0
+	win_wave = 0
+	endless = false
+	endless_mod = {}
+	endless_pending = {}
+	endless_foes = {}
+	scored_wave = 0
+	score_revision = 0
+	total_damage = 0.0
+	counter_damage = 0.0
+	max_hit = 0
+	bond_ever = false
 	run_gold = 0.0
+	band_gold = 0
+	gold_committed = 0
+	clear_settled = false
+	over_settled = false
 	field_events = []
 	dragon_count = 0
 	grid = []
@@ -295,6 +337,9 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 	if bool(permanent_tactics.get("luojing", false)) and (float(enemy.get("slowT", 0.0)) > 0 or float(enemy.get("stunT", 0.0)) > 0 or float(enemy.get("fearT", 0.0)) > 0 or float(enemy.get("sleepT", 0.0)) > 0 or float(enemy.get("charmT", 0.0)) > 0 or enemy_in_flood(enemy)):
 		amount *= 1.3
 	var damage := maxi(1, int(round(amount * triangle)))
+	max_hit = maxi(max_hit, damage)
+	total_damage += damage
+	if is_equal_approx(triangle, 1.5): counter_damage += damage
 	var hp_damage := damage
 	var shield := float(enemy.get("shield", 0.0))
 	if shield > 0:
@@ -328,7 +373,7 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 		elif ruler_id == "dongzhuo" and float(enemy.get("burnT", 0.0)) > 0:
 			xp_multiplier = 2.0
 		gain_xp(float(enemy.get("xp", 0.0)) * xp_multiplier)
-		if kills >= int(city.get("killTarget", 450)):
+		if kills >= int(city.get("killTarget", 450)) and not endless:
 			finish("win")
 		elif bool(enemy.get("boss", false)):
 			queue_relic_draft()
@@ -339,10 +384,55 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 	return damage
 
 func finish(result: String) -> void:
+	if status != "play": return
 	status = result
+	if result == "win":
+		stars = BattleRecordsScript.calc_stars(wall_hurt, unit_deaths)
+		win_wave = wave
 	enemy_projectiles.clear()
 	enemy_lobs.clear()
 	enemy_wall_lobs.clear()
+
+func continue_endless() -> bool:
+	if status != "win" or win_wave <= 0: return false
+	endless = true
+	status = "play"
+	return true
+
+func _endless_rule_tick(next_wave: int) -> void:
+	if not endless_mod.is_empty() and next_wave > int(endless_mod.get("until", 0)):
+		endless_mod = {}
+		endless_foes = {}
+	if not endless_pending.is_empty() and next_wave % 5 == 0:
+		endless_mod = endless_pending.duplicate(true)
+		endless_mod.until = next_wave + 4
+		endless_pending = {}
+		if str(endless_mod.key) == "shift":
+			var base_tri := str(city.get("foes", {}).get("tri", ""))
+			if not base_tri.is_empty():
+				endless_foes = {"tri": _pick(TRI_KEYS.filter(func(key): return str(key) != base_tri))}
+			else:
+				endless_foes = {}
+		else:
+			endless_foes = {}
+	elif endless_pending.is_empty() and (next_wave + 1) % 5 == 0 and next_wave >= 4:
+		var current_key := str(endless_mod.get("key", ""))
+		var candidates: Array = ENDLESS_RULES.filter(func(rule): return str(rule.key) != current_key)
+		endless_pending = _pick(candidates).duplicate(true)
+
+func endless_mod_value(key: String, fallback := 1.0) -> float:
+	return float(endless_mod.get("mod", {}).get(key, fallback))
+
+func foe_tenacity() -> float:
+	var extra := maxi(0, wave - win_wave - 5) if endless and win_wave > 0 else 0
+	return maxf(0.12, pow(0.93, extra)) if extra > 0 else 1.0
+
+func effective_archer_range(hero: Dictionary) -> float:
+	var attack_range := float(hero.get("rng", 0.0))
+	if str(hero.get("cls", "")) == "archer":
+		var field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
+		attack_range *= float(field.get("archerRng", 1.0)) * float(city.get("archerRngMul", 1.0)) * endless_mod_value("archerRngMul")
+	return attack_range
 
 func gain_xp(amount: float) -> void:
 	var field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
@@ -386,6 +476,9 @@ func _update_step(delta: float) -> void:
 			wall_regen_timer += 30.0
 	var field_clear := spawn_queue.is_empty() and enemies.is_empty()
 	if field_clear:
+		if endless and win_wave > 0 and scored_wave != wave:
+			scored_wave = wave
+			score_revision += 1
 		prepare_next_wave()
 		wave_timer -= delta
 		if wave_timer <= 0:
@@ -514,7 +607,8 @@ func _update_foe_lord(delta: float) -> void:
 	foe_system.update(self, delta)
 
 func foe_damage_multiplier() -> float:
-	return 1.3 if foe_rage_time > 0 else 1.0
+	var extra := maxi(0, wave - win_wave - 5) if endless and win_wave > 0 else 0
+	return (1.3 if foe_rage_time > 0 else 1.0) * (pow(1.10, extra) if extra > 0 else 1.0)
 
 func lord_command_auto_ready() -> bool:
 	return lord_system.auto_ready(self)
@@ -601,6 +695,7 @@ func _spawn_enemy(spec: Dictionary) -> void:
 
 func _update_enemies(delta: float) -> void:
 	cata_volley_time = maxf(0.0, cata_volley_time - delta)
+	var control_delta := delta / foe_tenacity()
 	var banners := enemies.filter(func(other): return str(other.get("special", "")) == "banner" and not bool(other.get("dead", false)) and float(other.get("silencedT", 0.0)) <= 0)
 	var wardens := enemies.filter(func(other): return str(other.get("special", "")) == "warden" and not bool(other.get("dead", false)) and float(other.get("silencedT", 0.0)) <= 0)
 	for enemy in enemies.duplicate():
@@ -613,16 +708,18 @@ func _update_enemies(delta: float) -> void:
 				damage_enemy(enemy, float(enemy.get("burnDmg", 0.0)) * environment.burn_multiplier(self), "", str(enemy.get("burnSrc", "fire")))
 				if bool(enemy.get("dead", false)): continue
 		var slowed := float(enemy.get("slowT", 0.0)) > 0
-		if slowed: enemy.slowT = maxf(0.0, float(enemy.slowT) - delta)
+		if slowed: enemy.slowT = maxf(0.0, float(enemy.slowT) - control_delta)
 		if float(enemy.get("armorBreakT", 0.0)) > 0: enemy.armorBreakT = maxf(0.0, float(enemy.armorBreakT) - delta)
-		for status_key in ["charmT", "sleepT", "fearT", "silencedT", "jianjunT", "duelT"]:
+		for status_key in ["charmT", "sleepT", "fearT", "silencedT"]:
+			if float(enemy.get(status_key, 0.0)) > 0: enemy[status_key] = maxf(0.0, float(enemy.get(status_key, 0.0)) - control_delta)
+		for status_key in ["jianjunT", "duelT"]:
 			if float(enemy.get(status_key, 0.0)) > 0: enemy[status_key] = maxf(0.0, float(enemy.get(status_key, 0.0)) - delta)
 		if str(enemy.get("special", "")) == "ram":
 			enemy.fearT = 0.0
 			enemy.sleepT = 0.0
 			enemy.charmT = 0.0
-			enemy.slowT = maxf(0.0, float(enemy.get("slowT", 0.0)) - delta)
-			enemy.stunT = maxf(0.0, float(enemy.get("stunT", 0.0)) - delta)
+			enemy.slowT = maxf(0.0, float(enemy.get("slowT", 0.0)) - control_delta)
+			enemy.stunT = maxf(0.0, float(enemy.get("stunT", 0.0)) - control_delta)
 			enemy.kb = minf(float(enemy.get("kb", 0.0)), 10.0)
 		_update_enemy_abilities(enemy, delta)
 		if bool(enemy.get("dead", false)): continue
@@ -644,7 +741,7 @@ func _update_enemies(delta: float) -> void:
 			enemy.y = maxf(-30.0, float(enemy.y) - knock_step)
 			enemy.kb = float(enemy.kb) - knock_step
 		if float(enemy.get("stunT", 0.0)) > 0:
-			enemy.stunT = maxf(0.0, float(enemy.stunT) - delta)
+			enemy.stunT = maxf(0.0, float(enemy.stunT) - control_delta)
 			continue
 		if float(enemy.get("sleepT", 0.0)) > 0: continue
 		if float(enemy.get("turncoatT", 0.0)) > 0:
@@ -695,6 +792,7 @@ func _update_enemies(delta: float) -> void:
 			var wall_damage := int(enemy.dmg)
 			if relic_ids.has("lianhuan"): wall_damage = maxi(1, wall_damage - 1)
 			wall = maxi(0, wall - wall_damage)
+			wall_hurt = true
 			enemy.dead = true
 			if wall <= 0: finish("over")
 	for index in range(enemies.size() - 1, -1, -1):
@@ -897,6 +995,7 @@ func _update_enemy_attacks(delta: float) -> void:
 		if float(lob.t) < float(lob.dur): continue
 		lob.dead = true
 		wall = maxi(0, wall - 1)
+		wall_hurt = true
 		if wall <= 0: finish("over")
 	for index in range(enemy_wall_lobs.size() - 1, -1, -1):
 		if bool(enemy_wall_lobs[index].get("dead", false)): enemy_wall_lobs.remove_at(index)
@@ -1064,10 +1163,7 @@ func _update_units(delta: float) -> void:
 			unit.cd = maxf(0.4, team.unit_rate(unit, mods))
 			continue
 		var center := slot_center(int(unit.row), int(unit.col))
-		var attack_range := float(hero.get("rng", 0.0))
-		if hero_class == "archer":
-			var field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
-			attack_range *= float(field.get("archerRng", 1.0)) * float(city.get("archerRngMul", 1.0))
+		var attack_range := effective_archer_range(hero)
 		var target: Dictionary = {}
 		var front_y := -INF
 		for enemy in enemies:
@@ -1104,6 +1200,7 @@ func _update_units(delta: float) -> void:
 			charges.append({
 				"x": center.x,
 				"y": center.y - 20.0,
+				"y0": center.y - 20.0,
 				"vy": -300.0,
 				"width": (46.0 if float(hero.get("splash", 0.0)) > 0 else 34.0),
 				"damage": damage,
@@ -1189,6 +1286,11 @@ func _update_charges(delta: float) -> void:
 		if bool(charge.dead):
 			continue
 		charge.y = float(charge.y) + float(charge.vy) * delta
+		if not charge.has("y0"): charge.y0 = float(charge.y) - float(charge.vy) * delta
+		var charge_limit := float(city.get("cavChargeMul", endless_mod_value("cavChargeMul", 0.0)))
+		if charge_limit > 0.0 and float(charge.vy) < 0.0 and not bool(charge.get("boulder", false)) and float(charge.y0) - float(charge.y) >= (float(charge.y0) - 30.0) * charge_limit:
+			charge.dead = true
+			continue
 		if (float(charge.vy) < 0 and float(charge.y) < 30.0) or (float(charge.vy) > 0 and float(charge.y) > DEFENSE_LINE + 20.0):
 			charge.dead = true
 			continue
@@ -1402,6 +1504,8 @@ func remove_random_obstacle() -> bool:
 func prepare_next_wave() -> void:
 	if not next_queue.is_empty():
 		return
+	if endless:
+		_endless_rule_tick(wave + 1)
 	next_queue = build_wave(wave + 1)
 	var counts := {"spear": 0, "cav": 0, "archer": 0}
 	var affixes := {}
@@ -1417,7 +1521,7 @@ func prepare_next_wave() -> void:
 			specials[special_id] = int(specials.get(special_id, 0)) + 1
 		if bool(spec.get("boss", false)):
 			boss = str(spec.get("bossName", ""))
-	var foe_tri := str(city.get("foes", {}).get("tri", ""))
+	var foe_tri := _foe_tri_for_wave(wave + 1)
 	next_wave_preview = {
 		"counts": counts,
 		"affixes": affixes,
@@ -1430,21 +1534,24 @@ func prepare_next_wave() -> void:
 
 func build_wave(number: int) -> Array:
 	var queue := []
-	var mutation = mutations.get(number)
-	var foe_tri := str(city.get("foes", {}).get("tri", ""))
-	if mutation == "ironhide" and foe_tri:
-		foe_tri = str(TRI_KE[foe_tri])
+	var mutation = _mutation_for_wave(number)
+	var foe_tri := _foe_tri_for_wave(number)
 	var count := mini(96, 10 + int(floor(number * 3.3)))
 	if mutation == "horde":
 		count = mini(130, int(round(count * 1.7)))
 	var hp_scale := 0.7 if mutation == "horde" else 1.0
+	var raw_count := count
+	if count > 72 and mutation != "horde":
+		count = 72
+		hp_scale *= raw_count / float(count)
 	var speed_scale := 1.35 if mutation == "frenzy" else 1.0
-	var hp := int(round(12.0 * pow(float(city.hpGrow), number - 1) * float(city.hpMul) * hp_scale))
-	var base_speed: float = clampf(30.0 + number * 2.0, 30.0, 96.0) * float(city.spdMul) * speed_scale
+	var endless_hp := BattleRecordsScript.endless_hp_multiplier(number, win_wave) if endless and win_wave > 0 else 1.0
+	var hp := int(round(12.0 * pow(float(city.hpGrow), number - 1) * float(city.hpMul) * hp_scale * endless_hp))
+	var base_speed: float = clampf(30.0 + number * 2.0, 30.0, 96.0) * float(city.spdMul) * speed_scale * endless_mod_value("spdMul")
 	var base_xp := float(2 + int(floor(number / 8.0))) * 0.65 * (2.0 if mutation == "fat" else 1.0)
 	for index in count:
 		var enemy_class: String = _pick(ENEMY_CLASSES)
-		var special = foe_behavior.roll_special(rng, number, city, mutation)
+		var special = foe_behavior.roll_special(rng, number, city, mutation, endless_mod_value("rangedMul"))
 		if special != null:
 			var special_delay := 0.0 if index == 0 else _randf(0.3, maxf(0.35, 1.0 - number * 0.03))
 			queue.append(foe_behavior.make_spec(str(special), hp, base_speed, base_xp, enemy_class, special_delay, _roll_tri(foe_tri)))
@@ -1501,6 +1608,20 @@ func build_wave(number: int) -> Array:
 			queue.append(shadow)
 	return queue
 
+func _foe_tri_for_wave(number: int) -> String:
+	var source: Dictionary = endless_foes if not endless_foes.is_empty() else city.get("foes", {})
+	var foe_tri := str(source.get("tri", ""))
+	if mutations.get(number) == "ironhide" and not foe_tri.is_empty():
+		foe_tri = str(TRI_KE[foe_tri])
+	return foe_tri
+
+func _mutation_for_wave(number: int):
+	if mutations.has(number): return mutations[number]
+	if number >= 18:
+		mutations[number] = _pick(MUTATION_KEYS) if rng.next_float() < 0.25 else ""
+		return mutations[number]
+	return null
+
 func _roll_mutations() -> Dictionary:
 	var result := {}
 	var slots := [[6, 8], [11, 14]] if int(city.ch) == 0 else [[5, 7], [9, 12], [14, 16]]
@@ -1538,12 +1659,14 @@ func _place_opening_hero(hero_id: String) -> void:
 	add_unit(hero_id)
 
 func _make_unit(hero: Dictionary, row: int, col: int) -> Dictionary:
-	var max_hp := _unit_max_hp(hero)
+	var meta_level := int(hero_levels.get(str(hero.id), 1))
+	var starting_stars := 1 + (1 if meta_level >= 4 else 0) + (1 if meta_level >= 10 else 0) + (1 if meta_level >= 20 else 0) + (1 if meta_level >= 30 else 0)
+	var max_hp := _unit_max_hp(hero, starting_stars)
 	var unit := {
 		"hero": hero,
 		"row": row,
 		"col": col,
-		"level": 1,
+		"level": starting_stars,
 		"hp": max_hp,
 		"hp_max": max_hp,
 		"cd": _randf(0.0, 0.3),
@@ -1570,7 +1693,8 @@ func _unit_max_hp(hero: Dictionary, stars := 1) -> int:
 			_: base = 60
 	var shield_scale := 1.5 if str(hero.cls) == "shield" else 1.0
 	var bond_hp := float(team.bond_fx(self, str(hero.id)).hp)
-	return int(round(base * (1.0 + (stars - 1) * 0.25) * shield_scale * bond_hp))
+	var hero_level_multiplier := 1.0 + (int(hero_levels.get(str(hero.id), 1)) - 1) * 0.08
+	return int(round(base * (1.0 + (stars - 1) * 0.25) * shield_scale * bond_hp * hero_level_multiplier))
 
 func _roll_tri(main_tri: String) -> String:
 	if not main_tri:
