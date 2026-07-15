@@ -80,7 +80,7 @@ static func cell_at(point: Vector2) -> Vector2i:
 static func cell_rect(cell: Vector2i) -> Rect2:
 	if not _valid_cell(cell):
 		return Rect2()
-	return Rect2(GRID_X + cell.x * CELL + 2.0, GRID_Y + cell.y * CELL + 2.0, CELL - 4.0, CELL - 4.0)
+	return Rect2(GRID_X + cell.x * CELL + 3.0, GRID_Y + cell.y * CELL + 3.0, CELL - 6.0, CELL - 6.0)
 
 static func _valid_cell(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.x < GRID_COLS and cell.y >= 0 and cell.y < GRID_ROWS

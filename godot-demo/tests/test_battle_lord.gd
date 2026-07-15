@@ -21,6 +21,8 @@ func _run() -> void:
 		return
 	if not _test_command_identity_and_initial_cooldown(catalog):
 		return
+	if not _test_opening_passives(catalog):
+		return
 	if not _test_wuxing_and_bingfeng(catalog):
 		return
 	if not _test_taoyuan_and_jiejiang(catalog):
@@ -133,6 +135,19 @@ func _test_command_identity_and_initial_cooldown(catalog) -> bool:
 		return false
 	leveled.lord_command_cd = 0.0
 	return _expect(is_equal_approx(leveled.lord_command_cooldown_max(), 25.2), "Cao Cao level 17 must unlock four Supply ranks and reduce a 30-second command cooldown by 16%")
+
+func _test_opening_passives(catalog) -> bool:
+	var liubei = BattleRun.new(catalog, Mulberry32.new(71914))
+	liubei.start(_base_city(), "liubei", "zhangfei", 1)
+	if not _expect(liubei.wall == 21 and liubei.wall_max == 21, "level-one Liu Bei must apply one rank of City Defense to the opening wall"):
+		return false
+	var yuanshao = BattleRun.new(catalog, Mulberry32.new(71915))
+	yuanshao.start(_base_city(), "yuanshao", "zhangfei", 2)
+	if not _expect(is_equal_approx(yuanshao.xp, 10.0) and is_equal_approx(float(yuanshao.buffs.xpGain), 1.04), "Yuan Shao opening passives must apply Veteran XP and Farm XP gain"):
+		return false
+	var sunquan = BattleRun.new(catalog, Mulberry32.new(71916))
+	sunquan.start(_base_city(), "sunquan", "zhangfei", 4)
+	return _expect(sunquan.wall_shield == 2, "Sun Quan level four must apply one rank of opening wall shield")
 
 func _test_wuxing_and_bingfeng(catalog) -> bool:
 	var caocao = _make_run(catalog, "caocao")

@@ -109,6 +109,8 @@ func _test_focus_input() -> bool:
 	main.select_city(0)
 	main.select_ruler("caocao")
 	main.select_opening_hero("huangzhong")
+	# Catapults only enter after the opening field banner has timed out in the Web demo.
+	main.battle_field_banner_time = 0.0
 	var cata := _enemy("cata", 180.0, 300.0, 0.0)
 	var soldier := _enemy("", 320.0, 340.0, 0.0)
 	cata.cataWind = 1.0

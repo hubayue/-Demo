@@ -23,6 +23,8 @@ func _run() -> void:
 		return
 
 	var drag = BattleDragController.new()
+	if not _expect(BattleDragController.cell_rect(Vector2i(0, 0)) == Rect2(38, 495, 76, 76), "formation cell geometry must match Web's +3 inset and CELL-6 rounded card"):
+		return
 	var source_point := BattleRun.slot_center(2, 1)
 	var empty_target := BattleRun.slot_center(0, 4)
 	if not _expect(drag.begin(Vector2i(1, 2), source_point), "pressing a unit starts a pending drag"):

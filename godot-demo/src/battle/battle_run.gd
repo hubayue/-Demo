@@ -214,6 +214,13 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 		"rippleRad": 0.0,
 		"elemBoost": {"badao": 0.0, "liangmou": 0.0, "rende": 0.0},
 	}
+	var wall_level: int = lord_system.passive_level(self, "wall")
+	if wall_level > 0:
+		wall += wall_level
+		wall_max += wall_level
+	xp += lord_system.passive_level(self, "vet") * 10.0
+	buffs.xpGain = 1.0 + lord_system.passive_level(self, "farm") * 0.04
+	wall_shield += lord_system.passive_level(self, "pick") * 2
 	lord_atk_buff = 0.0
 	lord_atk_gap = 1.0
 	lord_attack_timer = 1.5
