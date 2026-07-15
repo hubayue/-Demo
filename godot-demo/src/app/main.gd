@@ -416,6 +416,19 @@ func active_relic_text() -> String:
 			labels.append(str(relic.icon) + str(relic.name))
 	return " ".join(labels)
 
+func active_tactic_text() -> String:
+	if battle_run == null:
+		return ""
+	var labels: Array[String] = []
+	var definitions := {
+		"luanshi": "🪨乱石穿空", "huoshao": "🔥火烧连营", "zhanshou": "🎯擒贼擒王",
+		"luojing": "🕳落井下石", "shuiyan": "🌊水淹七军", "pofu": "🍳破釜沉舟", "gewu": "💃乐不思蜀",
+	}
+	for tactic_id in definitions:
+		if bool(battle_run.permanent_tactics.get(tactic_id, false)):
+			labels.append(str(definitions[tactic_id]))
+	return " ".join(labels)
+
 func card_draft_heading() -> String:
 	if battle_run != null and battle_run.picking_relic:
 		return "遗宝！三选一"
@@ -454,8 +467,10 @@ func _draw_battle() -> void:
 	draw_rect(Rect2(14, 70, 436, 8), Color("433b31"), true)
 	draw_rect(Rect2(14, 70, minf(436.0, battle_run.xp / maxf(1.0, battle_run.xp_need) * 436.0), 8), BLUE, true)
 	_text("经验 %.1f / %.0f" % [battle_run.xp, battle_run.xp_need], Vector2(14, 96), 12, Color("b9dfff"))
-	_text(str(city.name), Vector2(190, 96), 12, BLUE)
-	_text("固定 2倍速", Vector2(384, 96), 11, PALE_GOLD)
+	var battle_field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
+	_text(_short_text("%s · %s" % [str(city.name), str(battle_field.get("name", ""))], 13), Vector2(154, 96), 11, BLUE)
+	_text("金 %.0f" % battle_run.run_gold, Vector2(316, 96), 11, GOLD)
+	_text("固定 2倍速", Vector2(398, 96), 10, PALE_GOLD)
 	var foe_offset := 46.0 if not battle_run.foe_lord.is_empty() else 0.0
 	if foe_offset > 0:
 		_draw_foe_lord_status()
@@ -481,6 +496,10 @@ func _draw_battle() -> void:
 	if not lord_effect.is_empty():
 		draw_rect(Rect2(54, 198 + foe_offset, 372, 25), Color("172334e8"), true)
 		_text_center(lord_effect, 216 + foe_offset, 13, Color("b9dfff"))
+	var tactic_text := active_tactic_text()
+	if not tactic_text.is_empty():
+		draw_rect(Rect2(12, 226 + foe_offset, 456, 23), Color("2b2115e8"), true)
+		_text_center("战术：%s" % _short_text(tactic_text, 32), 243 + foe_offset, 11, PALE_GOLD)
 	for event in battle_run.foe_events:
 		var definition: Dictionary = battle_run.foe_lord.get("def", {})
 		_text_center("%s%s：%s" % [definition.get("icon", "贼"), definition.get("name", "渠帅"), event.text], 286, 18, RED if str(event.kind) == "cast" else Color("ffb08a"))
@@ -498,6 +517,15 @@ func _draw_battle() -> void:
 		_text_center("攻城告捷" if battle_run.status == "win" else "城墙失守", 350, 36, GOLD if battle_run.status == "win" else RED)
 
 func _draw_battle_entities() -> void:
+	var field: Dictionary = catalog.by_id("fields", str(battle_run.city.get("field", "")))
+	var band: Dictionary = field.get("band", {})
+	if not band.is_empty():
+		var band_y1 := float(band.get("y1", 0.0))
+		var band_y2 := float(band.get("y2", 0.0))
+		var band_color := Color("5aaaff30") if str(band.get("type", "")) == "water" else Color("7a5b3a45")
+		draw_rect(Rect2(0, band_y1, 480, band_y2 - band_y1), band_color, true)
+		draw_line(Vector2(0, band_y1), Vector2(480, band_y1), band_color.lightened(0.35), 1.0)
+		draw_line(Vector2(0, band_y2), Vector2(480, band_y2), band_color.lightened(0.35), 1.0)
 	if not battle_run.flood.is_empty():
 		var river_y1 := float(battle_run.flood.y1)
 		var river_y2 := float(battle_run.flood.y2)
@@ -555,7 +583,22 @@ func _draw_battle_entities() -> void:
 		draw_line(Vector2(float(lob.x1) - 10, float(lob.y1)), Vector2(float(lob.x1) + 10, float(lob.y1)), RED, 2.0)
 		draw_circle(lob_position, 8.0, Color("b8aa96"))
 	for charge in battle_run.charges:
-		draw_circle(Vector2(float(charge.x), float(charge.y)), 10.0, Color("ffe0a0"))
+		var charge_pos := Vector2(float(charge.x), float(charge.y))
+		if bool(charge.get("boulder", false)):
+			draw_circle(charge_pos, 18.0, Color("80705d"))
+			draw_arc(charge_pos, 20.0, 0, TAU, 28, Color("d8c29a"), 2.0)
+		else:
+			draw_circle(charge_pos, 10.0, Color("ffe0a0"))
+	for event in battle_run.field_events:
+		var event_pos := Vector2(float(event.x), float(event.y))
+		match str(event.kind):
+			"volcano":
+				draw_circle(event_pos, 80.0 * float(event.t), Color("ff5a2a33"))
+				draw_arc(event_pos, 110.0, 0, TAU, 40, Color("ff8a4a"), 2.0)
+			"tower":
+				draw_line(Vector2(240, 108), event_pos, Color("ffb05a"), 2.0)
+			"boulder":
+				draw_line(Vector2(event_pos.x, 42), Vector2(event_pos.x, battle_run.DEFENSE_LINE), Color("c9b89a55"), 2.0)
 	for enemy in battle_run.enemies:
 		var position := Vector2(float(enemy.x), float(enemy.y))
 		var radius := float(enemy.r)
@@ -619,6 +662,16 @@ func _next_wave_threat_text() -> String:
 	if battle_run == null or battle_run.next_wave_preview.is_empty(): return ""
 	var preview: Dictionary = battle_run.next_wave_preview
 	var parts := []
+	var mutation_id := str(preview.get("mutation", ""))
+	if not mutation_id.is_empty():
+		var mutation: Dictionary = catalog.content.get("mutations", {}).get(mutation_id, {})
+		parts.append("%s%s%s" % [str(mutation.get("icon", "")), str(mutation.get("name", mutation_id)), "·金+50%" if battle_run.relic_ids.has("tongque") and not bool(mutation.get("good", false)) else ""])
+	if battle_run.relic_ids.has("tongque"):
+		var warning_id := str(battle_run.mutations.get(battle_run.wave + 2, ""))
+		if not warning_id.is_empty():
+			var warning: Dictionary = catalog.content.get("mutations", {}).get(warning_id, {})
+			if not bool(warning.get("good", false)):
+				parts.append("铜雀预警%d波·%s" % [battle_run.wave + 2, str(warning.get("name", warning_id))])
 	for special_id in preview.get("specials", {}).keys():
 		var special_def: Dictionary = BattleFoesSource.SPECIALS.get(str(special_id), {})
 		parts.append("%s×%d" % [special_def.get("name", special_id), int(preview.specials[special_id])])

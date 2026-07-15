@@ -129,6 +129,27 @@ func _run() -> void:
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.2-special-foes.png")):
 		return
+	run.enemies = []
+	run.enemy_projectiles = []
+	run.enemy_lobs = []
+	run.enemy_wall_lobs = []
+	run.charges = []
+	run.field_events = []
+	run.city.field = "huoshan"
+	run.wave = 10
+	run.obstacles = {"0,0": true, "0,4": true, "2,0": true, "2,4": true}
+	run.permanent_tactics = {"luanshi": true, "huoshao": true, "zhanshou": true, "luojing": true, "shuiyan": true, "pofu": true}
+	run.environment.luanshi_wave = -1
+	run.environment.shuiyan_wave = -1
+	run.environment.volcano_time = 0.0
+	for index in 6:
+		run._spawn_enemy({"x": 80.0 + index * 64.0, "y": 270.0 + index * 12.0, "hp": 320.0, "speed": 0.0, "r": 18, "cls": "spear", "big": index == 5, "boss": false, "affix": null, "special": "runner" if index == 0 else null, "tri": "badao", "xp": 0.0, "dmg": 2})
+	run.environment.update(run, 0.01)
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-tactics-fields.png")):
+		return
 	print("Godot battle screenshots: PASS")
 	quit(0)
 

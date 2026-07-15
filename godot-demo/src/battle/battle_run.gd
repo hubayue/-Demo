@@ -7,6 +7,7 @@ const BattleLordScript = preload("res://src/battle/battle_lord.gd")
 const BattleFoeLordScript = preload("res://src/battle/battle_foe_lord.gd")
 const BattleUltsScript = preload("res://src/battle/battle_ults.gd")
 const BattleFoesScript = preload("res://src/battle/battle_foes.gd")
+const BattleEnvironmentScript = preload("res://src/battle/battle_environment.gd")
 
 const GRID_ROWS := 3
 const GRID_COLS := 5
@@ -29,6 +30,7 @@ var lord_system
 var foe_system
 var ult_system
 var foe_behavior
+var environment
 var city: Dictionary = {}
 var ruler_id := ""
 var ruler_level := 1
@@ -86,6 +88,9 @@ var wall_regen_timer := 30.0
 var baihu_ready := false
 var kills := 0
 var unit_deaths := 0
+var run_gold := 0.0
+var field_events: Array = []
+var dragon_count := 0
 var grid: Array = []
 var obstacles: Dictionary = {}
 var traits: Dictionary = {}
@@ -121,6 +126,7 @@ func _init(content_catalog, random_source) -> void:
 	foe_system = BattleFoeLordScript.new()
 	ult_system = BattleUltsScript.new()
 	foe_behavior = BattleFoesScript.new()
+	environment = BattleEnvironmentScript.new()
 
 func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String, selected_ruler_level := 1, selected_hero_levels: Dictionary = {}) -> void:
 	city = level_data.duplicate(true)
@@ -195,6 +201,9 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	baihu_ready = false
 	kills = 0
 	unit_deaths = 0
+	run_gold = 0.0
+	field_events = []
+	dragon_count = 0
 	grid = []
 	for row in GRID_ROWS:
 		var cells := []
@@ -228,6 +237,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	team.recompute(self)
 	_place_opening_hero(opening_hero_id)
 	foe_system.setup(self)
+	environment.setup(self)
 
 func advance_real(delta: float) -> void:
 	if status != "play":
@@ -309,6 +319,7 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 		var drowned := enemy_in_flood(enemy)
 		enemy.dead = true
 		kills += 1
+		environment.on_enemy_death(self, enemy)
 		var xp_multiplier := 1.0
 		if ruler_id == "sunquan":
 			xp_multiplier = 2.0 if drowned else 1.3
@@ -334,7 +345,8 @@ func finish(result: String) -> void:
 	enemy_wall_lobs.clear()
 
 func gain_xp(amount: float) -> void:
-	xp += amount
+	var field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
+	xp += amount * float(buffs.get("xpGain", 1.0)) * float(field.get("xpMul", 1.0))
 	while xp >= xp_need:
 		xp -= xp_need
 		level += 1
@@ -363,6 +375,10 @@ func queue_relic_draft() -> void:
 
 func _update_step(delta: float) -> void:
 	game_time += delta
+	for event in field_events:
+		event.t = float(event.t) - delta
+	for index in range(field_events.size() - 1, -1, -1):
+		if float(field_events[index].t) <= 0: field_events.remove_at(index)
 	if relic_ids.has("qixing") and wall < wall_max:
 		wall_regen_timer -= delta
 		if wall_regen_timer <= 0:
@@ -383,6 +399,7 @@ func _update_step(delta: float) -> void:
 			if spawn_timer <= 0:
 				_spawn_enemy(spawn_queue.pop_front())
 				spawn_timer = float(spawn_queue[0].delay) if not spawn_queue.is_empty() else 0.0
+	environment.update(self, delta)
 	_update_enemies(delta)
 	_update_units(delta)
 	_update_ultimate_effects(delta)
@@ -593,7 +610,7 @@ func _update_enemies(delta: float) -> void:
 			enemy.burnTick = float(enemy.get("burnTick", 0.0)) - delta
 			if float(enemy.burnTick) <= 0:
 				enemy.burnTick = 0.5
-				damage_enemy(enemy, float(enemy.get("burnDmg", 0.0)))
+				damage_enemy(enemy, float(enemy.get("burnDmg", 0.0)) * environment.burn_multiplier(self), "", str(enemy.get("burnSrc", "fire")))
 				if bool(enemy.get("dead", false)): continue
 		var slowed := float(enemy.get("slowT", 0.0)) > 0
 		if slowed: enemy.slowT = maxf(0.0, float(enemy.slowT) - delta)
@@ -621,7 +638,7 @@ func _update_enemies(delta: float) -> void:
 					enemy._guarded = true
 					break
 		var frenzy := (str(enemy.get("affix", "")) == "frenzy" or str(enemy.get("kit", "")) == "affixlord") and float(enemy.hp) < float(enemy.hp_max) * 0.4
-		var speed_now := float(enemy.base_speed) * (0.55 if slowed else 1.0) * (0.6 if enemy_in_flood(enemy) else 1.0) * banner_multiplier * (1.6 if frenzy else 1.0)
+		var speed_now: float = float(enemy.base_speed) * (0.55 if slowed else 1.0) * environment.movement_multiplier(self, enemy) * (0.6 if enemy_in_flood(enemy) else 1.0) * banner_multiplier * (1.6 if frenzy else 1.0)
 		if float(enemy.get("kb", 0.0)) > 0:
 			var knock_step := minf(float(enemy.kb), 300.0 * delta)
 			enemy.y = maxf(-30.0, float(enemy.y) - knock_step)
@@ -1023,12 +1040,21 @@ func _update_units(delta: float) -> void:
 				unit[status_key] = maxf(0.0, float(unit.get(status_key, 0.0)) - delta)
 		if float(unit.get("sealedT", 0.0)) > 0:
 			continue
+		var hero: Dictionary = unit.hero
+		var hero_class := str(hero.cls)
+		if hero_class == "egg":
+			unit.eggT = float(unit.get("eggT", 1.0)) - delta
+			if float(unit.eggT) <= 0:
+				unit.eggT += 1.0
+				gain_xp((0.6 + 0.1 * mini(wave, 25)) * int(unit.level) * (1.0 + 0.02 * ruler_level))
+			continue
 		ult_system.update_unit(self, unit, delta)
 		unit.cd = float(unit.cd) - delta
 		if float(unit.cd) > 0:
 			continue
-		var hero: Dictionary = unit.hero
-		var hero_class := str(hero.cls)
+		if hero_class == "dragon":
+			_update_dragon(unit)
+			continue
 		var mods: Dictionary = team.unit_mods(self, unit)
 		if hero_class == "support":
 			unit.cd = maxf(0.4, team.unit_rate(unit, mods))
@@ -1039,6 +1065,9 @@ func _update_units(delta: float) -> void:
 			continue
 		var center := slot_center(int(unit.row), int(unit.col))
 		var attack_range := float(hero.get("rng", 0.0))
+		if hero_class == "archer":
+			var field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
+			attack_range *= float(field.get("archerRng", 1.0)) * float(city.get("archerRngMul", 1.0))
 		var target: Dictionary = {}
 		var front_y := -INF
 		for enemy in enemies:
@@ -1160,7 +1189,7 @@ func _update_charges(delta: float) -> void:
 		if bool(charge.dead):
 			continue
 		charge.y = float(charge.y) + float(charge.vy) * delta
-		if float(charge.y) < 30.0:
+		if (float(charge.vy) < 0 and float(charge.y) < 30.0) or (float(charge.vy) > 0 and float(charge.y) > DEFENSE_LINE + 20.0):
 			charge.dead = true
 			continue
 		for enemy in enemies.duplicate():
@@ -1169,8 +1198,9 @@ func _update_charges(delta: float) -> void:
 			if absf(float(enemy.x) - float(charge.x)) < float(charge.width) + float(enemy.r) * 0.5 and absf(float(enemy.y) - float(charge.y)) < float(enemy.r) + 14.0:
 				charge.hit.append(enemy)
 				_hit_enemy(enemy, float(charge.damage), str(charge.tri), float(charge.crit), charge.get("owner", {}))
-				if float(charge.get("kb_mul", 0.0)) > 0:
-					enemy.kb = maxf(float(enemy.get("kb", 0.0)), 90.0 * float(charge.kb_mul))
+				var knockback_mul := float(charge.get("kb_mul", 1.0)) * (1.5 if relic_ids.has("madeng") and not bool(charge.get("boulder", false)) else 1.0)
+				var push := (14.0 if bool(enemy.get("boss", false)) else (42.0 if bool(enemy.get("big", false)) or enemy.get("affix") != null else 72.0)) * knockback_mul
+				enemy.kb = minf(130.0 * (1.5 if relic_ids.has("madeng") else 1.0), float(enemy.get("kb", 0.0)) + push)
 	for index in range(charges.size() - 1, -1, -1):
 		if bool(charges[index].dead):
 			charges.remove_at(index)
@@ -1256,12 +1286,59 @@ func _hit_enemy(enemy: Dictionary, amount: float, attacker_tri: String, critical
 		final_amount *= 3.0 if relic_ids.has("qinggang") else 2.0
 	if relic_ids.has("guding") and (bool(enemy.get("boss", false)) or enemy.get("affix") != null):
 		final_amount *= 1.25
+	if not source_unit.is_empty() and str(source_unit.get("hero", {}).get("cls", "")) == "spear" and relic_ids.has("shemao") and not bool(enemy.get("boss", false)) and rng.next_float() < 0.2:
+		enemy.kb = minf(130.0, float(enemy.get("kb", 0.0)) + 72.0)
 	var hp_before := float(enemy.get("hp", 0.0)) + float(enemy.get("shield", 0.0))
 	var dealt := damage_enemy(enemy, final_amount, attacker_tri)
 	if not source_unit.is_empty():
 		var hp_after := maxf(0.0, float(enemy.get("hp", 0.0))) + float(enemy.get("shield", 0.0))
 		source_unit.damage_dealt = float(source_unit.get("damage_dealt", 0.0)) + maxf(0.0, hp_before - hp_after)
 	return dealt
+
+func egg_hatch_bonus() -> float:
+	return 0.2 if relic_ids.has("longxian") else 0.0
+
+func egg_hatch_chance(egg: Dictionary) -> float:
+	var chance := 0.6 + float(egg.get("hatchBonus", 0.0)) + egg_hatch_bonus()
+	if str(traits.get(_cell_key(int(egg.row), int(egg.col)), "")) == "elem": chance += 0.1
+	if float(egg.get("rbuffs", {}).get("farm", 0.0)) > 0: chance += 0.15
+	if ruler_id == "liubiao": chance += 0.01 * ruler_level
+	return minf(0.9, chance)
+
+func _update_dragon(unit: Dictionary) -> void:
+	var target: Dictionary = {}
+	var best_score := -INF
+	for enemy in enemies:
+		if bool(enemy.get("dead", false)) or float(enemy.get("y", -20.0)) < 20.0: continue
+		var caster := bool(enemy.get("summoner", false)) or enemy.get("kit") != null or ["shooter", "thrower", "shaman", "healer", "banner"].has(str(enemy.get("special", "")))
+		var score := float(enemy.hp_max) * (0.25 if caster and float(enemy.get("silencedT", 0.0)) > 1.0 else 1.0)
+		if score > best_score:
+			best_score = score
+			target = enemy
+	if target.is_empty():
+		unit.cd = 0.4
+		return
+	unit.cd = 2.8
+	var mods: Dictionary = team.unit_mods(self, unit)
+	var fighter_levels: Array = units().filter(func(other): return not ["dragon", "egg", "granary"].has(str(other.hero.cls))).map(func(other): return int(other.level))
+	var top_level := 5
+	for fighter_level in fighter_levels: top_level = maxi(top_level, int(fighter_level))
+	var phoenix := relic_ids.has("fenghuang")
+	var star_ratio: float = team._star_damage_multiplier(top_level, phoenix) / team._star_damage_multiplier(5, phoenix)
+	var damage: float = round((300.0 + wave * 55.0) * (1.0 + 0.25 * (int(unit.get("dragonRank", 1)) - 1)) * maxf(1.0, star_ratio) * float(mods.dmgMul))
+	target.silencedT = maxf(float(target.get("silencedT", 0.0)), 3.2)
+	_hit_enemy(target, damage * 3.0, "", 0.0, unit)
+	var center := Vector2(float(target.x), float(target.y))
+	for enemy in enemies.duplicate():
+		if enemy == target or bool(enemy.get("dead", false)) or center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) > pow(130.0 + float(enemy.r), 2): continue
+		_hit_enemy(enemy, damage, "", 0.0, unit)
+	for enemy in enemies:
+		if bool(enemy.get("dead", false)) or str(mutations.get(wave, "")) == "rainstorm": continue
+		if enemy != target and center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) > pow(130.0 + float(enemy.r), 2): continue
+		enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 2.5)
+		enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), maxf(2.0, round(damage * 0.12)))
+		enemy.burnSrc = "dragon"
+	ult_events.append({"name": "应龙吐息", "type": "dmg", "t": 0.5})
 
 func _cast_ripple(unit: Dictionary) -> void:
 	var center := slot_center(int(unit.row), int(unit.col))

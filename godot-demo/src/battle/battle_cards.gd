@@ -8,7 +8,14 @@ const ELEM_COSMETIC := {
 	"xuhuang": true, "caiwenji": true, "simayi": true, "xushu": true,
 	"caohong": true, "granary": true, "dragonegg": true, "yinglong": true,
 }
-const ACTIVE_RELIC_IDS := ["qinggang", "dilu", "lianhuan", "qixing", "yiji", "bagua", "guding", "hanshu", "liannu", "baihu", "jiaowei", "shuijingshu", "jinlan"]
+const ACTIVE_RELIC_IDS := [
+	"qinggang", "longxian", "dilu", "shemao", "lianhuan", "jiuhu", "yuxi", "mengde", "qixing", "sunzi",
+	"yiji", "bagua", "yushan", "guding", "hanshu", "tongque", "liannu", "baihu", "jiguan", "huoyou",
+	"xuantie", "chensha", "madeng", "jili", "dujing", "jiaowei", "shuijingshu", "jinlan", "fenghuang", "hufu",
+]
+const EGG_MAX := 3
+const EGG_TYPE := {"id": "dragonegg", "name": "龙蛋", "char": "蛋", "cls": "egg", "elem": "badao", "dmg": 0, "rate": 9.0, "speed": 0, "hp": 300, "desc": "孵着持续吐纳经验，三阶可觉醒"}
+const DRAGON_TYPE := {"id": "yinglong", "name": "应龙", "char": "龍", "cls": "dragon", "elem": "badao", "dmg": 0, "rate": 2.8, "speed": 0, "hp": 520, "desc": "龙息重击并镇压最强威胁"}
 
 var catalog
 var rng
@@ -96,6 +103,14 @@ func build_pool(run) -> Array:
 		pool.append({"kind": "merit", "weight": 5.0, "value": mini(150, 25 + run.wave), "title": "犒赏三军", "icon": "💰", "desc": "金币落袋为安"})
 	if run.ruler_id == "caocao" and not run.empty_slots().is_empty():
 		pool.append({"kind": "granary", "weight": 15.0, "title": "屯田粮仓", "icon": "🌾", "desc": "产粮喂旁边武将升星，敌人能拆它"})
+	if run.ruler_id == "liubiao" and run.wave >= 10:
+		var egg = units.filter(func(unit): return str(unit.hero.cls) == "egg").front() if units.any(func(unit): return str(unit.hero.cls) == "egg") else null
+		if egg != null and int(egg.level) >= EGG_MAX:
+			pool.append({"kind": "egg", "sub": "awaken", "weight": 14.0, "title": "应龙觉醒", "icon": "🐉", "desc": "破壳觉醒，龙息镇压最强威胁"})
+		elif egg != null:
+			pool.append({"kind": "egg", "sub": "grow", "weight": 14.0, "title": "温养龙蛋", "icon": "🥚", "desc": "把握%d成，失败后下次+2成" % roundi(run.egg_hatch_chance(egg) * 10.0)})
+		elif not run.empty_slots().is_empty() and run.dragon_count < 2:
+			pool.append({"kind": "egg", "sub": "place", "weight": 8.0, "title": "天降龙蛋", "icon": "🥚", "desc": "每秒吐纳经验，三阶觉醒应龙"})
 
 	var owned_elements := {}
 	for unit in units:
@@ -238,13 +253,14 @@ func apply(run, card) -> bool:
 			run.wall = mini(run.wall, run.wall_max)
 		"granary":
 			applied = run.add_unit_data({"id": "granary", "name": "粮仓", "char": "仓", "cls": "granary", "elem": "badao", "rng": 0, "dmg": 0, "rate": 99, "speed": 0, "hp": 240, "desc": "产粮喂星"})
+		"egg": applied = _apply_egg(run, data)
 		"levelup":
 			run.level += 1
 			run.xp_need = round((10.0 + (run.level - 1) * 9.0 + pow(run.level, 1.72)) * (0.88 if run.relic_ids.has("hanshu") else 1.0))
 			run.pending_picks += 1
 		"seppuku": run.finish("over")
 		"dance": run.permanent_tactics.gewu = true
-		"merit": pass
+		"merit": run.run_gold += float(data.get("value", 0.0))
 		"reroll": run.pending_picks += 1
 		"relic":
 			var relic_id := str(data.relic_id)
@@ -255,6 +271,35 @@ func apply(run, card) -> bool:
 		_: applied = false
 	_finish_choice(run)
 	return applied
+
+func _apply_egg(run, data: Dictionary) -> bool:
+	match str(data.get("sub", "")):
+		"place": return run.add_unit_data(EGG_TYPE.duplicate(true))
+		"grow":
+			var eggs: Array = run.units().filter(func(unit): return str(unit.hero.cls) == "egg" and int(unit.level) < EGG_MAX)
+			if eggs.is_empty(): return false
+			var egg: Dictionary = eggs[0]
+			if rng.next_float() < run.egg_hatch_chance(egg):
+				egg.level = int(egg.level) + 1
+				egg.hatchBonus = 0.0
+				egg.hp_max = run._unit_max_hp(egg.hero, int(egg.level))
+				egg.hp = egg.hp_max
+			else:
+				egg.hatchBonus = float(egg.get("hatchBonus", 0.0)) + 0.2
+			return true
+		"awaken":
+			var ready: Array = run.units().filter(func(unit): return str(unit.hero.cls) == "egg" and int(unit.level) >= EGG_MAX)
+			if ready.is_empty(): return false
+			var egg: Dictionary = ready[0]
+			var row := int(egg.row)
+			var col := int(egg.col)
+			run.dragon_count += 1
+			var dragon: Dictionary = run._make_unit(DRAGON_TYPE.duplicate(true), row, col)
+			dragon.dragonRank = run.dragon_count
+			run.grid[row][col] = dragon
+			run.team.recompute(run)
+			return true
+	return false
 
 func _finish_choice(run) -> void:
 	run.card_choices = []

@@ -201,12 +201,17 @@ func _cast_jianhao(run, level: int) -> void:
 	if target_row >= 0:
 		run.grid[target_row][target_col] = null
 	run.team.recompute(run)
-	var level_ups := (3 if level >= 2 else 2) + target_level
-	for index in level_ups:
-		run.gain_xp(maxf(1.0, run.xp_need - run.xp))
+	var level_ups: int = (3 if level >= 2 else 2) + target_level
+	var field: Dictionary = run.catalog.by_id("fields", str(run.city.get("field", "")))
+	var xp_multiplier := maxf(0.01, float(run.buffs.get("xpGain", 1.0)) * float(field.get("xpMul", 1.0)))
+	var target_run_level: int = int(run.level) + level_ups
+	var guard := 0
+	while run.level < target_run_level and guard < 200:
+		run.gain_xp(maxf(1.0, run.xp_need - run.xp) / xp_multiplier)
+		guard += 1
 	var power := kin_power(run)
 	if power > 1.0:
-		run.gain_xp(run.xp_need * (power - 1.0) * 0.8)
+		run.gain_xp(run.xp_need * (power - 1.0) * 0.8 / xp_multiplier)
 	run.jianhao_count += 1
 
 func _update_mount(run, delta: float) -> void:

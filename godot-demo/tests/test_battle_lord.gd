@@ -258,10 +258,14 @@ func _test_fenluo_and_jianhao(catalog) -> bool:
 		yuanshu.add_unit_at(["zhangfei", "zhaoyun", "machao", "huangzhong", "xiahouyuan"][index], index / 5, index % 5)
 	var sacrifice: Dictionary = yuanshu.grid[0][0]
 	sacrifice.level = 1
+	# Jianhao promises exact level counts even when both farm and battlefield XP bonuses are active.
+	yuanshu.buffs.xpGain = 1.2
+	yuanshu.city.field = "guandu"
+	yuanshu.xp = 2.5
 	yuanshu.lord_command_cd = 0.0
 	if not _expect(yuanshu.lord_command_auto_ready() and yuanshu.cast_lord_command(), "Jianhao must require five fighters and a sacrifice at three stars or below"):
 		return false
-	if not _expect(yuanshu.units().size() == 4 and yuanshu.level == 4 and yuanshu.jianhao_count == 1, "level-one Jianhao must consume a one-star fighter and grant 2 + sacrifice-star = 3 exact level-ups"):
+	if not _expect(yuanshu.units().size() == 4 and yuanshu.level == 4 and yuanshu.jianhao_count == 1, "level-one Jianhao must consume a one-star fighter and grant exactly three levels despite XP multipliers"):
 		return false
 	yuanshu.lord_command_cd = 0.0
 	if not _expect(is_equal_approx(yuanshu.lord_command_cooldown_max(), 57.0), "each Jianhao sacrifice must add twelve seconds to its next cooldown"):

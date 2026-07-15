@@ -71,6 +71,8 @@ func cooldown_max(run, unit: Dictionary) -> float:
 	var result := float(ult.cd)
 	if int(run.hero_levels.get(hero_id, 1)) >= 7:
 		result *= 0.85
+	if run.relic_ids.has("mengde"):
+		result *= 0.72
 	result *= maxf(0.5, 1.0 - float(run.buffs.get("ultHaste", 0.0)))
 	if run.team.active_bonds.has("sanfen"):
 		result *= 0.8

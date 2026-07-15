@@ -65,6 +65,8 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 		damage_multiplier *= float(run.army_buff.get("mul", 1.0))
 	if bool(run.permanent_tactics.get("gewu", false)):
 		damage_multiplier *= 1.3
+	if bool(run.permanent_tactics.get("pofu", false)):
+		damage_multiplier *= 1.5
 	if float(run.foe_curse_time) > 0:
 		damage_multiplier *= 0.75
 	var rate_multiplier := float(buffs.rate)
@@ -150,7 +152,7 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 	}
 
 func unit_damage(_run, unit: Dictionary, mods: Dictionary) -> int:
-	return roundi(float(unit.hero.get("dmg", 0.0)) * _star_damage_multiplier(int(unit.level)) * float(mods.dmgMul))
+	return roundi(float(unit.hero.get("dmg", 0.0)) * _star_damage_multiplier(int(unit.level), _run.relic_ids.has("fenghuang")) * float(mods.dmgMul))
 
 func unit_rate(unit: Dictionary, mods: Dictionary) -> float:
 	return float(unit.hero.get("rate", 99.0)) * pow(0.93, int(unit.level) - 1) / float(mods.rateMul)
@@ -159,8 +161,10 @@ func ripple_max(run, unit: Dictionary) -> float:
 	var base := 230.0 if str(unit.hero.get("ripple", "")) == "slow" else 130.0
 	return base + float(run.buffs.rippleRad) + float(bond_fx(run, str(unit.hero.id)).rippleRad)
 
-static func _star_damage_multiplier(stars: int) -> float:
-	return pow(1.9, mini(stars, 5) - 1) * pow(1.4, maxi(0, mini(stars, 10) - 5)) * pow(1.3, maxi(0, stars - 10))
+static func _star_damage_multiplier(stars: int, phoenix := false) -> float:
+	var first_ascension := 1.5 if phoenix else 1.4
+	var second_ascension := 1.4 if phoenix else 1.3
+	return pow(1.9, mini(stars, 5) - 1) * pow(first_ascension, maxi(0, mini(stars, 10) - 5)) * pow(second_ascension, maxi(0, stars - 10))
 
 func _reset() -> void:
 	counts = {}
