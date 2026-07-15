@@ -1111,6 +1111,7 @@ func _draw_battle() -> void:
 	_draw_battle_backdrop()
 	_draw_battle_entities()
 	_draw_battle_formation()
+	_draw_player_projectiles()
 	_draw_battle_skill_events()
 	# The Web battlefield spawns enemies above the playfield. Keep that motion,
 	# but paint the opaque HUD last so newly spawned units cannot obscure it.
@@ -1340,8 +1341,6 @@ func _draw_battle_entities() -> void:
 		var members: Array = battle_run.death_link.members
 		for index in members.size() - 1:
 			draw_line(Vector2(float(members[index].x), float(members[index].y)), Vector2(float(members[index + 1].x), float(members[index + 1].y)), Color("c9a8ff"), 2.0)
-	for projectile in battle_run.projectiles:
-		draw_circle(Vector2(float(projectile.x), float(projectile.y)), 4.0, GOLD)
 	for projectile in battle_run.enemy_projectiles:
 		draw_circle(Vector2(float(projectile.x), float(projectile.y)), 4.5, RED)
 		draw_arc(Vector2(float(projectile.x), float(projectile.y)), 6.0, 0, TAU, 16, Color("ffcf9a"), 1.0)
@@ -1430,7 +1429,22 @@ func _draw_battle_entities() -> void:
 		draw_line(Vector2(float(trace.x1), float(trace.y1)), Vector2(float(trace.x2), float(trace.y2)), Color(str(trace.color)), 3.0)
 
 func _battle_render_layers() -> Array:
-	return ["backdrop", "entities", "formation", "skill_fx", "hud", "overlays"]
+	return ["backdrop", "entities", "formation", "projectiles", "skill_fx", "hud", "overlays"]
+
+func _draw_player_projectiles() -> void:
+	for projectile in battle_run.projectiles:
+		draw_circle(Vector2(float(projectile.x), float(projectile.y)), maxf(4.0, float(projectile.get("r", 4.0))), GOLD)
+	for lob in battle_run.friendly_lobs:
+		var progress := clampf(float(lob.t) / maxf(0.01, float(lob.dur)), 0.0, 1.0)
+		var lob_position := Vector2(float(lob.x0), float(lob.y0)).lerp(Vector2(float(lob.x1), float(lob.y1)), progress) - Vector2(0, sin(progress * PI) * 80.0)
+		_text_centered_in_rect(str(lob.get("icon", "●")), Rect2(lob_position.x - 12, lob_position.y - 12, 24, 24), 18, Color(str(lob.get("color", "ffd24a"))))
+	for homer in battle_run.homers:
+		var homer_position := Vector2(float(homer.x), float(homer.y))
+		var homer_velocity := Vector2(float(homer.vx), float(homer.vy))
+		draw_line(homer_position - homer_velocity * 0.06, homer_position, Color("ff8c3c99"), 2.5)
+		draw_circle(homer_position, 9.0, Color("ff7a3a24"))
+		draw_circle(homer_position, 5.5, Color(str(homer.get("color", "ff7a3a"))))
+		draw_circle(homer_position, 2.2, Color("ffffdce6"))
 
 func _draw_battle_skill_events() -> void:
 	_draw_focus_order()
@@ -1480,7 +1494,9 @@ func _draw_ult_visual_event(event: Dictionary) -> void:
 		"lane", "row", "charge", "multi_charge":
 			draw_line(origin, Vector2(origin.x, 70), Color(color, 0.25), 34.0)
 			draw_line(origin, Vector2(origin.x, 70), color, 3.0)
-		"snipe", "ricochet", "homing", "bounce", "execute", "duel":
+		"homing":
+			pass # Jiang Wei's eight live homers carry the complete Web effect.
+		"snipe", "ricochet", "bounce", "execute", "duel":
 			draw_line(origin, origin + Vector2(0, -220), color, 4.0)
 			draw_circle(origin + Vector2(0, -220), 8.0 + 12.0 * progress, Color(color, 0.35))
 		"fire_pit", "fire_line", "immolate", "bombard":

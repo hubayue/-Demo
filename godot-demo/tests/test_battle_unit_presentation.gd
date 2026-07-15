@@ -14,7 +14,7 @@ func _run() -> void:
 	if not _expect(main.has_method("_battle_render_layers"), "battle UI must expose its deterministic render order"):
 		return
 	var layers: Array = main._battle_render_layers()
-	if not _expect(layers.find("skill_fx") > layers.find("formation") and layers.find("skill_fx") < layers.find("hud"), "skill effects must render above formation cells and below HUD"):
+	if not _expect(layers.find("projectiles") > layers.find("formation") and layers.find("projectiles") < layers.find("skill_fx") and layers.find("skill_fx") < layers.find("hud"), "live projectiles and skill effects must render above formation cells and below HUD"):
 		return
 	main.advance_from_title()
 	main.select_city(0)

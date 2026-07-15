@@ -124,6 +124,7 @@ var traits: Dictionary = {}
 var mutations: Dictionary = {}
 var enemies: Array = []
 var projectiles: Array = []
+var homers: Array = []
 var charges: Array = []
 var ripples: Array = []
 var enemy_projectiles: Array = []
@@ -138,6 +139,7 @@ var blockade: Dictionary = {}
 var palisades: Array = []
 var traps: Array = []
 var fire_pits: Array = []
+var friendly_lobs: Array = []
 var turrets: Array = []
 var death_link: Dictionary = {}
 var army_buff: Dictionary = {}
@@ -262,6 +264,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	mutations = _roll_mutations()
 	enemies = []
 	projectiles = []
+	homers = []
 	charges = []
 	ripples = []
 	enemy_projectiles = []
@@ -276,6 +279,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	palisades = []
 	traps = []
 	fire_pits = []
+	friendly_lobs = []
 	turrets = []
 	death_link = {}
 	army_buff = {}
@@ -400,6 +404,8 @@ func finish(result: String) -> void:
 	enemy_projectiles.clear()
 	enemy_lobs.clear()
 	enemy_wall_lobs.clear()
+	homers.clear()
+	friendly_lobs.clear()
 
 func continue_endless() -> bool:
 	if status != "win" or win_wave <= 0: return false
@@ -506,6 +512,7 @@ func _update_step(delta: float) -> void:
 	_update_units(delta)
 	_update_ultimate_effects(delta)
 	_update_projectiles(delta)
+	_update_homers(delta)
 	_update_enemy_attacks(delta)
 	_update_charges(delta)
 	_update_ripples(delta)
@@ -534,6 +541,7 @@ func _update_ultimate_effects(delta: float) -> void:
 	for index in range(palisades.size() - 1, -1, -1):
 		if float(palisades[index].t) <= 0 or float(palisades[index].hp) <= 0: palisades.remove_at(index)
 	_update_traps(delta)
+	_update_friendly_lobs(delta)
 	_update_fire_pits(delta)
 	_update_turrets(delta)
 	_update_poison_auras(delta)
@@ -569,14 +577,37 @@ func _update_traps(delta: float) -> void:
 func _update_fire_pits(delta: float) -> void:
 	for pit in fire_pits:
 		pit.t = float(pit.t) - delta
-		pit.tick = float(pit.get("tick", 0.0)) - delta
-		if float(pit.tick) > 0: continue
-		pit.tick = 0.5
-		for enemy in enemies.duplicate():
-			if not bool(enemy.get("dead", false)) and Vector2(float(pit.x), float(pit.y)).distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) <= pow(float(pit.r) + float(enemy.r), 2):
-				_hit_enemy(enemy, float(pit.damage), str(pit.owner.hero.elem), 0.0, pit.owner)
+		if str(mutations.get(wave, "")) == "rainstorm":
+			continue
+		for enemy in enemies:
+			if bool(enemy.get("dead", false)) or Vector2(float(pit.x), float(pit.y)).distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) > pow(float(pit.r), 2):
+				continue
+			enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 0.8)
+			enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), float(pit.damage))
+			enemy.burnSrc = pit.get("owner", {})
 	for index in range(fire_pits.size() - 1, -1, -1):
 		if float(fire_pits[index].t) <= 0: fire_pits.remove_at(index)
+
+func _update_friendly_lobs(delta: float) -> void:
+	for lob in friendly_lobs:
+		if bool(lob.get("dead", false)):
+			continue
+		lob.t = float(lob.t) + delta
+		if float(lob.t) < float(lob.dur):
+			continue
+		lob.dead = true
+		if float(lob.get("damage", 0.0)) > 0.0:
+			for enemy in enemies.duplicate():
+				if bool(enemy.get("dead", false)):
+					continue
+				if Vector2(float(lob.x1), float(lob.y1)).distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) <= pow(float(lob.get("splash", 0.0)) + float(enemy.r), 2):
+					damage_enemy_from_unit(enemy, float(lob.damage), str(lob.element), lob.get("owner", {}))
+		var pit: Dictionary = lob.get("pit", {})
+		if not pit.is_empty():
+			fire_pits.append({"x": float(lob.x1), "y": float(lob.y1), "r": float(pit.r), "t": float(pit.t), "tick": 0.0, "damage": float(pit.damage), "owner": lob.get("owner", {})})
+	for index in range(friendly_lobs.size() - 1, -1, -1):
+		if bool(friendly_lobs[index].get("dead", false)):
+			friendly_lobs.remove_at(index)
 
 func _update_turrets(delta: float) -> void:
 	for turret in turrets:
@@ -1360,6 +1391,44 @@ func _update_projectiles(delta: float) -> void:
 		if bool(projectiles[index].dead):
 			projectiles.remove_at(index)
 
+func _update_homers(delta: float) -> void:
+	for homer in homers:
+		if bool(homer.get("dead", false)):
+			continue
+		homer.life = float(homer.life) - delta
+		if float(homer.life) <= 0.0:
+			homer.dead = true
+			continue
+		var target: Dictionary = homer.get("target", {})
+		if target.is_empty() or bool(target.get("dead", false)) or not enemies.has(target):
+			var living := enemies.filter(func(enemy): return not bool(enemy.get("dead", false)))
+			living.sort_custom(func(a, b): return Vector2(float(homer.x), float(homer.y)).distance_squared_to(Vector2(float(a.x), float(a.y))) < Vector2(float(homer.x), float(homer.y)).distance_squared_to(Vector2(float(b.x), float(b.y))))
+			if living.is_empty():
+				homer.dead = true
+				continue
+			target = living[0]
+			homer.target = target
+		var position := Vector2(float(homer.x), float(homer.y))
+		var target_position := Vector2(float(target.x), float(target.y))
+		var distance := position.distance_to(target_position)
+		if distance < 14.0:
+			damage_enemy_from_unit(target, float(homer.damage), str(homer.element), homer.get("owner", {}))
+			if not bool(target.get("dead", false)) and str(mutations.get(wave, "")) != "rainstorm":
+				target.burnT = maxf(float(target.get("burnT", 0.0)), 2.5)
+				target.burnDmg = maxf(float(target.get("burnDmg", 0.0)), maxf(2.0, round(float(homer.damage) * 0.15)))
+				target.burnSrc = homer.get("owner", {})
+			homer.dead = true
+			continue
+		var velocity := Vector2(float(homer.vx), float(homer.vy)) + position.direction_to(target_position) * 900.0 * delta
+		velocity = velocity.normalized() * float(homer.speed)
+		homer.vx = velocity.x
+		homer.vy = velocity.y
+		homer.x = position.x + velocity.x * delta
+		homer.y = position.y + velocity.y * delta
+	for index in range(homers.size() - 1, -1, -1):
+		if bool(homers[index].get("dead", false)):
+			homers.remove_at(index)
+
 func _update_charges(delta: float) -> void:
 	for charge in charges:
 		if bool(charge.dead):
@@ -1506,6 +1575,14 @@ func _hit_enemy(enemy: Dictionary, amount: float, attacker_tri: String, critical
 		enemy.kb = minf(130.0, float(enemy.get("kb", 0.0)) + 72.0)
 	var hp_before := float(enemy.get("hp", 0.0)) + float(enemy.get("shield", 0.0))
 	var dealt := damage_enemy(enemy, final_amount, attacker_tri)
+	if not source_unit.is_empty():
+		var hp_after := maxf(0.0, float(enemy.get("hp", 0.0))) + float(enemy.get("shield", 0.0))
+		source_unit.damage_dealt = float(source_unit.get("damage_dealt", 0.0)) + maxf(0.0, hp_before - hp_after)
+	return dealt
+
+func damage_enemy_from_unit(enemy: Dictionary, amount: float, attacker_tri: String, source_unit: Dictionary = {}) -> int:
+	var hp_before := float(enemy.get("hp", 0.0)) + float(enemy.get("shield", 0.0))
+	var dealt := damage_enemy(enemy, amount, attacker_tri)
 	if not source_unit.is_empty():
 		var hp_after := maxf(0.0, float(enemy.get("hp", 0.0))) + float(enemy.get("shield", 0.0))
 		source_unit.damage_dealt = float(source_unit.get("damage_dealt", 0.0)) + maxf(0.0, hp_before - hp_after)

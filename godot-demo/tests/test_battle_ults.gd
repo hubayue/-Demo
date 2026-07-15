@@ -119,6 +119,54 @@ func _test_persistent_battle_entities(catalog) -> bool:
 	turret.ult_system.cast(turret, turret.units()[0])
 	if not _expect(turret.turrets.size() == 1 and float(turret.turrets[0].t) >= 10.0, "Repeating Crossbow Device must create a ten-second firing turret"):
 		return false
+	var bomb_lobs = _make_run(catalog, "ganning")
+	var bomb_target := _enemy(bomb_lobs.units()[0], 0.0, -180.0)
+	bomb_target.hp = 10000.0
+	bomb_target.hp_max = 10000.0
+	bomb_lobs.enemies = [bomb_target]
+	bomb_lobs.ult_system.cast(bomb_lobs, bomb_lobs.units()[0])
+	if not _expect(bomb_lobs.friendly_lobs.size() == 5 and is_equal_approx(float(bomb_target.hp), 10000.0), "Gan Ning must throw five visible bombs before their delayed splash damage"):
+		return false
+	for step in 50:
+		bomb_lobs._update_friendly_lobs(0.02)
+	if not _expect(bomb_lobs.friendly_lobs.is_empty() and float(bomb_target.hp) < 10000.0, "Gan Ning bombs must damage only when their parabolic throws land"):
+		return false
+	var fire_lobs = _make_run(catalog, "luxun")
+	var fire_target := _enemy(fire_lobs.units()[0], 0.0, -180.0)
+	fire_lobs.enemies = [fire_target]
+	fire_lobs.ult_system.cast(fire_lobs, fire_lobs.units()[0])
+	if not _expect(fire_lobs.friendly_lobs.size() == 3 and fire_lobs.fire_pits.is_empty(), "Lu Xun must throw three visible fire jars before creating fire pits"):
+		return false
+	for step in 55:
+		fire_lobs._update_friendly_lobs(0.02)
+	if not _expect(fire_lobs.friendly_lobs.is_empty() and fire_lobs.fire_pits.size() == 3, "each landed fire jar must create one persistent fire pit"):
+		return false
+	var fire_hp := float(fire_target.hp)
+	fire_lobs._update_fire_pits(0.01)
+	if not _expect(is_equal_approx(float(fire_target.hp), fire_hp) and float(fire_target.burnT) >= 0.8, "Lu Xun fire pits must apply the Web burn status instead of placeholder direct ticks"):
+		return false
+	fire_lobs._update_enemies(0.01)
+	if not _expect(float(fire_target.hp) < fire_hp, "fire-pit burn must deal damage through the shared burn tick"):
+		return false
+	var homing = _make_run(catalog, "jiangwei")
+	var homing_target := _enemy(homing.units()[0], 0.0, -180.0)
+	homing_target.hp = 10000.0
+	homing_target.hp_max = 10000.0
+	homing_target.affix = "frenzy"
+	homing.enemies = [homing_target]
+	homing.relic_ids = ["guding"]
+	homing.ult_system.cast(homing, homing.units()[0])
+	if not _expect(homing.homers.size() == 8 and is_equal_approx(float(homing_target.hp), 10000.0), "Qilin Fire Arrows must launch eight real homing projectiles instead of dealing instant placeholder damage"):
+		return false
+	var expected_homing_hit := maxi(1, roundi(float(homing.homers[0].damage) * BattleRun.triangle_multiplier(str(homing.homers[0].element), str(homing_target.tri))))
+	homing.baihu_ready = true
+	for step in 240:
+		homing._update_homers(0.02)
+	var homing_loss := roundi(10000.0 - float(homing_target.hp))
+	if not _expect(homing.homers.is_empty() and homing_loss > 0 and homing_loss % expected_homing_hit == 0 and float(homing_target.burnT) > 0.0, "homing arrows must steer, hit, and ignite without inheriting ordinary-bullet Guding damage (actual=%d base_hit=%d burn=%.2f)" % [homing_loss, expected_homing_hit, float(homing_target.burnT)]):
+		return false
+	if not _expect(homing.baihu_ready, "skill homers must not consume Baihu's guaranteed ordinary-projectile critical"):
+		return false
 	var linked = _make_run(catalog, "zhugeliang")
 	var shielded := _enemy(linked.units()[0], -30.0, -140.0)
 	var partner := _enemy(linked.units()[0], 30.0, -160.0)

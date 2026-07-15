@@ -242,8 +242,7 @@ func _densest(living: Array, radius: float) -> Dictionary:
 func _deal(run, unit: Dictionary, enemy: Dictionary, amount: float) -> void:
 	if bool(enemy.get("dead", false)):
 		return
-	var mods: Dictionary = run.team.unit_mods(run, unit)
-	run._hit_enemy(enemy, amount, str(unit.hero.get("elem", "")), float(mods.crit), unit)
+	run.damage_enemy_from_unit(enemy, amount, str(unit.hero.get("elem", "")), unit)
 
 func _zhangfei(run, unit: Dictionary, base: float) -> void:
 	var center := _center(run, unit) - Vector2(0, 10)
@@ -313,8 +312,10 @@ func _luxun(run, unit: Dictionary, base: float) -> void:
 	for index in 3:
 		var target: Dictionary = run._pick(targets) if not targets.is_empty() else {}
 		if not target.is_empty(): targets.erase(target)
-		var center := Vector2(float(target.get("x", 120.0 + index * 120.0)), float(target.get("y", 300.0)))
-		run.fire_pits.append({"x": center.x, "y": center.y, "r": 85.0, "t": 7.0 if run.relic_ids.has("huoyou") else 5.0, "tick": 0.0, "damage": maxf(4.0, round(base * 0.72)), "owner": unit})
+		var x := clampf(float(target.get("x", 120.0 + index * 120.0)) + run._randf(-30.0, 30.0), 40.0, 440.0)
+		var y := clampf(float(target.get("y", 360.0)) + run._randf(-20.0, 20.0), 100.0, run.GRID_Y - 60.0)
+		var origin := _center(run, unit) - Vector2(0, 18)
+		run.friendly_lobs.append({"x0": origin.x, "y0": origin.y, "x1": x, "y1": y, "t": 0.0, "dur": 0.7 + index * 0.12, "damage": 0.0, "splash": 0.0, "element": str(unit.hero.elem), "owner": unit, "icon": "🏺", "color": "ff7a3a", "pit": {"r": 85.0, "t": 7.0 if run.relic_ids.has("huoyou") else 5.0, "damage": maxf(4.0, round(base * 0.72))}, "dead": false})
 
 func _lane_damage(run, unit: Dictionary, damage: float) -> void:
 	for enemy in _in_column(run, unit).duplicate(): _deal(run, unit, enemy, damage)
@@ -362,9 +363,10 @@ func _bombard(run, unit: Dictionary, damage: float, count: int, radius: float) -
 		var living := _alive(run)
 		if living.is_empty(): return
 		var target: Dictionary = run._pick(living)
-		var point := Vector2(float(target.x) + run._randf(-36.0, 36.0), float(target.y) + run._randf(-30.0, 30.0))
-		for enemy in living.duplicate():
-			if point.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) < pow(radius + float(enemy.r), 2): _deal(run, unit, enemy, damage)
+		var x := clampf(float(target.x) + run._randf(-46.0, 46.0), 30.0, 450.0)
+		var y := clampf(float(target.y) + run._randf(-36.0, 36.0), 80.0, run.GRID_Y - 50.0)
+		var origin := _center(run, unit) - Vector2(0, 18)
+		run.friendly_lobs.append({"x0": origin.x, "y0": origin.y, "x1": x, "y1": y, "t": 0.0, "dur": 0.55 + index * 0.1, "damage": round(damage), "splash": radius, "element": str(unit.hero.elem), "owner": unit, "icon": "🧨", "color": "ffd24a", "pit": {}, "dead": false})
 
 func _diaochan(run) -> void:
 	for enemy in _alive(run):
@@ -389,13 +391,17 @@ func _zhouyu(run, unit: Dictionary, base: float) -> void:
 
 func _homing_barrage(run, unit: Dictionary, damage: float, count: int) -> void:
 	var living := _alive(run)
-	for index in mini(count, maxi(count, living.size())):
-		if living.is_empty(): return
-		var target: Dictionary = living[index % living.size()]
-		_deal(run, unit, target, damage)
-		if not bool(target.get("dead", false)):
-			target.burnT = maxf(float(target.get("burnT", 0.0)), 3.0)
-			target.burnDmg = maxf(float(target.get("burnDmg", 0.0)), maxf(2.0, round(damage * 0.18)))
+	if living.is_empty():
+		return
+	var center := _center(run, unit) - Vector2(0, 18)
+	for index in count:
+		run.homers.append({
+			"x": center.x + run._randf(-14.0, 14.0), "y": center.y,
+			"vx": run._randf(-180.0, 180.0), "vy": -240.0,
+			"target": living[index % living.size()], "speed": 340.0,
+			"damage": round(damage), "element": str(unit.hero.elem), "owner": unit,
+			"life": 4.0, "color": "ff7a3a", "dead": false,
+		})
 
 func _zhugeliang(run, unit: Dictionary) -> void:
 	var targets := _alive(run)
