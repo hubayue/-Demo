@@ -1339,8 +1339,12 @@ func _draw_battle_entities() -> void:
 		_text_centered_in_rect("弩", Rect2(turret_pos.x - 10, turret_pos.y - 8, 20, 16), 10, Color.WHITE)
 	if not battle_run.death_link.is_empty() and battle_run.death_link.members.size() >= 2:
 		var members: Array = battle_run.death_link.members
+		var link_alpha := 0.35 + sin(float(battle_run.game_time) * 6.0) * 0.2
 		for index in members.size() - 1:
-			draw_line(Vector2(float(members[index].x), float(members[index].y)), Vector2(float(members[index + 1].x), float(members[index + 1].y)), Color("c9a8ff"), 2.0)
+			var from := Vector2(float(members[index].x), float(members[index].y))
+			var to := Vector2(float(members[index + 1].x), float(members[index + 1].y))
+			draw_line(from, to, Color(Color("c9a8ff"), link_alpha), 2.5)
+			_text_centered_in_rect("⛓️", Rect2(from.lerp(to, 0.5) - Vector2(10, 9), Vector2(20, 18)), 12, Color.WHITE)
 	for projectile in battle_run.enemy_projectiles:
 		draw_circle(Vector2(float(projectile.x), float(projectile.y)), 4.5, RED)
 		draw_arc(Vector2(float(projectile.x), float(projectile.y)), 6.0, 0, TAU, 16, Color("ffcf9a"), 1.0)
@@ -1511,6 +1515,8 @@ func _draw_ult_visual_event(event: Dictionary) -> void:
 			pass # Live lob entities carry the falling-arrow and deployment geometry.
 		"fire_beam", "gather_lines", "clock_links":
 			pass # Targeted Web beam entities carry these three ultimates.
+		"death_links":
+			pass # The persistent enemy chain renders from its live member positions.
 		"snipe":
 			pass # Huang Zhong uses the selected elite's actual endpoint.
 		"duel":

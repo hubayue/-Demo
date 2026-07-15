@@ -6,7 +6,7 @@ const VISUAL_EFFECTS := {
 	"xiahouyuan": "ricochet", "luxun": "fire_pit", "guanyu": "lane", "lvbu": "bounce",
 	"zhangliao": "fear", "taishici": "arrow_rain", "dianwei": "cleave", "sunce": "charge",
 	"xuchu": "barricade", "weiyan": "trap", "ganning": "bombard", "diaochan": "charm",
-	"zhouyu": "fire_beam", "jiangwei": "homing", "zhugeliang": "link", "caoren": "shock",
+	"zhouyu": "fire_beam", "jiangwei": "homing", "zhugeliang": "death_links", "caoren": "shock",
 	"zhoutai": "reflect", "huatuo": "heal", "xiaoqiao": "haste", "lusu": "army_buff",
 	"huanggai": "immolate", "xuhuang": "palisade", "daqiao": "ice_wave", "huangyueying": "turret_deploy",
 	"caiwenji": "sleep", "gaoshun": "gather_lines", "zhanghe": "multi_charge", "zhurong": "fan",

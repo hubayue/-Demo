@@ -23,6 +23,8 @@ func _run() -> void:
 		return
 	if not _expect(run.ult_system.visual_effect("zhouyu") == "fire_beam" and run.ult_system.visual_effect("gaoshun") == "gather_lines" and run.ult_system.visual_effect("simayi") == "clock_links", "targeted beam entities must replace Zhou Yu, Gao Shun, and Sima Yi's old caster-centered circles"):
 		return
+	if not _expect(run.ult_system.visual_effect("zhugeliang") == "death_links", "the persistent real enemy chain must replace Zhuge Liang's fixed fake link nodes"):
+		return
 	run.start({"ch": 0, "wall": 13, "foes": {"tri": "badao"}, "theme": "tuanjie", "field": "plain", "rules": []}, "liubei", "zhaoyun")
 	var unit: Dictionary = run.units()[0]
 	var expected := BattleRun.slot_center(int(unit.row), int(unit.col)) - Vector2(0, 18)
