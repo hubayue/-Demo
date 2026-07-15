@@ -25,8 +25,12 @@ static func settle_clear(profile: Dictionary, run, city_index: int, theme_fit: b
 	profile.week_tech[key] = maxi(int(profile.week_tech.get(key, 0)), strategy)
 	var first_gold: int = int(run.city.get("firstGold", 0)) if first_clear else 0
 	profile.gold = int(profile.get("gold", 0)) + first_gold
+	profile.gold_total = int(profile.get("gold_total", 0)) + first_gold
 	var banked: int = _commit_gold(profile, run)
+	_commit_kills(profile, run)
 	var band_gold := _claim_week_bands(profile, run)
+	if int(run.stars) >= 3: profile.perfect_wins = int(profile.get("perfect_wins", 0)) + 1
+	var visit_tokens := _grant_visit_tokens(profile)
 	var lord_gain: int = 6 + city_index + int(run.stars) * 2
 	var lord_result: Dictionary = _settle_ruler_xp(profile, run.ruler_id, lord_gain)
 	return {
@@ -38,6 +42,7 @@ static func settle_clear(profile: Dictionary, run, city_index: int, theme_fit: b
 		"city_score": int(best.score),
 		"force_score": BattleRecords.week_score(profile.week_best),
 		"lord_xp": lord_result,
+		"visit_tokens": visit_tokens,
 	}
 
 static func record_suppression(profile: Dictionary, run, city_index: int, guest := false, almanac := false) -> Dictionary:
@@ -49,13 +54,16 @@ static func record_suppression(profile: Dictionary, run, city_index: int, guest 
 	profile.week_best[key] = best
 	profile.endless_best = maxi(int(profile.get("endless_best", 0)), int(run.scored_wave))
 	var banked: int = _commit_gold(profile, run)
+	_commit_kills(profile, run)
 	var band_gold := _claim_week_bands(profile, run)
-	return {"waves": waves, "banked_gold": banked + band_gold, "band_gold": band_gold, "city_score": int(best.score), "force_score": BattleRecords.week_score(profile.week_best)}
+	var taofa_tokens := _grant_taofa_tokens(profile, city_index, waves)
+	return {"waves": waves, "banked_gold": banked + band_gold, "band_gold": band_gold, "taofa_tokens": taofa_tokens, "city_score": int(best.score), "force_score": BattleRecords.week_score(profile.week_best)}
 
 static func settle_over(profile: Dictionary, run, city_index: int) -> Dictionary:
 	if run.over_settled: return {}
 	run.over_settled = true
 	var banked: int = _commit_gold(profile, run)
+	_commit_kills(profile, run)
 	var lord_gain: int = 2 if int(run.win_wave) > 0 else 3 + int(floor(city_index / 2.0))
 	var lord_result: Dictionary = _settle_ruler_xp(profile, run.ruler_id, lord_gain)
 	return {"banked_gold": banked, "lord_xp": lord_result}
@@ -65,8 +73,44 @@ static func _commit_gold(profile: Dictionary, run) -> int:
 	var delta: int = maxi(0, earned_total - int(run.gold_committed))
 	if delta > 0:
 		profile.gold = int(profile.get("gold", 0)) + delta
+		profile.gold_total = int(profile.get("gold_total", 0)) + delta
 		run.gold_committed += delta
 	return delta
+
+static func _commit_kills(profile: Dictionary, run) -> int:
+	var delta: int = maxi(0, int(run.kills) - int(run.kills_committed))
+	if delta > 0:
+		profile.total_kills = int(profile.get("total_kills", 0)) + delta
+		run.kills_committed += delta
+	return delta
+
+static func _grant_visit_tokens(profile: Dictionary) -> int:
+	var today := Time.get_date_string_from_system()
+	if str(profile.get("visit_day", "")) != today:
+		profile.visit_day = today
+		profile.visit_count = 0
+	if int(profile.get("visit_count", 0)) >= 30: return 0
+	profile.visit_count = int(profile.get("visit_count", 0)) + 1
+	profile.items.visitToken = int(profile.get("items", {}).get("visitToken", 0)) + 3
+	return 3
+
+static func _grant_taofa_tokens(profile: Dictionary, city_index: int, waves: int) -> int:
+	var today := Time.get_date_string_from_system()
+	if str(profile.get("taofa_day", "")) != today:
+		profile.taofa_day = today
+		profile.taofa_best = {}
+		profile.taofa_got = 0
+	var key := str(city_index)
+	var previous := int(profile.get("taofa_best", {}).get(key, 0))
+	if waves <= previous: return 0
+	profile.taofa_best[key] = waves
+	var units := int(floor(waves / 5.0)) - int(floor(previous / 5.0))
+	if units <= 0: return 0
+	var give := mini(units * 3, 30 - int(profile.get("taofa_got", 0)))
+	if give <= 0: return 0
+	profile.taofa_got = int(profile.get("taofa_got", 0)) + give
+	profile.items.visitToken = int(profile.get("items", {}).get("visitToken", 0)) + give
+	return give
 
 static func _claim_week_bands(profile: Dictionary, run) -> int:
 	var claim: Dictionary = BattleRecords.claimable_week_bands(int(profile.get("week_bands", 0)), BattleRecords.week_score(profile.week_best))
@@ -74,6 +118,7 @@ static func _claim_week_bands(profile: Dictionary, run) -> int:
 	profile.week_bands = int(claim.claimed)
 	if gold > 0:
 		profile.gold = int(profile.get("gold", 0)) + gold
+		profile.gold_total = int(profile.get("gold_total", 0)) + gold
 		run.band_gold += gold
 	return gold
 

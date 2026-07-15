@@ -18,6 +18,7 @@ func _run() -> void:
 	run.start(city, "caocao", "zhangfei")
 	run.wave = 7
 	run.run_gold = 35.4
+	run.kills = 120
 	run.total_damage = 100.0
 	run.counter_damage = 50.0
 	run.finish("win")
@@ -27,6 +28,8 @@ func _run() -> void:
 	if not _expect(int(result.first_clear_gold) == 210 and int(result.tech_score) == 156, "clear settlement must report first reward and strategy score"): return
 	if not _expect(int(profile.rulers.caocao.xp) == 12, "city zero three-star clear must grant the active ruler 6 + city + stars x2 XP"): return
 	if not _expect(int(profile.rulers.liubei.xp) == 6, "the seven reserve rulers must receive half training XP"): return
+	if not _expect(int(profile.items.visitToken) == 3 and int(result.visit_tokens) == 3, "each clear must grant three offline visit tokens within the daily cap"): return
+	if not _expect(int(profile.total_kills) == 120 and int(profile.perfect_wins) == 1 and int(profile.gold_total) == 245, "settlement must persist locally verifiable achievement counters"): return
 	var empty_run = BattleRun.new(catalog, Mulberry32.new(7193))
 	empty_run.start(city, "caocao", "zhangfei")
 	empty_run.finish("win")
@@ -46,6 +49,9 @@ func _run() -> void:
 	if not _expect(int(profile.gold) == 255, "suppression sync must bank only newly earned gold without duplicating clear gold"): return
 	if not _expect(int(profile.week_best["0"].endless) == 4 and int(suppression.waves) == 4, "suppression sync must record only fully cleared waves after the clear wave"): return
 	if not _expect(int(profile.endless_best) == 11, "local honor record must retain the deepest absolute wave reached"): return
+	run.scored_wave = 12
+	var taofa: Dictionary = RunSettlement.record_suppression(profile, run, 0)
+	if not _expect(int(taofa.taofa_tokens) == 3 and int(profile.items.visitToken) == 6, "each new five-wave suppression depth must grant three visit tokens within the daily cap"): return
 	run.status = "play"
 	run.finish("over")
 	RunSettlement.settle_over(profile, run, 0)

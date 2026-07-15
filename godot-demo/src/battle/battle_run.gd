@@ -112,6 +112,7 @@ var bond_ever := false
 var run_gold := 0.0
 var band_gold := 0
 var gold_committed := 0
+var kills_committed := 0
 var clear_settled := false
 var over_settled := false
 var field_events: Array = []
@@ -242,6 +243,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	run_gold = 0.0
 	band_gold = 0
 	gold_committed = 0
+	kills_committed = 0
 	clear_settled = false
 	over_settled = false
 	field_events = []

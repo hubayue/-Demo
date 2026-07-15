@@ -191,6 +191,13 @@ func _test_weather_and_relic_amplifiers(catalog) -> bool:
 	treasure.enemies = [prize]
 	treasure.damage_enemy(prize, 2.0)
 	if not _expect(is_equal_approx(treasure.run_gold, 4.5), "Yuxi, Guandu, and Tongque must multiply real run gold on a dangerous mutation wave"): return false
+	var almanac = _make_run(catalog)
+	almanac.city.visitGoldUntil = int(Time.get_unix_time_from_system() * 1000.0) + 60000
+	var lucky_prize := _enemy(240.0, 250.0, 0.0)
+	lucky_prize.hp = 1.0
+	almanac.enemies = [lucky_prize]
+	almanac.damage_enemy(lucky_prize, 2.0)
+	if not _expect(is_equal_approx(almanac.run_gold, 1.2), "an active Yi-Qiu-Cai almanac card must multiply kill gold by 20 percent"): return false
 	var spear: Dictionary = rain.units()[0]
 	rain.relic_ids = ["shemao"]
 	rain.rng = SequenceRng.new([0.0])

@@ -60,6 +60,7 @@ func on_enemy_death(run, enemy: Dictionary) -> void:
 	gold_gain *= float(enemy.get("bounty", 1.0))
 	if run.relic_ids.has("yuxi"): gold_gain *= 2.0
 	gold_gain *= float(run.city.get("goldMul", 1.0))
+	if int(run.city.get("visitGoldUntil", 0)) > int(Time.get_unix_time_from_system() * 1000.0): gold_gain *= 1.2
 	gold_gain *= float(_field(run).get("goldMul", 1.0))
 	var mutation: String = str(run.mutations.get(run.wave, ""))
 	if run.relic_ids.has("tongque") and not mutation.is_empty() and not ["fat", "eastwind"].has(mutation):

@@ -7,9 +7,13 @@ const Mulberry32Source = preload("res://src/core/mulberry32.gd")
 const BattleRunSource = preload("res://src/battle/battle_run.gd")
 const BattleLordSource = preload("res://src/battle/battle_lord.gd")
 const BattleFoesSource = preload("res://src/battle/battle_foes.gd")
+const BattleUltsSource = preload("res://src/battle/battle_ults.gd")
 const BattleRecordsSource = preload("res://src/progression/battle_records.gd")
 const LocalProfileSource = preload("res://src/progression/local_profile.gd")
 const RunSettlementSource = preload("res://src/progression/run_settlement.gd")
+const HeroProgressionSource = preload("res://src/progression/hero_progression.gd")
+const VisitSystemSource = preload("res://src/progression/visit_system.gd")
+const AchievementProgressSource = preload("res://src/progression/achievement_progress.gd")
 
 const VIEW_SIZE := Vector2(480.0, 800.0)
 const CURRENT_WEEK := 2948
@@ -24,6 +28,7 @@ const BLUE := Color("62b8ff")
 const RED := Color("ff8a6a")
 
 const RULER_IDS := ["caocao", "liubei", "sunquan", "yuanshao", "liubiao", "gongsunzan", "dongzhuo", "yuanshu"]
+const ACH_GROUPS := ["战功", "讨伐", "养成", "奇趣"]
 const REGION_NAMES := ["东部", "南部", "西部", "北部"]
 const CLASS_NAMES := {"cav": "骑兵", "spear": "枪兵", "archer": "弓兵", "mage": "谋士"}
 const CLASS_COLORS := {
@@ -54,6 +59,19 @@ const LORD_COMMAND_RECT := Rect2(324, 751, 146, 42)
 const FOE_LORD_RECT := Rect2(208, 108, 64, 43)
 const RESULT_BTN1 := Rect2(38, 690, 404, 42)
 const RESULT_BTN2 := Rect2(38, 744, 404, 42)
+const HOME_CODEX_RECT := Rect2(28, 604, 200, 44)
+const HOME_LORD_RECT := Rect2(252, 604, 200, 44)
+const HOME_VISIT_RECT := Rect2(28, 658, 128, 40)
+const HOME_ACH_RECT := Rect2(176, 658, 128, 40)
+const HOME_BAG_RECT := Rect2(324, 658, 128, 40)
+const HOME_CLOSE_RECT := Rect2(402, 22, 54, 34)
+const HOME_BACK_RECT := Rect2(24, 22, 66, 34)
+const HOME_PREV_RECT := Rect2(28, 744, 116, 38)
+const HOME_NEXT_RECT := Rect2(336, 744, 116, 38)
+const HERO_UPGRADE_RECT := Rect2(34, 620, 198, 46)
+const HERO_REBIRTH_RECT := Rect2(248, 620, 198, 46)
+const HERO_RESET_RECT := Rect2(141, 690, 198, 40)
+const VISIT_ROLL_RECT := Rect2(156, 306, 168, 54)
 
 var catalog
 var weekly
@@ -73,6 +91,16 @@ var profile_path := "user://v7.19.2-local-profile.json"
 var profile: Dictionary = {}
 var settlement_summary: Dictionary = {}
 var suppression_summary: Dictionary = {}
+var home_overlay := ""
+var codex_page := 0
+var codex_hero_id := ""
+var lord_page := 0
+var home_message := ""
+var reset_armed := false
+var visit_result: Dictionary = {}
+var visit_rng
+var ach_group := 0
+var ach_page := 0
 
 func _ready() -> void:
 	catalog = ContentCatalogSource.new()
@@ -84,11 +112,14 @@ func _ready() -> void:
 	weekly = WeeklyMapSource.new(catalog)
 	opening_picker = OpeningPickerSource.new()
 	profile = LocalProfileSource.load_from(profile_path, CURRENT_WEEK)
+	HeroProgressionSource.ensure_roster(profile, catalog.list("heroes"))
+	visit_rng = Mulberry32Source.new(CURRENT_WEEK * 771 + int(profile.get("visit_pos", 0)) * 97 + 2026)
 	week_clears = profile.week_clears
 	set_process(true)
 	queue_redraw()
 
 func advance_from_title() -> void:
+	home_overlay = ""
 	phase = "map"
 	current_region = 0
 	state_popup = -1
@@ -137,6 +168,7 @@ func select_opening_hero(hero_id: String) -> void:
 	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
 	city.metaWins = int(profile.get("wins", 0))
 	city.weekGuest = BattleRecordsSource.week_guest_lords(CURRENT_WEEK).has(selected_ruler)
+	city.visitGoldUntil = int(profile.get("visit_buffs", {}).get("gold", 0))
 	var seed := CURRENT_WEEK * 1009 + selected_city * 131 + RULER_IDS.find(selected_ruler) * 17
 	battle_run = BattleRunSource.new(catalog, Mulberry32Source.new(seed))
 	battle_run.start(city, selected_ruler, selected_hero, LocalProfileSource.ruler_level(profile, selected_ruler), LocalProfileSource.hero_levels(profile))
@@ -168,14 +200,18 @@ func _process(delta: float) -> void:
 func _sync_battle_result() -> void:
 	if battle_run.status == "win" and not battle_run.clear_settled:
 		settlement_summary = RunSettlementSource.settle_clear(profile, battle_run, selected_city, _theme_fit())
+		AchievementProgressSource.sweep(profile, catalog.list("achievements"))
 		_save_profile()
 	if battle_run.endless and battle_run.score_revision > 0 and int(suppression_summary.get("revision", 0)) < battle_run.score_revision:
-		suppression_summary = RunSettlementSource.record_suppression(profile, battle_run, selected_city, bool(battle_run.city.get("weekGuest", false)))
+		var almanac_active := VisitSystemSource.buff_active(profile, "score", int(Time.get_unix_time_from_system() * 1000.0))
+		suppression_summary = RunSettlementSource.record_suppression(profile, battle_run, selected_city, bool(battle_run.city.get("weekGuest", false)), almanac_active)
 		suppression_summary.revision = battle_run.score_revision
+		AchievementProgressSource.sweep(profile, catalog.list("achievements"))
 		_save_profile()
 	if battle_run.status == "over" and not battle_run.over_settled:
 		var over_summary: Dictionary = RunSettlementSource.settle_over(profile, battle_run, selected_city)
 		for key in over_summary: settlement_summary[key] = over_summary[key]
+		AchievementProgressSource.sweep(profile, catalog.list("achievements"))
 		_save_profile()
 
 func _save_profile() -> void:
@@ -200,7 +236,7 @@ func _gui_input(event: InputEvent) -> void:
 func _handle_pointer(point: Vector2) -> void:
 	match phase:
 		"title":
-			advance_from_title()
+			_handle_title_pointer(point)
 		"map":
 			_handle_map_pointer(point)
 		"ruler":
@@ -242,6 +278,156 @@ func _handle_pointer(point: Vector2) -> void:
 				battle_run.cast_lord_command()
 				queue_redraw()
 				return
+
+func _handle_title_pointer(point: Vector2) -> void:
+	if home_overlay.is_empty():
+		if HOME_CODEX_RECT.has_point(point):
+			home_overlay = "codex"
+			codex_page = 0
+		elif HOME_LORD_RECT.has_point(point):
+			home_overlay = "lords"
+			lord_page = 0
+		elif HOME_VISIT_RECT.has_point(point):
+			home_overlay = "visit"
+			visit_result = {}
+		elif HOME_ACH_RECT.has_point(point):
+			AchievementProgressSource.sweep(profile, catalog.list("achievements"))
+			home_overlay = "achievements"
+			ach_group = 0
+			ach_page = 0
+		elif HOME_BAG_RECT.has_point(point):
+			home_overlay = "bag"
+		else:
+			advance_from_title()
+		queue_redraw()
+		return
+	if HOME_CLOSE_RECT.has_point(point):
+		home_overlay = ""
+		home_message = ""
+		reset_armed = false
+		queue_redraw()
+		return
+	match home_overlay:
+		"codex":
+			if HOME_PREV_RECT.has_point(point):
+				codex_page = maxi(0, codex_page - 1)
+			elif HOME_NEXT_RECT.has_point(point):
+				codex_page = mini(2, codex_page + 1)
+			else:
+				var visible_ids: Array = codex_page_hero_ids()
+				for index in visible_ids.size():
+					if codex_hero_rect(index).has_point(point):
+						codex_hero_id = str(visible_ids[index])
+						home_overlay = "hero"
+						home_message = ""
+						break
+		"hero":
+			if HOME_BACK_RECT.has_point(point):
+				home_overlay = "codex"
+				reset_armed = false
+			elif HERO_UPGRADE_RECT.has_point(point):
+				var upgraded := HeroProgressionSource.upgrade(profile, codex_hero_id, catalog.content.get("hero_tiers", {}), catalog.content.get("rarities", {}))
+				home_message = "升级成功" if upgraded else "金币、突破石不足，或已到等级上限"
+				if upgraded:
+					AchievementProgressSource.sweep(profile, catalog.list("achievements"))
+					_save_profile()
+			elif HERO_REBIRTH_RECT.has_point(point):
+				var reborn := HeroProgressionSource.rebirth(profile, codex_hero_id)
+				home_message = "转生成功，等级上限 +10" if reborn else "需达到当前满级并备齐转生石"
+				if reborn:
+					AchievementProgressSource.sweep(profile, catalog.list("achievements"))
+					_save_profile()
+			elif HERO_RESET_RECT.has_point(point):
+				if reset_armed:
+					var refund: Dictionary = HeroProgressionSource.reset(profile, codex_hero_id, catalog.content.get("hero_tiers", {}), catalog.content.get("rarities", {}))
+					home_message = "已重置，返还 %d 金与 %d 突破石" % [int(refund.get("gold", 0)), int(refund.get("stones", 0))] if not refund.is_empty() else "当前武将无需重置"
+					reset_armed = false
+					if not refund.is_empty(): _save_profile()
+				else:
+					reset_armed = true
+					home_message = "再次点击确认重置（全额返还）"
+		"lords":
+			if HOME_PREV_RECT.has_point(point):
+				lord_page = maxi(0, lord_page - 1)
+			elif HOME_NEXT_RECT.has_point(point):
+				lord_page = mini(1, lord_page + 1)
+		"visit":
+			if VISIT_ROLL_RECT.has_point(point):
+				_perform_visit_roll()
+				AchievementProgressSource.sweep(profile, catalog.list("achievements"))
+				_save_profile()
+		"achievements":
+			for index in ACH_GROUPS.size():
+				if _achievement_tab_rect(index).has_point(point):
+					ach_group = index
+					ach_page = 0
+					queue_redraw()
+					return
+			if HOME_PREV_RECT.has_point(point): ach_page = maxi(0, ach_page - 1)
+			elif HOME_NEXT_RECT.has_point(point): ach_page = mini(_achievement_page_count() - 1, ach_page + 1)
+			else:
+				var definitions: Array = achievement_page_definitions()
+				for index in definitions.size():
+					if _achievement_row_rect(index).has_point(point):
+						var claim: Dictionary = AchievementProgressSource.claim(profile, str(definitions[index].id), catalog.list("achievements"))
+						if not claim.is_empty():
+							home_message = "领取 %d 金币" % int(claim.gold)
+							_save_profile()
+						break
+	queue_redraw()
+
+func _perform_visit_roll() -> void:
+	var now_ms := int(Time.get_unix_time_from_system() * 1000.0)
+	visit_result = VisitSystemSource.roll(profile, catalog, CURRENT_WEEK, visit_rng, now_ms)
+	if visit_result.has("error"): return
+	var combined_lines: Array = visit_result.get("lines", []).duplicate()
+	var rerolls := 0
+	while bool(visit_result.get("free_again", false)) and rerolls < 8:
+		rerolls += 1
+		var bonus: Dictionary = VisitSystemSource.roll(profile, catalog, CURRENT_WEEK, visit_rng, now_ms, true)
+		combined_lines.append("好手气：免费再寻，掷出%d点" % int(bonus.dice))
+		combined_lines.append_array(bonus.get("lines", []))
+		visit_result = bonus
+	visit_result.lines = combined_lines
+
+func codex_page_hero_ids() -> Array:
+	var heroes: Array = catalog.list("heroes")
+	var result: Array = []
+	var start := codex_page * 15
+	for index in range(start, mini(start + 15, heroes.size())):
+		result.append(str(heroes[index].id))
+	return result
+
+func codex_hero_rect(index: int) -> Rect2:
+	var column := index % 3
+	var row := int(floor(index / 3.0))
+	return Rect2(16 + column * 151, 94 + row * 124, 145, 112)
+
+func lord_page_ruler_ids() -> Array:
+	var result: Array = []
+	var start := lord_page * 4
+	for index in range(start, mini(start + 4, RULER_IDS.size())):
+		result.append(RULER_IDS[index])
+	return result
+
+func achievement_page_definitions() -> Array:
+	var matching: Array = []
+	for definition in catalog.list("achievements"):
+		if str(definition.get("grp", "")) == ACH_GROUPS[ach_group]: matching.append(definition)
+	var start := ach_page * 6
+	return matching.slice(start, mini(start + 6, matching.size()))
+
+func _achievement_page_count() -> int:
+	var count := 0
+	for definition in catalog.list("achievements"):
+		if str(definition.get("grp", "")) == ACH_GROUPS[ach_group]: count += 1
+	return maxi(1, int(ceil(count / 6.0)))
+
+func _achievement_tab_rect(index: int) -> Rect2:
+	return Rect2(18 + index * 113, 74, 105, 36)
+
+func _achievement_row_rect(index: int) -> Rect2:
+	return Rect2(20, 128 + index * 94, 440, 84)
 
 func _handle_result_pointer(point: Vector2) -> void:
 	if RESULT_BTN1.has_point(point):
@@ -289,6 +475,8 @@ func _draw() -> void:
 	match phase:
 		"title":
 			_draw_title()
+			_draw_home_controls()
+			if not home_overlay.is_empty(): _draw_home_overlay()
 		"map":
 			_draw_map()
 		"ruler":
@@ -323,6 +511,218 @@ func _draw_title() -> void:
 	_text_center("破城后可继续讨伐，十大功绩计入势力", 550, 16, BLUE)
 	_text_center("点击空白处出征", 690, 24, PALE_GOLD)
 	_text_center("Godot 4.7 · v7.19.2 单机复现", 760, 12, MUTED)
+
+func _draw_home_controls() -> void:
+	draw_rect(Rect2(0, 562, 480, 162), INK, true)
+	_panel(HOME_CODEX_RECT, Color("3b2c16"), PALE_GOLD, 2.0)
+	_text_centered_in_rect("武将图鉴 · 45将养成", HOME_CODEX_RECT, 16, Color("fff0bd"))
+	_panel(HOME_LORD_RECT, Color("3b2c16"), PALE_GOLD, 2.0)
+	_text_centered_in_rect("主公府 · 八方诸侯", HOME_LORD_RECT, 16, Color("fff0bd"))
+	_panel(HOME_VISIT_RECT, Color("294637"), GREEN, 1.5)
+	_text_centered_in_rect("寻访 ×%d" % int(profile.get("items", {}).get("visitToken", 0)), HOME_VISIT_RECT, 14, Color.WHITE)
+	_panel(HOME_ACH_RECT, Color("3c4828"), GREEN if AchievementProgressSource.claimable_count(profile) > 0 else PALE_GOLD, 1.5)
+	_text_centered_in_rect("成就%s" % (" · 可领%d" % AchievementProgressSource.claimable_count(profile) if AchievementProgressSource.claimable_count(profile) > 0 else ""), HOME_ACH_RECT, 14, Color.WHITE)
+	_panel(HOME_BAG_RECT, Color("3c3527"), PALE_GOLD, 1.5)
+	_text_centered_in_rect("背包", HOME_BAG_RECT, 14, Color.WHITE)
+	_text_center("本地金币 %d · 势力 %d · 最高讨伐 +%d波" % [int(profile.get("gold", 0)), week_clears.size(), int(profile.get("endless_best", 0))], 582, 13, BLUE)
+	_text_center("点击其余空白处出征", 719, 13, PALE_GOLD)
+
+func _draw_home_overlay() -> void:
+	draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), INK, true)
+	match home_overlay:
+		"codex": _draw_codex()
+		"hero": _draw_hero_detail()
+		"lords": _draw_lord_house()
+		"visit": _draw_visit()
+		"bag": _draw_bag()
+		"achievements": _draw_achievements()
+	_panel(HOME_CLOSE_RECT, Color("40271e"), RED, 1.5)
+	_text_centered_in_rect("关闭", HOME_CLOSE_RECT, 13, Color.WHITE)
+
+func _draw_codex() -> void:
+	_text_center("武将图鉴", 48, 27, GOLD)
+	_text_center("45名武将 · 每级全属性 +8% · 突破与转生永久保留", 73, 12, Color("d5c9a8"))
+	var visible_ids: Array = codex_page_hero_ids()
+	for index in visible_ids.size():
+		var hero_id := str(visible_ids[index])
+		var hero: Dictionary = catalog.by_id("heroes", hero_id)
+		var entry: Dictionary = profile.heroes[hero_id]
+		var rarity_id := HeroProgressionSource.rarity(hero_id, catalog.content.get("hero_tiers", {}))
+		var rarity_data: Dictionary = catalog.content.get("rarities", {}).get(rarity_id, {})
+		var rarity_color := Color(str(rarity_data.get("color", "#cfd6dc")))
+		var rect := codex_hero_rect(index)
+		_panel(rect, Color("241c10"), rarity_color, 2.0)
+		_text_centered_in_rect(str(hero.get("char", "将")), Rect2(rect.position.x, rect.position.y + 8, rect.size.x, 26), 20, Color.WHITE)
+		_text_centered_in_rect(str(hero.name), Rect2(rect.position.x, rect.position.y + 39, rect.size.x, 23), 15, PALE_GOLD)
+		_text_centered_in_rect("Lv.%d%s" % [int(entry.lv), " · 转%d" % int(entry.rb) if int(entry.rb) > 0 else ""], Rect2(rect.position.x, rect.position.y + 65, rect.size.x, 20), 12, BLUE)
+		_text_centered_in_rect("%s · %s" % [str(rarity_data.get("name", rarity_id)), CLASS_NAMES.get(hero.cls, hero.cls)], Rect2(rect.position.x, rect.position.y + 87, rect.size.x, 18), 10, rarity_color)
+	_panel(HOME_PREV_RECT, Color("302718"), PALE_GOLD if codex_page > 0 else MUTED, 1.5)
+	_text_centered_in_rect("上一页", HOME_PREV_RECT, 14, Color.WHITE if codex_page > 0 else MUTED)
+	_text_center("第 %d / 3 页" % (codex_page + 1), 770, 13, PALE_GOLD)
+	_panel(HOME_NEXT_RECT, Color("302718"), PALE_GOLD if codex_page < 2 else MUTED, 1.5)
+	_text_centered_in_rect("下一页", HOME_NEXT_RECT, 14, Color.WHITE if codex_page < 2 else MUTED)
+
+func _draw_hero_detail() -> void:
+	var hero: Dictionary = catalog.by_id("heroes", codex_hero_id)
+	var entry: Dictionary = profile.heroes.get(codex_hero_id, {"lv": 1, "rb": 0, "xp": 0})
+	var rarity_id := HeroProgressionSource.rarity(codex_hero_id, catalog.content.get("hero_tiers", {}))
+	var rarity_data: Dictionary = catalog.content.get("rarities", {}).get(rarity_id, {})
+	var rarity_color := Color(str(rarity_data.get("color", "#cfd6dc")))
+	_panel(HOME_BACK_RECT, Color("302718"), PALE_GOLD, 1.5)
+	_text_centered_in_rect("返回", HOME_BACK_RECT, 13, Color.WHITE)
+	draw_circle(Vector2(240, 130), 54, PANEL_2)
+	draw_arc(Vector2(240, 130), 56, 0, TAU, 64, rarity_color, 4.0)
+	_text_centered_in_rect(str(hero.get("char", "将")), Rect2(190, 102, 100, 46), 35, Color.WHITE)
+	_text_center(str(hero.get("name", codex_hero_id)), 220, 29, GOLD)
+	_text_center("%s · %s · %s" % [str(rarity_data.get("name", rarity_id)), CLASS_NAMES.get(hero.get("cls", ""), hero.get("cls", "")), TRI_DISPLAY.get(hero.get("elem", ""), {}).get("name", "")], 249, 14, rarity_color)
+	_text_center("Lv.%d / %d · 转生 %d / 3 · 全属性 +%d%%" % [int(entry.lv), HeroProgressionSource.level_cap(entry), int(entry.rb), maxi(0, int(entry.lv) - 1) * 8], 282, 15, BLUE)
+	_text_center(str(hero.get("desc", "")), 312, 13, Color("d5c9a8"))
+	var ultimate: Dictionary = BattleUltsSource.DEFINITIONS.get(codex_hero_id, {})
+	_text_center("绝技：%s · 基础冷却 %s秒" % [str(ultimate.get("name", "未录入")), str(ultimate.get("cd", "-"))], 333, 12, Color("c9a8ff"))
+	_panel(Rect2(30, 342, 420, 216), Color("211a10"), Color("6c5835"), 1.5)
+	_text("里程碑", Vector2(48, 370), 17, PALE_GOLD)
+	var milestones: Array = catalog.list("milestones")
+	for index in milestones.size():
+		var milestone: Dictionary = milestones[index]
+		var reached := int(entry.lv) >= int(milestone.lv)
+		_text("Lv.%d  %s" % [int(milestone.lv), str(milestone.txt)], Vector2(50, 400 + index * 22), 12, GREEN if reached else MUTED)
+	var next_cost := 0
+	if int(entry.lv) < HeroProgressionSource.level_cap(entry):
+		next_cost = HeroProgressionSource.upgrade_cost(int(entry.lv) + 1, codex_hero_id, catalog.content.get("hero_tiers", {}), catalog.content.get("rarities", {}))
+	var gate := HeroProgressionSource.gate_stones(int(entry.lv))
+	_panel(HERO_UPGRADE_RECT, Color("5a4426"), GOLD, 2.0)
+	_text_centered_in_rect("升级 · %d金%s" % [next_cost, " + %d石" % gate if gate > 0 else ""], HERO_UPGRADE_RECT, 15, Color("fff3c4"))
+	var rebirth_cost := int(HeroProgressionSource.REBIRTH_STONES[int(entry.rb)]) if int(entry.rb) < 3 else 0
+	_panel(HERO_REBIRTH_RECT, Color("3b2b4f"), Color("c896ff"), 2.0)
+	_text_centered_in_rect("转生 · %d突破石" % rebirth_cost, HERO_REBIRTH_RECT, 15, Color("f1d9ff"))
+	_panel(HERO_RESET_RECT, Color("30271d"), RED if reset_armed else MUTED, 1.5)
+	_text_centered_in_rect("确认重置" if reset_armed else "重置（全额返还）", HERO_RESET_RECT, 13, Color.WHITE)
+	_text_center("持有：%d 金 · %d 突破石 · 经验 %d" % [int(profile.gold), int(profile.items.tupo), int(entry.xp)], 756, 13, PALE_GOLD)
+	if not home_message.is_empty(): _text_center(home_message, 785, 12, GREEN)
+
+func _draw_lord_house() -> void:
+	_text_center("主公府", 48, 27, GOLD)
+	_text_center("主公经验随出征成长 · 被动等级直接带入战斗", 75, 12, Color("d5c9a8"))
+	var visible_ids: Array = lord_page_ruler_ids()
+	for index in visible_ids.size():
+		var ruler_id := str(visible_ids[index])
+		var ruler: Dictionary = catalog.by_id("rulers", ruler_id)
+		var entry: Dictionary = profile.rulers[ruler_id]
+		var rect := Rect2(24, 104 + index * 144, 432, 124)
+		_panel(rect, Color("241c10"), PALE_GOLD, 1.5)
+		_text(str(ruler.name), Vector2(42, rect.position.y + 29), 21, GOLD)
+		var skill_tier := mini(3, 1 + int(floor((int(entry.lv) - 1) / 8.0)))
+		_text("Lv.%d / 20 · 经验 %d/%d · 号令%d阶" % [int(entry.lv), int(entry.xp), LocalProfileSource.lord_xp_need(int(entry.lv)), skill_tier], Vector2(158, rect.position.y + 27), 12, BLUE)
+		_text(_short_text(str(ruler.desc), 25), Vector2(42, rect.position.y + 56), 12, Color("d5c9a8"))
+		var labels := PackedStringArray()
+		for passive in ruler.get("passives", []):
+			var unlocked := 0
+			for at_level in passive.get("at", []):
+				if int(entry.lv) >= int(at_level): unlocked += 1
+			var tech: Dictionary = catalog.by_id("techs", str(passive.id))
+			labels.append("%s %d/%d" % [str(tech.get("name", passive.id)), unlocked, passive.get("at", []).size()])
+		var first_line := PackedStringArray()
+		var second_line := PackedStringArray()
+		for label_index in labels.size():
+			if label_index < 2: first_line.append(labels[label_index])
+			else: second_line.append(labels[label_index])
+		_text(" · ".join(first_line), Vector2(42, rect.position.y + 83), 11, GREEN)
+		_text(" · ".join(second_line), Vector2(42, rect.position.y + 104), 11, GREEN)
+		_text("出征结算获得主公经验", Vector2(298, rect.position.y + 116), 9, MUTED)
+	_panel(HOME_PREV_RECT, Color("302718"), PALE_GOLD if lord_page > 0 else MUTED, 1.5)
+	_text_centered_in_rect("上一页", HOME_PREV_RECT, 14, Color.WHITE if lord_page > 0 else MUTED)
+	_text_center("第 %d / 2 页" % (lord_page + 1), 770, 13, PALE_GOLD)
+	_panel(HOME_NEXT_RECT, Color("302718"), PALE_GOLD if lord_page < 1 else MUTED, 1.5)
+	_text_centered_in_rect("下一页", HOME_NEXT_RECT, 14, Color.WHITE if lord_page < 1 else MUTED)
+
+func _visit_cell_position(index: int) -> Vector2:
+	var top := 150.0
+	var bottom := 570.0
+	var left := 42.0
+	var right := 438.0
+	if index <= 5: return Vector2(lerpf(left, right, index / 5.0), top)
+	if index <= 9: return Vector2(right, lerpf(top, bottom, (index - 5) / 5.0))
+	if index <= 15: return Vector2(lerpf(right, left, (index - 10) / 5.0), bottom)
+	return Vector2(left, lerpf(bottom, top, (index - 15) / 5.0))
+
+func _draw_visit() -> void:
+	_text_center("寻访", 48, 27, GOLD)
+	_text_center("掷骰走格拿奖励 · 20格构成固定、每周重新排布", 75, 12, Color("d5c9a8"))
+	var icons := {"gold": "金", "gift": "礼", "hxp": "将", "lxp": "主", "luck": "签", "tupo": "石", "kuang": "矿"}
+	var colors := {"gold": GOLD, "gift": Color("ff8a3a"), "hxp": RED, "lxp": Color("d9a6ff"), "luck": GREEN, "tupo": Color("e8d9b0"), "kuang": Color("6ae8ff")}
+	var cells: Array = VisitSystemSource.board(CURRENT_WEEK)
+	for index in cells.size():
+		var cell := str(cells[index])
+		var point := _visit_cell_position(index)
+		var here := index == int(profile.get("visit_pos", 0))
+		draw_rect(Rect2(point - Vector2(22, 22), Vector2(44, 44)), Color("382d19") if here else Color("241c10"), true)
+		draw_rect(Rect2(point - Vector2(22, 22), Vector2(44, 44)), GOLD if here else colors[cell], false, 3.0 if here else 1.5)
+		_text_centered_in_rect(str(icons[cell]), Rect2(point.x - 22, point.y - 13, 44, 24), 16, Color.WHITE)
+		if here: _text_centered_in_rect("●", Rect2(point.x - 22, point.y + 8, 44, 12), 8, GOLD)
+	_text_center("寻访令牌 ×%d" % int(profile.items.visitToken), 286, 15, BLUE)
+	_panel(VISIT_ROLL_RECT, Color("5a4426"), GOLD, 2.0)
+	_text_centered_in_rect("掷骰子（1令牌）", VISIT_ROLL_RECT, 17, Color("fff3c4"))
+	if visit_result.is_empty():
+		_text_center("今日通关 %d/30 · 讨伐赏 %d/30" % [int(profile.get("visit_count", 0)), int(profile.get("taofa_got", 0))], 405, 13, MUTED)
+	else:
+		var heading := "令牌不足" if visit_result.has("error") else "掷出 %d 点 · 落在「%s」" % [int(visit_result.dice), str(visit_result.cell)]
+		_text_center(heading, 400, 15, PALE_GOLD)
+		var lines: Array = visit_result.get("lines", [])
+		for index in mini(5, lines.size()): _text_center(str(lines[index]), 428 + index * 22, 12, GREEN)
+	var now_ms := int(Time.get_unix_time_from_system() * 1000.0)
+	var buffs := PackedStringArray()
+	for buff_id in ["score", "gold", "again"]:
+		if VisitSystemSource.buff_active(profile, buff_id, now_ms): buffs.append(str(buff_id))
+	_text_center("黄历加成：%s" % ("、".join(buffs) if not buffs.is_empty() else "暂无（奇遇格可获得30分钟加成）"), 628, 12, GREEN if not buffs.is_empty() else MUTED)
+	_text_center("突破石 %d · 图鉴经验和主公经验都会直接写入本地存档" % int(profile.items.tupo), 664, 12, PALE_GOLD)
+	_text_center("单机版不接广告；令牌来源保留战斗通关与棋盘奖励", 704, 11, MUTED)
+
+func _draw_bag() -> void:
+	_text_center("背包", 50, 28, GOLD)
+	_text_center("所有道具保存在当前设备，不依赖服务器", 78, 12, Color("d5c9a8"))
+	var items: Array = catalog.list("items")
+	for index in items.size():
+		var item: Dictionary = items[index]
+		var rect := Rect2(24, 126 + index * 168, 432, 146)
+		_panel(rect, Color("241c10"), PALE_GOLD, 1.8)
+		_text("令" if str(item.id) == "visitToken" else "石", Vector2(50, rect.position.y + 49), 25, Color.WHITE)
+		_text(str(item.name), Vector2(95, rect.position.y + 38), 20, GOLD)
+		_text("持有 ×%d" % int(profile.items.get(str(item.id), 0)), Vector2(330, rect.position.y + 37), 15, BLUE)
+		_text(_short_text(str(item.desc), 29), Vector2(95, rect.position.y + 69), 12, Color("d5c9a8"))
+		if str(item.id) == "visitToken":
+			_text("来源：战斗通关、寻访大礼包", Vector2(95, rect.position.y + 105), 11, GREEN)
+		else:
+			_text("用途：10/20级突破与三次转生", Vector2(95, rect.position.y + 105), 11, GREEN)
+	_text_center("背包只展示资源；使用入口在寻访和武将详情中", 538, 13, MUTED)
+
+func _draw_achievements() -> void:
+	_text_center("成就 %d / %d" % [profile.achievements.size(), catalog.list("achievements").size()], 50, 25, GOLD)
+	for index in ACH_GROUPS.size():
+		var rect := _achievement_tab_rect(index)
+		_panel(rect, Color("574323") if index == ach_group else Color("241c10"), GOLD if index == ach_group else MUTED, 1.5)
+		_text_centered_in_rect(ACH_GROUPS[index], rect, 13, Color.WHITE if index == ach_group else MUTED)
+	var definitions: Array = achievement_page_definitions()
+	for index in definitions.size():
+		var definition: Dictionary = definitions[index]
+		var achievement_id := str(definition.id)
+		var rect := _achievement_row_rect(index)
+		var unlocked: bool = profile.achievements.has(achievement_id)
+		var claimed: bool = profile.ach_claimed.has(achievement_id)
+		var state: Dictionary = AchievementProgressSource.progress(profile, achievement_id)
+		_panel(rect, Color("20351f") if unlocked and not claimed else Color("241c10"), GREEN if unlocked and not claimed else (PALE_GOLD if claimed else MUTED), 1.5)
+		_text(str(definition.name), Vector2(34, rect.position.y + 27), 17, GOLD if unlocked else Color("d5c9a8"))
+		_text(_short_text(str(definition.desc), 29), Vector2(34, rect.position.y + 52), 11, Color("c9b69a"))
+		var status := "已领取" if claimed else ("点击领取 +%d金" % int(definition.gold) if unlocked else "未达成")
+		_text(status, Vector2(326, rect.position.y + 27), 11, GREEN if unlocked and not claimed else MUTED)
+		if bool(state.supported):
+			_text("进度 %d / %d" % [mini(int(state.current), int(state.need)), int(state.need)], Vector2(34, rect.position.y + 73), 10, BLUE)
+		elif not unlocked:
+			_text("当前单机版暂未接入该事件统计", Vector2(34, rect.position.y + 73), 10, MUTED)
+	_panel(HOME_PREV_RECT, Color("302718"), PALE_GOLD if ach_page > 0 else MUTED, 1.5)
+	_text_centered_in_rect("上一页", HOME_PREV_RECT, 14, Color.WHITE if ach_page > 0 else MUTED)
+	_text_center("第 %d / %d 页%s" % [ach_page + 1, _achievement_page_count(), " · " + home_message if not home_message.is_empty() else ""], 770, 12, PALE_GOLD)
+	_panel(HOME_NEXT_RECT, Color("302718"), PALE_GOLD if ach_page + 1 < _achievement_page_count() else MUTED, 1.5)
+	_text_centered_in_rect("下一页", HOME_NEXT_RECT, 14, Color.WHITE if ach_page + 1 < _achievement_page_count() else MUTED)
 
 func _draw_map() -> void:
 	var theme: Dictionary = weekly.theme_of(CURRENT_WEEK, current_region)
