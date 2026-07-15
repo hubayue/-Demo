@@ -108,7 +108,7 @@ func _test_damage_control_and_support(catalog) -> bool:
 		unit.ultCd = 12.0
 	var simayi: Dictionary = strategist.units().filter(func(unit): return str(unit.hero.id) == "simayi")[0]
 	strategist.ult_system.cast(strategist, simayi)
-	return _expect(strategist.units().filter(func(unit): return unit != simayi and is_equal_approx(float(unit.ultCd), 2.0)).size() == 4, "Sima Yi must reduce every ally ultimate cooldown by ten seconds")
+	return _expect(strategist.units().filter(func(unit): return unit != simayi and is_equal_approx(float(unit.ultCd), 2.0)).size() == 4 and strategist.skill_lines.size() == 4 and strategist.skill_lines.all(func(line): return is_equal_approx(float(line.t), 0.35)), "Sima Yi must reduce every ally ultimate cooldown by ten seconds and link to all four real ally positions")
 
 func _test_persistent_battle_entities(catalog) -> bool:
 	var defense = _make_run(catalog, "xuchu")
@@ -349,6 +349,33 @@ func _test_targeted_web_geometries(catalog) -> bool:
 	duel.enemies = [duel_target]
 	duel.ult_system.cast(duel, duel_unit)
 	if not _expect(duel.skill_lines.size() == 1 and str(duel.skill_lines[0].kind) == "slash" and duel.skill_lines[0].to == Vector2(float(duel_target.x), float(duel_target.y)) and is_equal_approx(float(duel.skill_lines[0].t), 0.2), "Wen Chou must draw the duel execution slash to the real marked target"):
+		return false
+	var fire_line = _make_run(catalog, "zhouyu")
+	var fire_unit: Dictionary = fire_line.units()[0]
+	var fire_a := _enemy(fire_unit, -80.0, -180.0)
+	var fire_b := _enemy(fire_unit, 30.0, -170.0)
+	var fire_c := _enemy(fire_unit, 90.0, -80.0)
+	fire_line.enemies = [fire_a, fire_b, fire_c]
+	fire_line.ult_system.cast(fire_line, fire_unit)
+	if not _expect(fire_line.skill_lines.size() == 1 and fire_line.skill_lines[0].from == Vector2(0.0, float(fire_a.y)) and fire_line.skill_lines[0].to == Vector2(480.0, float(fire_a.y)) and is_equal_approx(float(fire_line.skill_lines[0].t), 0.4), "Zhou Yu must draw the Web full-width fire beam across the densest enemy row"):
+		return false
+	var rainy_fire = _make_run(catalog, "zhouyu")
+	var rainy_unit: Dictionary = rainy_fire.units()[0]
+	var rainy_target := _enemy(rainy_unit, 0.0, -180.0)
+	rainy_fire.enemies = [rainy_target]
+	rainy_fire.mutations[rainy_fire.wave] = "rainstorm"
+	rainy_fire.ult_system.cast(rainy_fire, rainy_unit)
+	if not _expect(float(rainy_target.hp) < 100.0 and is_equal_approx(float(rainy_target.burnT), 0.0), "rainstorm must suppress Zhou Yu's ignition without suppressing the initial fire-line hit"):
+		return false
+	var gather = _make_run(catalog, "gaoshun")
+	var gather_unit: Dictionary = gather.units()[0]
+	var edge_boss := _enemy(gather_unit, 0.0, -120.0)
+	edge_boss.x = 100.0
+	edge_boss.r = 150.0
+	edge_boss.boss = true
+	gather.enemies = [_enemy(gather_unit, -90.0, -160.0), _enemy(gather_unit, 90.0, -130.0), _enemy(gather_unit, 0.0, -190.0), edge_boss]
+	gather.ult_system.cast(gather, gather_unit)
+	if not _expect(gather.skill_lines.size() == 4 and gather.skill_lines.all(func(line): return line.from == BattleRun.slot_center(int(gather_unit.row), int(gather_unit.col)) - Vector2(0, 18) and is_equal_approx(float(line.t), 0.25)) and is_equal_approx(float(edge_boss.x), float(edge_boss.r)), "Gao Shun must draw one pull beam per moved target and clamp an edge boss inside its own Web radius boundary (lines=%d x=%.2f r=%.2f)" % [gather.skill_lines.size(), float(edge_boss.x), float(edge_boss.r)]) :
 		return false
 	var arrows = _make_run(catalog, "taishici")
 	var arrow_unit: Dictionary = arrows.units()[0]

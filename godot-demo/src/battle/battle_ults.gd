@@ -6,11 +6,11 @@ const VISUAL_EFFECTS := {
 	"xiahouyuan": "ricochet", "luxun": "fire_pit", "guanyu": "lane", "lvbu": "bounce",
 	"zhangliao": "fear", "taishici": "arrow_rain", "dianwei": "cleave", "sunce": "charge",
 	"xuchu": "barricade", "weiyan": "trap", "ganning": "bombard", "diaochan": "charm",
-	"zhouyu": "fire_line", "jiangwei": "homing", "zhugeliang": "link", "caoren": "shock",
+	"zhouyu": "fire_beam", "jiangwei": "homing", "zhugeliang": "link", "caoren": "shock",
 	"zhoutai": "reflect", "huatuo": "heal", "xiaoqiao": "haste", "lusu": "army_buff",
 	"huanggai": "immolate", "xuhuang": "palisade", "daqiao": "ice_wave", "huangyueying": "turret_deploy",
-	"caiwenji": "sleep", "gaoshun": "gather", "zhanghe": "multi_charge", "zhurong": "fan",
-	"wutugu": "poison", "simayi": "clock", "pangde": "lane", "yanliang": "execute",
+	"caiwenji": "sleep", "gaoshun": "gather_lines", "zhanghe": "multi_charge", "zhurong": "fan",
+	"wutugu": "poison", "simayi": "clock_links", "pangde": "lane", "yanliang": "execute",
 	"sunshangxiang": "fan", "yanyan": "frost", "caohong": "guard", "xushu": "sunder",
 	"jiaxu": "charm", "zuoci": "sheep", "dengai": "row", "menghuo": "fear", "wenchou": "duel",
 }
@@ -200,8 +200,11 @@ func cast(run, unit: Dictionary) -> bool:
 		"xushu":
 			for enemy in _alive(run): enemy.armorBreakT = maxf(float(enemy.get("armorBreakT", 0.0)), 9.0 if run.relic_ids.has("shuijingshu") else 5.0)
 		"simayi":
+			var simayi_origin := _center(run, unit) - Vector2(0, 18)
 			for ally in run.units():
-				if ally != unit: ally.ultCd = maxf(0.0, float(ally.get("ultCd", 0.0)) - 10.0)
+				if ally != unit:
+					ally.ultCd = maxf(0.0, float(ally.get("ultCd", 0.0)) - 10.0)
+					_add_skill_line(run, simayi_origin, _center(run, ally), 0.35, "c9a8ff", 1.5, "beam")
 			run.gain_xp(20.0)
 		"jiaxu": _jiaxu(run, unit)
 		"zuoci": _zuoci(run)
@@ -415,11 +418,18 @@ func _zhouyu(run, unit: Dictionary, base: float) -> void:
 	for enemy in living:
 		var n := living.filter(func(other): return absf(float(other.y) - float(enemy.y)) < 45.0).size()
 		if n > best_n: best_n = n; best_y = float(enemy.y)
+	if best_n > 0:
+		_add_skill_line(run, Vector2(0.0, best_y), Vector2(480.0, best_y), 0.4, "ff7a3a", 3.0, "beam")
 	for enemy in living.duplicate():
 		if absf(float(enemy.y) - best_y) < 45.0:
 			_deal(run, unit, enemy, base * 2.9)
-			enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 4.0)
-			enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), maxf(2.0, round(base * 0.5)))
+			if not bool(enemy.get("dead", false)) and str(run.mutations.get(run.wave, "")) != "rainstorm":
+				enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 4.0)
+				var burn_damage := maxf(2.0, round(base * 0.5))
+				if str(run.mutations.get(run.wave, "")) == "eastwind":
+					burn_damage *= 2.0
+				enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), burn_damage)
+				enemy.burnSrc = unit
 
 func _homing_barrage(run, unit: Dictionary, damage: float, count: int) -> void:
 	var living := _alive(run)
@@ -530,7 +540,9 @@ func _gaoshun(run, unit: Dictionary, base: float) -> void:
 	gy = clampf(gy / targets.size(), 80.0, run.GRID_Y - 60.0)
 	for enemy in targets:
 		var point := Vector2(float(enemy.x), float(enemy.y)).move_toward(Vector2(lane_x, gy), 30.0 if bool(enemy.get("boss", false)) else 90.0)
+		point.x = clampf(point.x, float(enemy.r), 480.0 - float(enemy.r))
 		enemy.x = point.x; enemy.y = point.y
+		_add_skill_line(run, center, point, 0.25, "d5c9a8", 1.3, "beam")
 	for enemy in _alive(run).duplicate():
 		if Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(lane_x, gy)) < pow(90.0 + float(enemy.r), 2): _deal(run, unit, enemy, base * 2.5)
 

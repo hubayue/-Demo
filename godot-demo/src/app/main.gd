@@ -1509,6 +1509,8 @@ func _draw_ult_visual_event(event: Dictionary) -> void:
 			pass # Jiang Wei's eight live homers carry the complete Web effect.
 		"arrow_rain", "turret_deploy":
 			pass # Live lob entities carry the falling-arrow and deployment geometry.
+		"fire_beam", "gather_lines", "clock_links":
+			pass # Targeted Web beam entities carry these three ultimates.
 		"snipe":
 			pass # Huang Zhong uses the selected elite's actual endpoint.
 		"duel":
