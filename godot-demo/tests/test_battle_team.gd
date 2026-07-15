@@ -62,6 +62,8 @@ func _run() -> void:
 		return
 	if not _test_hero_meta_growth(catalog):
 		return
+	if not _test_cavalry_crowd(catalog):
+		return
 	print("Godot v7.19.2 battle team state: PASS")
 	quit(0)
 
@@ -108,6 +110,17 @@ func _test_hero_meta_growth(catalog) -> bool:
 	if not _expect(run.team.unit_damage(run, unit, mods) == expected_damage, "hero account level ten must add 72 percent damage after star scaling"): return false
 	var expected_hp := roundi(float(baseline_unit.hp_max) * 1.5 * 1.72)
 	return _expect(int(unit.hp_max) == expected_hp, "hero account level ten must add 72 percent health after starting-star scaling")
+
+func _test_cavalry_crowd(catalog) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(7192))
+	run.start(_base_city(""), "caocao", "guanyu")
+	var cavalry: Dictionary = _find_unit(run.units(), "guanyu")
+	var baseline: float = float(run.team.unit_mods(run, cavalry).dmgMul)
+	for index in 20:
+		run.enemies.append({"dead": false, "y": 100.0})
+	if not _expect(run.has_method("cavalry_crowd_multiplier") and is_equal_approx(run.cavalry_crowd_multiplier(), 1.2), "twenty active enemies must give cavalry the Web +20% crowd multiplier"):
+		return false
+	return _expect(is_equal_approx(float(run.team.unit_mods(run, cavalry).dmgMul), baseline * 1.2), "the live crowd multiplier must affect cavalry damage, not only panel copy")
 
 func _base_city(theme: String) -> Dictionary:
 	return {"ch": 1, "wall": 20, "theme": theme, "field": "", "hpMul": 1.0, "spdMul": 1.0, "hpGrow": 1.1, "affixAdd": 0.0, "killTarget": 450, "obstacles": 0, "foes": {"tri": ""}}

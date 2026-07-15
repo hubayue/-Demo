@@ -19,6 +19,8 @@ func _run() -> void:
 		return
 	if not _test_shield_retaliation(catalog):
 		return
+	if not _test_shield_counter_charge(catalog):
+		return
 	if not _test_taoyuan_absorption(catalog):
 		return
 	print("Godot v7.19.2 enemy engagement: PASS")
@@ -87,6 +89,25 @@ func _test_shield_retaliation(catalog) -> bool:
 	run._update_enemies(0.01)
 	var expected: float = 1000.0 - round(float(shield.hp_max) * 0.04)
 	return _expect(is_equal_approx(float(enemy.hp), expected), "a shield blocker must retaliate for 4% of its maximum HP on every melee block")
+
+func _test_shield_counter_charge(catalog) -> bool:
+	var run = _make_run(catalog, "caoren", 0, 2)
+	var shield: Dictionary = run.grid[0][2]
+	var center := BattleRun.slot_center(0, 2)
+	var enemy := _enemy(center.x, center.y - 40.0, 15.0, 1000.0)
+	run.enemies = [enemy]
+	var hit := roundi(float(shield.hp_max) * 0.3)
+	run.hurt_unit(shield, hit, 0, 2)
+	if not _expect(is_equal_approx(float(shield.get("tanked", 0.0)), float(hit)), "shield damage must fill the Web counter-charge meter"):
+		return false
+	run.hurt_unit(shield, hit, 0, 2)
+	var expected_counter := roundi(float(hit * 2) * 0.8)
+	if not _expect(is_equal_approx(float(shield.get("tanked", -1.0)), 0.0) and is_equal_approx(float(enemy.hp), 1000.0 - expected_counter), "a sixty-percent shield charge must counter nearby enemies for eighty percent of banked damage"):
+		return false
+	if not _expect(run.field_events.size() == 1, "a successful shield counter must emit one visible Web feedback event"):
+		return false
+	var event: Dictionary = run.field_events[0]
+	return _expect(str(event.get("kind", "")) == "shield_counter" and str(event.get("label", "")) == "蓄势反击!" and is_equal_approx(float(event.get("x", -1.0)), center.x) and is_equal_approx(float(event.get("y", -1.0)), center.y), "shield counter feedback must burst at the shield and preserve the exact first-hit label")
 
 func _test_taoyuan_absorption(catalog) -> bool:
 	var run = _make_run(catalog, "zhangfei", 0, 2)

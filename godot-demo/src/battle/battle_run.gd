@@ -328,6 +328,31 @@ func advance_real(delta: float) -> void:
 	for step in speed:
 		_update_step(delta)
 
+func advance_visual_only(delta: float) -> void:
+	game_time += delta
+	dance_time = maxf(0.0, dance_time - delta)
+	_decay_visual_events(field_events, delta)
+	_decay_visual_events(skill_lines, delta)
+	_decay_visual_events(ult_events, delta)
+	_update_ripples(delta)
+	_update_lord_visuals(delta)
+	for lob in friendly_lobs:
+		if bool(lob.get("dead", false)) or float(lob.get("damage", 0.0)) > 0.0 or not lob.get("pit", {}).is_empty():
+			continue
+		lob.t = float(lob.get("t", 0.0)) + delta
+		if float(lob.t) >= float(lob.get("dur", 0.0)):
+			lob.dead = true
+	for index in range(friendly_lobs.size() - 1, -1, -1):
+		if bool(friendly_lobs[index].get("dead", false)):
+			friendly_lobs.remove_at(index)
+
+func _decay_visual_events(events: Array, delta: float) -> void:
+	for event in events:
+		event.t = float(event.get("t", 0.0)) - delta
+	for index in range(events.size() - 1, -1, -1):
+		if float(events[index].get("t", 0.0)) <= 0.0:
+			events.remove_at(index)
+
 static func triangle_multiplier(attacker_tri: String, enemy_tri: String) -> float:
 	if not attacker_tri or not enemy_tri:
 		return 1.0
@@ -673,6 +698,13 @@ func _update_foe_lord(delta: float) -> void:
 func foe_damage_multiplier() -> float:
 	var extra := maxi(0, wave - win_wave - 5) if endless and win_wave > 0 else 0
 	return (1.3 if foe_rage_time > 0 else 1.0) * (pow(1.10, extra) if extra > 0 else 1.0)
+
+func cavalry_crowd_multiplier() -> float:
+	var active_enemies := 0
+	for enemy in enemies:
+		if not bool(enemy.get("dead", false)) and float(enemy.get("y", -999.0)) > -10.0:
+			active_enemies += 1
+	return 1.0 + minf(0.35, 0.02 * maxf(0.0, float(active_enemies - 10)))
 
 func lord_command_auto_ready() -> bool:
 	return lord_system.auto_ready(self)
@@ -1200,6 +1232,23 @@ func hurt_unit(unit: Dictionary, amount: int, row: int, col: int) -> int:
 		damage = roundi(damage * (0.65 if relic_ids.has("hufu") else 0.75))
 	damage = maxi(1, damage)
 	unit.hp = float(unit.hp) - damage
+	if str(unit.hero.cls) == "shield" and float(unit.hp) > 0.0:
+		unit.tanked = float(unit.get("tanked", 0.0)) + damage
+		if float(unit.tanked) >= float(unit.hp_max) * 0.6:
+			var counter_damage := roundi(float(unit.tanked) * 0.8)
+			unit.tanked = 0.0
+			var center := slot_center(row, col)
+			var hit_count := 0
+			for enemy in enemies.duplicate():
+				if bool(enemy.get("dead", false)):
+					continue
+				if absf(float(enemy.get("x", 0.0)) - center.x) < CELL * 1.6 and absf(float(enemy.get("y", 0.0)) - center.y) < CELL * 1.6:
+					damage_enemy_from_unit(enemy, counter_damage, "", unit)
+					hit_count += 1
+			if hit_count > 0:
+				field_events.append({"kind": "shield_counter", "label": "蓄势反击!", "x": center.x, "y": center.y, "t": 0.55})
+			else:
+				unit.tanked = roundi(float(unit.hp_max) * 0.6)
 	if float(unit.hp) <= 0:
 		unit.hp = 0.0
 		if row >= 0 and row < GRID_ROWS and col >= 0 and col < GRID_COLS and grid[row][col] == unit:
@@ -1554,30 +1603,39 @@ func add_unit_at(hero_id: String, row: int, col: int) -> bool:
 	return true
 
 func move_or_swap_unit(source_row: int, source_col: int, target_row: int, target_col: int) -> bool:
-	if source_row < 0 or source_row >= GRID_ROWS or source_col < 0 or source_col >= GRID_COLS:
-		return false
-	if target_row < 0 or target_row >= GRID_ROWS or target_col < 0 or target_col >= GRID_COLS:
-		return false
-	if source_row == target_row and source_col == target_col:
+	if not placement_error(source_row, source_col, target_row, target_col).is_empty():
 		return false
 	var source = grid[source_row][source_col]
-	if source == null:
-		return false
-	var target_key := _cell_key(target_row, target_col)
-	if obstacles.has(target_key) and str(source.hero.get("id", "")) != "dengai":
-		return false
 	var target = grid[target_row][target_col]
-	if target != null and obstacles.has(_cell_key(source_row, source_col)) and str(target.hero.get("id", "")) != "dengai":
-		return false
 	grid[target_row][target_col] = source
 	grid[source_row][source_col] = target
 	source.row = target_row
 	source.col = target_col
+	source.bounce = 0.6
 	if target != null:
 		target.row = source_row
 		target.col = source_col
+		target.bounce = 0.6
 	team.recompute(self)
 	return true
+
+func placement_error(source_row: int, source_col: int, target_row: int, target_col: int) -> String:
+	if source_row < 0 or source_row >= GRID_ROWS or source_col < 0 or source_col >= GRID_COLS:
+		return "invalid_source"
+	if target_row < 0 or target_row >= GRID_ROWS or target_col < 0 or target_col >= GRID_COLS:
+		return "invalid_target"
+	if source_row == target_row and source_col == target_col:
+		return "same_cell"
+	var source = grid[source_row][source_col]
+	if source == null:
+		return "missing_source"
+	var target_key := _cell_key(target_row, target_col)
+	if obstacles.has(target_key) and str(source.hero.get("id", "")) != "dengai":
+		return "target_obstacle"
+	var target = grid[target_row][target_col]
+	if target != null and obstacles.has(_cell_key(source_row, source_col)) and str(target.hero.get("id", "")) != "dengai":
+		return "swap_obstacle"
+	return ""
 
 func sell_unit(row: int, col: int) -> bool:
 	if row < 0 or row >= GRID_ROWS or col < 0 or col >= GRID_COLS:
@@ -1896,6 +1954,7 @@ func _make_unit(hero: Dictionary, row: int, col: int) -> Dictionary:
 		"ultCd": 0.0,
 		"guardT": 0.0,
 		"reflectT": 0.0,
+		"tanked": 0.0,
 		"ultT": 0.0,
 		"auraTick": 0.0,
 	}

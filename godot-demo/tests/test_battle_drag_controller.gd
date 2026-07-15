@@ -31,8 +31,11 @@ func _run() -> void:
 		return
 	if not _expect(not drag.is_dragging(), "press alone must not count as dragging"):
 		return
-	drag.update(source_point + Vector2(4, 0))
-	if not _expect(not drag.is_dragging(), "motion below the threshold must remain a click"):
+	drag.update(source_point + Vector2(14, 0))
+	if not _expect(not drag.is_dragging(), "motion exactly at the Web 14px threshold must remain a click"):
+		return
+	drag.update(source_point + Vector2(14.01, 0))
+	if not _expect(drag.is_dragging(), "motion beyond the Web 14px threshold must start dragging"):
 		return
 	drag.update(empty_target)
 	if not _expect(drag.is_dragging() and drag.hover_cell == Vector2i(4, 0), "drag must follow the pointer into the target cell"):
@@ -72,6 +75,37 @@ func _run() -> void:
 	if not _expect(run.units().size() == 1 and run.units()[0].hero.id == "zhaoyun", "selling must keep the other formation unit and refund nothing"):
 		return
 	if not _expect(not run.sell_unit(0, 4), "the last formation unit must be protected from selling"):
+		return
+
+	drag.reset()
+	if not _expect(drag.begin(Vector2i(4, 0), BattleRun.slot_center(0, 4)), "last unit must still accept a press"):
+		return
+	result = drag.finish(Vector2(240, 300))
+	if not _expect(result.action == "inspect" and result.source == Vector2i(4, 0), "release without a move event must inspect instead of inventing a drag from the release point"):
+		return
+
+	if not _expect(drag.begin(Vector2i(4, 0), BattleRun.slot_center(0, 4)), "unit must accept another drag"):
+		return
+	drag.update(Vector2(10, 600))
+	result = drag.finish(Vector2(10, 600))
+	if not _expect(result.action == "cancel", "release outside the grid but not above the sell boundary must cancel"):
+		return
+
+	if not _expect(run.has_method("placement_error"), "BattleRun must expose one authoritative placement rejection reason"):
+		return
+	run.clear_formation()
+	run.obstacles = {"0,0": true}
+	run.add_unit_at("zhaoyun", 1, 1)
+	if not _expect(run.placement_error(1, 1, 0, 0) == "target_obstacle", "ordinary units must report a blocked target obstacle"):
+		return
+	run.clear_formation()
+	run.add_unit_at("dengai", 0, 0)
+	run.add_unit_at("zhaoyun", 1, 1)
+	if not _expect(run.placement_error(0, 0, 1, 1) == "swap_obstacle", "a non-Deng Ai swap target must not be moved onto Deng Ai's obstacle"):
+		return
+	run.clear_formation()
+	run.add_unit_at("dengai", 1, 1)
+	if not _expect(run.placement_error(1, 1, 0, 0).is_empty() and run.move_or_swap_unit(1, 1, 0, 0), "Deng Ai must be allowed to enter an obstacle"):
 		return
 
 	print("Godot v7.19.14 battle drag controller: PASS")

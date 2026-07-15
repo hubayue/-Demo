@@ -6,7 +6,7 @@ const GRID_COLS := 5
 const CELL := 82.0
 const GRID_X := (480.0 - GRID_COLS * CELL) / 2.0
 const GRID_Y := 492.0
-const DRAG_THRESHOLD := 8.0
+const DRAG_THRESHOLD := 14.0
 
 var source_cell := Vector2i(-1, -1)
 var hover_cell := Vector2i(-1, -1)
@@ -30,17 +30,16 @@ func update(point: Vector2) -> void:
 	if not active:
 		return
 	pointer_position = point
-	if not dragged and press_position.distance_to(point) >= DRAG_THRESHOLD:
+	if not dragged and press_position.distance_squared_to(point) > DRAG_THRESHOLD * DRAG_THRESHOLD:
 		dragged = true
 	hover_cell = cell_at(point)
 
-func finish(point: Vector2) -> Dictionary:
+func finish(_point: Vector2) -> Dictionary:
 	if not active:
 		return {"action": "none", "source": Vector2i(-1, -1), "target": Vector2i(-1, -1)}
-	update(point)
 	var target := hover_cell
-	var action := "cancel"
-	if dragged and point.y < GRID_Y - 40.0:
+	var action := "inspect" if not dragged else "cancel"
+	if dragged and pointer_position.y < GRID_Y - 40.0:
 		action = "sell"
 	elif dragged and _valid_cell(target):
 		action = "drop"

@@ -82,7 +82,7 @@ func unit_mods(run, unit: Dictionary) -> Dictionary:
 	if hero_class == "spear":
 		damage_multiplier *= 1.65
 	elif hero_class == "cav":
-		damage_multiplier *= 1.15 * (1.0 + float(buffs.cavDmg))
+		damage_multiplier *= 1.15 * (1.0 + float(buffs.cavDmg)) * run.cavalry_crowd_multiplier()
 	elif hero_class == "archer":
 		damage_multiplier *= 1.0 + float(buffs.archerDmg)
 	var effects := bond_fx(run, str(hero.id))

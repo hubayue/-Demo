@@ -17,10 +17,27 @@ func _run() -> void:
 	main.select_opening_hero("zhaoyun")
 	var run = main.battle_run
 	run.clear_formation()
+	run.shen_ids = []
 	run.obstacles = {"0,0": true, "0,4": true, "2,0": true, "2,4": true}
 	run.traits.clear()
+	for row in BattleRun.GRID_ROWS:
+		for col in BattleRun.GRID_COLS:
+			run.traits["%d,%d" % [row, col]] = "haste"
 	run.add_unit_at("zhaoyun", 2, 2)
 	run.add_unit_at("zhangfei", 1, 2)
+	run.wave = 1
+	run.wave_timer = 2.0
+	run.level = 1
+	run.enemies.clear()
+	run.spawn_queue.clear()
+	run.next_wave_preview.clear()
+	run.foe_events.clear()
+	run.field_events.clear()
+	main.battle_field_banner_time = 0.0
+	if not run.next_wave_preview.is_empty() or not run.foe_events.is_empty() or not run.field_events.is_empty():
+		push_error("Godot drag fixture must not contain unmatched transient wave or foe layers")
+		quit(1)
+		return
 	main.set_process(false)
 	var source := BattleRun.slot_center(2, 2)
 	var target := BattleRun.slot_center(0, 2)
@@ -37,7 +54,16 @@ func _run() -> void:
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.14-battle-sell.png")):
 		return
-	print("Godot v7.19.14 drag and sell screenshots: %s" % output_directory)
+	main.battle_drag.cancel()
+	var inspected = run.grid[2][2]
+	inspected.ultCd = 6.0
+	main.unit_info_popup = {"unit": inspected, "row": 2, "col": 2}
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.14-unit-info.png")):
+		return
+	print("Godot v7.19.14 drag, sell, and unit-info screenshots: %s" % output_directory)
 	quit(0)
 
 func _save_capture(path: String) -> bool:

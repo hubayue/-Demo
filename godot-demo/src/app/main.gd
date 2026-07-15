@@ -55,6 +55,73 @@ const TRAIT_DISPLAY := {
 	"crit": {"icon": "🎯", "name": "高台", "desc": "多10%机会双倍暴击"},
 	"elem": {"icon": "🔮", "name": "灵脉", "desc": "站这打谁都算克制(怕!)"},
 }
+const DRAG_TRAIT_COPY := {
+	"atk": {"icon": "⚔️", "name": "沃土", "desc": "伤害+15%"},
+	"haste": {"icon": "⚡", "name": "风口", "desc": "出手快+12%"},
+	"guard": {"icon": "🛡️", "name": "坚岩", "desc": "少挨打20%"},
+	"heal": {"icon": "💧", "name": "灵泉", "desc": "回血翻倍"},
+	"crit": {"icon": "🎯", "name": "高台", "desc": "多10%机会双倍暴击"},
+	"elem": {"icon": "🔮", "name": "灵脉", "desc": "站这打谁都算克制(怕!)"},
+}
+const UNIT_CLASS_COPY := {
+	"spear": {"icon": "🔱", "name": "枪兵"},
+	"cav": {"icon": "🐎", "name": "骑兵"},
+	"archer": {"icon": "🏹", "name": "弓兵"},
+	"shield": {"icon": "🛡️", "name": "盾兵"},
+	"support": {"icon": "🎐", "name": "辅兵"},
+}
+const UNIT_ELEMENT_COPY := {
+	"badao": {"icon": "✊", "name": "霸道", "color": Color("ff6b4a")},
+	"liangmou": {"icon": "✌️", "name": "良谋", "color": Color("4aa8ff")},
+	"rende": {"icon": "✋", "name": "仁德", "color": Color("7ad86a")},
+}
+const ULT_PRESENTATION := {
+	"zhangfei": {"desc": "吼一嗓子推飞一圈", "condition": "跟前敌人≥3"},
+	"zhaoyun": {"desc": "扇形连刺14枪", "condition": "跟前有敌人"},
+	"machao": {"desc": "一道雷劈中再分两叉", "condition": "跟前敌人≥2"},
+	"huangzhong": {"desc": "狙掉场上最肉的", "condition": "场上有大怪"},
+	"xiahouyuan": {"desc": "大箭弹墙来回扫", "condition": "敌人≥5"},
+	"luxun": {"desc": "丢3个火罐烧3片地", "condition": "敌人≥8"},
+	"guanyu": {"desc": "一道刀光劈穿一列", "condition": "这列敌人≥2"},
+	"lvbu": {"desc": "画戟弹着连打9个", "condition": "敌人≥6"},
+	"zhangliao": {"desc": "吓跑全场2秒", "condition": "敌人冲进阵"},
+	"taishici": {"desc": "人最挤处落一片箭", "condition": "敌人扎堆≥5"},
+	"dianwei": {"desc": "一锤下去炸一大片", "condition": "跟前敌人≥3"},
+	"sunce": {"desc": "巨马冲一列全撞飞", "condition": "这列敌人≥3"},
+	"xuchu": {"desc": "放拒马挡路4秒", "condition": "冲进阵敌人≥3"},
+	"weiyan": {"desc": "埋3个毒陷阱踩了炸", "condition": "敌人≥3"},
+	"ganning": {"desc": "乱丢5颗炸弹", "condition": "敌人≥5"},
+	"diaochan": {"desc": "封贼技5秒·迷敌多挨打", "condition": "有贼首特种，或敌人≥5"},
+	"zhouyu": {"desc": "一条火线横扫点燃", "condition": "敌人≥6"},
+	"jiangwei": {"desc": "放8支追人火箭", "condition": "敌人≥4"},
+	"zhugeliang": {"desc": "锁5只怪打一个全掉血", "condition": "敌人≥5"},
+	"caoren": {"desc": "地震一圈晕1秒", "condition": "跟前有敌人"},
+	"zhoutai": {"desc": "自奶45%冰刺炸一圈", "condition": "自己血少于60%"},
+	"huatuo": {"desc": "绿线全军奶35%还持续回", "condition": "有人血少于70%"},
+	"xiaoqiao": {"desc": "刮大风全军提速40%", "condition": "敌人≥6"},
+	"lusu": {"desc": "天上掉粮白拿经验加攻", "condition": "敌人≥8"},
+	"huanggai": {"desc": "扣自己血烧全场还攒经验", "condition": "敌人≥5、自己血还多"},
+	"xuhuang": {"desc": "钉两排拒马挡5秒", "condition": "冲进阵敌人≥2"},
+	"daqiao": {"desc": "全场冻慢还给全军回血", "condition": "敌人≥5"},
+	"huangyueying": {"desc": "架一座连弩塔扫射8秒", "condition": "敌人≥4"},
+	"caiwenji": {"desc": "一曲唱睡全场3秒·挨打会醒", "condition": "敌人≥6"},
+	"gaoshun": {"desc": "把左右敌人拽成一堆重击", "condition": "这列敌人≥3"},
+	"zhanghe": {"desc": "三列同时小冲锋", "condition": "敌人≥8"},
+	"zhurong": {"desc": "扇形丢5把飞刀全点着", "condition": "敌人≥6"},
+	"wutugu": {"desc": "毒雾变大变毒8秒", "condition": "跟前敌人≥2"},
+	"pangde": {"desc": "顺着本列突刺一趟，个个挨扎", "condition": "这列敌人≥2"},
+	"yanliang": {"desc": "直取最强的特种/精锐，残了直接枭首", "condition": "场上有特种或精锐"},
+	"sunshangxiang": {"desc": "扇面十支火箭，点着还推人", "condition": "敌人≥5"},
+	"yanyan": {"desc": "吼冻身边一圈敌人，自己回血", "condition": "阵前敌人≥3"},
+	"caohong": {"desc": "自己回血，还替兄弟挨更多的刀（3秒六成）", "condition": "有人残血"},
+	"xushu": {"desc": "5秒内全场贼的属性减免失效（被克照样打全额）", "condition": "敌≥6"},
+	"simayi": {"desc": "全军大招快转8秒还送经验", "condition": "武将≥5"},
+	"jiaxu": {"desc": "血最厚的4个贼倒戈互殴3秒", "condition": "普通贼≥6"},
+	"zuoci": {"desc": "最肥的3个贼变羊5秒：不能动还多挨三成打", "condition": "普通贼≥3"},
+	"dengai": {"desc": "同排贼全挨一记重锤，站石头上砸得更狠（石头不碎，接着占高地）", "condition": "敌人≥5"},
+	"menghuo": {"desc": "吼跑全场普通贼1.5秒，自己回三成血", "condition": "敌人≥6"},
+	"wenchou": {"desc": "对单挑目标一刀八倍处决", "condition": "有单挑目标"},
+}
 const TRI_DISPLAY := {
 	"badao": {"name": "霸道", "icon": "✊", "color": Color("ff6b4a"), "counter": "rende"},
 	"liangmou": {"name": "良谋", "icon": "✌", "color": Color("4aa8ff"), "counter": "badao"},
@@ -119,6 +186,8 @@ var map_message := ""
 var battle_run
 var foe_lord_popup := false
 var battle_drag = BattleDragControllerSource.new()
+var unit_info_popup: Dictionary = {}
+var battle_interaction_notice: Dictionary = {}
 var sound_enabled := true
 var damage_panel_visible := false
 var battle_field_banner_time := 0.0
@@ -246,9 +315,17 @@ func _process(delta: float) -> void:
 			quit_armed = false
 	if phase != "battle" or battle_run == null:
 		return
-	if battle_run.status == "play" and not battle_run.awaiting_card_choice and not foe_lord_popup:
+	_sync_battle_drag_state()
+	if not battle_interaction_notice.is_empty():
+		battle_interaction_notice.time = maxf(0.0, float(battle_interaction_notice.get("time", 0.0)) - delta)
+		if float(battle_interaction_notice.time) <= 0.0:
+			battle_interaction_notice = {}
+	if battle_run.status == "play" and not battle_run.awaiting_card_choice and not foe_lord_popup and not unit_info_popup_is_visible():
 		battle_field_banner_time = maxf(0.0, battle_field_banner_time - delta * 2.0)
-	battle_run.advance_real(delta)
+	if unit_info_popup_is_visible():
+		battle_run.advance_visual_only(delta)
+	else:
+		battle_run.advance_real(delta)
 	_sync_growth_card_ui(delta)
 	_sync_battle_result()
 	queue_redraw()
@@ -314,25 +391,70 @@ func _gui_input(event: InputEvent) -> void:
 func _try_begin_battle_drag(point: Vector2) -> bool:
 	if phase != "battle" or battle_run == null or battle_run.status != "play":
 		return false
-	if foe_lord_popup or battle_run.awaiting_card_choice or bool(battle_run.permanent_tactics.get("gewu", false)):
+	if foe_lord_popup or battle_run.awaiting_card_choice or (bool(battle_run.permanent_tactics.get("gewu", false)) and battle_run.dance_time <= 0.0):
 		return false
 	var cell := BattleDragControllerSource.cell_at(point)
 	if cell == Vector2i(-1, -1):
 		return false
 	if battle_run.grid[cell.y][cell.x] == null:
 		return false
+	unit_info_popup = {}
 	return battle_drag.begin(cell, point)
 
 func _finish_battle_drag(point: Vector2) -> void:
+	var pointer_position: Vector2 = battle_drag.pointer_position
 	var result: Dictionary = battle_drag.finish(point)
-	if str(result.get("action", "")) == "drop":
+	var action := str(result.get("action", ""))
+	if action == "inspect":
+		var source: Vector2i = result.source
+		if _valid_battle_cell(source):
+			var unit = battle_run.grid[source.y][source.x]
+			if unit != null and float(unit.get("hp", 0.0)) > 0.0:
+				unit_info_popup = {"unit": unit, "row": source.y, "col": source.x}
+	elif action == "drop":
 		var source: Vector2i = result.source
 		var target: Vector2i = result.target
-		battle_run.move_or_swap_unit(source.y, source.x, target.y, target.x)
-	elif str(result.get("action", "")) == "sell":
+		var placement_error: String = battle_run.placement_error(source.y, source.x, target.y, target.x)
+		if placement_error == "target_obstacle":
+			_set_battle_interaction_notice("🪨 有石头，站不了", BattleRunSource.slot_center(target.y, target.x) - Vector2(0, 20))
+		elif placement_error == "swap_obstacle":
+			var target_unit = battle_run.grid[target.y][target.x]
+			var target_name := str(target_unit.hero.name) if target_unit != null else "武将"
+			_set_battle_interaction_notice("🪨 %s站不了石头，换不成" % target_name, BattleRunSource.slot_center(source.y, source.x) - Vector2(0, 20))
+		elif placement_error.is_empty():
+			battle_run.move_or_swap_unit(source.y, source.x, target.y, target.x)
+	elif action == "sell":
 		var source: Vector2i = result.source
-		battle_run.sell_unit(source.y, source.x)
+		var unit = battle_run.grid[source.y][source.x] if _valid_battle_cell(source) else null
+		if unit != null and battle_run.units().size() <= 1:
+			_set_battle_interaction_notice("最后一个武将不能卖！", pointer_position, RED)
+		elif unit != null:
+			var hero_name := str(unit.hero.name)
+			if battle_run.sell_unit(source.y, source.x):
+				_set_battle_interaction_notice("卖掉%s，腾出一格" % hero_name, pointer_position - Vector2(0, 24))
 	queue_redraw()
+
+func _valid_battle_cell(cell: Vector2i) -> bool:
+	return cell.x >= 0 and cell.x < BattleRunSource.GRID_COLS and cell.y >= 0 and cell.y < BattleRunSource.GRID_ROWS
+
+func _sync_battle_drag_state() -> void:
+	if battle_run == null:
+		battle_drag.cancel()
+		unit_info_popup = {}
+		return
+	if battle_drag.is_active():
+		var source: Vector2i = battle_drag.source_cell
+		var dragged_unit = battle_run.grid[source.y][source.x] if _valid_battle_cell(source) else null
+		if dragged_unit == null or float(dragged_unit.get("hp", 0.0)) <= 0.0:
+			battle_drag.cancel()
+	if not unit_info_popup.is_empty() and not unit_info_popup_is_visible():
+		unit_info_popup = {}
+
+func _set_battle_interaction_notice(message: String, position: Vector2, color := Color("c9b69a")) -> void:
+	battle_interaction_notice = {"text": message, "position": position, "color": color, "time": 1.1}
+
+func battle_interaction_notice_text() -> String:
+	return str(battle_interaction_notice.get("text", ""))
 
 func _handle_pointer(point: Vector2) -> void:
 	match phase:
@@ -389,6 +511,8 @@ func _handle_pointer(point: Vector2) -> void:
 				foe_lord_popup = true
 				queue_redraw()
 				return
+			if unit_info_popup_is_visible():
+				unit_info_popup = {}
 			if battle_run.awaiting_card_choice:
 				if growth_card_age < 0.35:
 					return
@@ -1295,19 +1419,10 @@ func _draw_battle() -> void:
 	var field_chip_y := 140.0 if foe_offset > 0 else 112.0
 	_rounded_panel(Rect2(10, field_chip_y - 14, 118, 19), Color("00000059"), Color.TRANSPARENT, 0.0, 6.0)
 	_text("%s%s" % [battle_field.get("icon", ""), battle_field.get("name", "")], Vector2(16, field_chip_y), 12, Color("c9e0a0"))
-	var field_clear: bool = battle_run.spawn_queue.is_empty() and battle_run.enemies.is_empty()
-	draw_rect(Rect2(128, 130 + foe_offset, 224, 27), Color("17120ce6"), true)
-	if battle_run.wave == 0 and battle_run.enemies.is_empty():
-		_text_center("黄巾来袭 %.1fs" % maxf(0.0, battle_run.wave_timer), 150 + foe_offset, 16, PALE_GOLD)
-	elif field_clear:
+	if not battle_run.next_wave_preview.is_empty():
+		draw_rect(Rect2(128, 130 + foe_offset, 224, 27), Color("17120ce6"), true)
 		var threat := _next_wave_threat_text()
 		_text_center(_short_text("下波 %.1fs%s" % [maxf(0.0, battle_run.wave_timer), " · " + threat if not threat.is_empty() else ""], 34), 150 + foe_offset, 14, PALE_GOLD)
-	else:
-		var pressure_left := maxf(0.0, battle_run.wave_budget - battle_run.wave_clock)
-		var pressure_note := ""
-		if not battle_run.endless_mod.is_empty(): pressure_note = " · 军令「%s」" % str(battle_run.endless_mod.name)
-		elif battle_run.foe_tenacity() < 0.999: pressure_note = " · 攻坚·控效%d%%" % roundi(battle_run.foe_tenacity() * 100.0)
-		_text_center(_short_text("第%d波 · 催战 %.1fs%s" % [battle_run.wave, pressure_left, pressure_note], 34), 150 + foe_offset, 14, RED if pressure_left < 5.0 else MUTED)
 	var bond_text := active_bond_text()
 	if not bond_text.is_empty():
 		draw_rect(Rect2(66, 140 + foe_offset, 348, 25), Color("332714e8"), true)
@@ -1339,8 +1454,10 @@ func _draw_battle() -> void:
 	for layer in _battle_overlay_layers():
 		match layer:
 			"growth": _draw_growth_cards()
+			"unit_info": _draw_unit_info_popup()
 			"foe_lord": _draw_foe_lord_popup()
 			"result": _draw_result()
+	_draw_battle_interaction_notice()
 	if battle_field_banner_is_visible():
 		_draw_battle_field_banner()
 
@@ -1350,11 +1467,268 @@ func _battle_overlay_layers() -> Array:
 		return layers
 	if battle_run.awaiting_card_choice:
 		layers.append("growth")
+	if unit_info_popup_is_visible():
+		layers.append("unit_info")
 	if foe_lord_popup_is_visible():
 		layers.append("foe_lord")
 	elif battle_run.status != "play":
 		layers.append("result")
 	return layers
+
+func unit_info_popup_is_visible() -> bool:
+	if battle_run == null or unit_info_popup.is_empty() or battle_run.status != "play":
+		return false
+	var row := int(unit_info_popup.get("row", -1))
+	var col := int(unit_info_popup.get("col", -1))
+	if not _valid_battle_cell(Vector2i(col, row)):
+		return false
+	var unit = battle_run.grid[row][col]
+	return unit != null and is_same(unit, unit_info_popup.get("unit")) and float(unit.get("hp", 0.0)) > 0.0
+
+func unit_info_popup_spec() -> Dictionary:
+	if not unit_info_popup_is_visible():
+		return {}
+	var unit: Dictionary = unit_info_popup.unit
+	var hero: Dictionary = unit.hero
+	var hero_id := str(hero.id)
+	var row := int(unit_info_popup.row)
+	var col := int(unit_info_popup.col)
+	var active_bonds := []
+	for bond_id in battle_run.team.active_bond_ids():
+		var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
+		if bond.get("members", []).has(hero_id):
+			active_bonds.append(bond)
+	var rect := Rect2(85, 290, 310, 206 + (22 if not active_bonds.is_empty() else 0))
+	var account: Dictionary = profile.get("heroes", {}).get(hero_id, {})
+	var rebirth := int(account.get("rb", 0))
+	var account_level := int(account.get("lv", 1))
+	var shen_prefix := "神·" if battle_run.shen_ids.has(hero_id) else ""
+	var title_base := "%s%s %d星" % [shen_prefix, str(hero.name), int(unit.get("level", 1))]
+	if rebirth > 0:
+		title_base += " %d转" % rebirth
+	var title := title_base
+	if battle_run.ult_system.definition(hero_id).size() > 0:
+		title += " · 图鉴%d级" % account_level
+	var class_copy: Dictionary = UNIT_CLASS_COPY.get(str(hero.cls), {"icon": "兵", "name": str(hero.cls)})
+	var element_copy: Dictionary = UNIT_ELEMENT_COPY.get(str(hero.elem), {"icon": "", "name": str(hero.elem), "color": GOLD})
+	var badge := "%s%s系 · %s%s · %s" % [element_copy.icon, element_copy.name, class_copy.icon, class_copy.name, _unit_range_text(hero)]
+	if account_level > 1:
+		badge += " · %d级" % account_level
+	var ult: Dictionary = battle_run.ult_system.definition(hero_id)
+	var presentation: Dictionary = unit_ultimate_presentation(hero_id)
+	var cooldown_max: float = battle_run.ult_system.cooldown_max(battle_run, unit) if not ult.is_empty() else 1.0
+	var cooldown := float(unit.get("ultCd", 0.0))
+	var cooldown_progress := 1.0 - clampf(cooldown / maxf(0.01, cooldown_max), 0.0, 1.0)
+	var condition_text := str(presentation.get("condition", _unit_ult_condition_copy(ult)))
+	var cooldown_text := ("能放了 · %s就放" % condition_text) if cooldown_progress >= 0.999 else ("%d秒后能放 · %s就放" % [ceili(cooldown), condition_text])
+	var trait_id := str(battle_run.traits.get("%d,%d" % [row, col], ""))
+	var trait_text := ""
+	if not trait_id.is_empty() and DRAG_TRAIT_COPY.has(trait_id):
+		var trait_copy: Dictionary = DRAG_TRAIT_COPY[trait_id]
+		trait_text = "宝地：%s%s %s" % [trait_copy.icon, trait_copy.name, _crit_text(str(trait_copy.desc))]
+	var status_parts := _unit_status_parts(unit, row, col)
+	var status_text := "加成：%s" % ("暂时没有" if status_parts.is_empty() else " ".join(status_parts))
+	var bond_parts := PackedStringArray()
+	for bond in active_bonds:
+		bond_parts.append("🔗%s：%s" % [str(bond.get("name", "")), str(bond.get("desc", ""))])
+	return {
+		"rect": rect,
+		"unit": unit,
+		"hero_id": hero_id,
+		"source_cell": Vector2i(col, row),
+		"title": title,
+		"title_base": title_base,
+		"hp_text": "❤️%d/%d" % [ceili(float(unit.hp)), ceili(float(unit.hp_max))],
+		"badge": badge,
+		"element_color": element_copy.color,
+		"play_note": _unit_play_note(hero),
+		"ultimate_name": str(ult.get("name", "")),
+		"ultimate_desc": str(presentation.get("desc", "")),
+		"ultimate_line": "大招【%s】%s" % [str(ult.get("name", "")), str(presentation.get("desc", ""))],
+		"ultimate_type": str(ult.get("type", "dmg")),
+		"cooldown_progress": cooldown_progress,
+		"cooldown_text": cooldown_text,
+		"trait_text": trait_text,
+		"status_text": status_text,
+		"bond_text": "　".join(bond_parts),
+	}
+
+func unit_ultimate_presentation(hero_id: String) -> Dictionary:
+	return ULT_PRESENTATION.get(hero_id, {})
+
+func _unit_status_parts(unit: Dictionary, row: int, col: int) -> PackedStringArray:
+	var result := PackedStringArray()
+	var hero: Dictionary = unit.hero
+	var hero_class := str(hero.cls)
+	var attacks := float(hero.get("dmg", 0.0)) > 0.0
+	var rbuffs: Dictionary = unit.get("rbuffs", {})
+	if float(rbuffs.get("dmg", 0.0)) > 0: result.append("💧打得更疼")
+	if float(rbuffs.get("haste", 0.0)) > 0: result.append("💧水波放更勤" if hero_class == "support" else "💧出手更快")
+	if float(rbuffs.get("crit", 0.0)) > 0: result.append("💧更容易%s" % _crit_word())
+	if float(rbuffs.get("heal", 0.0)) > 0: result.append("💗持续回血")
+	if float(rbuffs.get("cdr", 0.0)) > 0: result.append("🕐大招转更快")
+	if float(rbuffs.get("farm", 0.0)) > 0: result.append("🌾吃了鲁肃的波：喂星快+50%")
+	if str(hero.id) == "wutugu" and float(unit.get("ultT", 0.0)) > 0: result.append("☠️毒瘴爆发中")
+	if float(unit.get("reflectT", 0.0)) > 0: result.append("❄️反伤翻倍")
+	if float(unit.get("buffT", 0.0)) > 0: result.append("✨变强中")
+	if not battle_run.army_buff.is_empty() and attacks: result.append("🌾全军加攻")
+	if not battle_run.army_haste.is_empty() and hero_class != "shield": result.append("🌬️全军提速")
+	var kin_ids: Array = catalog.content.get("lord_kin", {}).get(battle_run.ruler_id, [])
+	if str(hero.id) == "jiaxu" or kin_ids.has(str(hero.id)): result.append("🤝主公亲军（登场已带星）")
+	if battle_run.wuxing_time > 0 and attacks: result.append("☯️三才破敌：被克免罚+15%伤")
+	if attacks:
+		var adjacent_spears := 0
+		for near_row in range(maxi(0, row - 1), mini(BattleRunSource.GRID_ROWS - 1, row + 1) + 1):
+			for near_col in range(maxi(0, col - 1), mini(BattleRunSource.GRID_COLS - 1, col + 1) + 1):
+				if near_row == row and near_col == col:
+					continue
+				var neighbour = battle_run.grid[near_row][near_col]
+				if neighbour != null and str(neighbour.hero.cls) == "spear":
+					adjacent_spears += 1
+		if adjacent_spears > 0:
+			var aura_percent := roundi(mini(3, adjacent_spears) * (0.10 + float(battle_run.buffs.get("spearAura", 0.0))) * 100.0)
+			result.append("🔱攻击+%d%%" % aura_percent)
+	if hero_class != "shield" and battle_run._has_adjacent_shield(row, col): result.append("🛡️有盾护着")
+	if hero_class != "shield" and battle_run._shield_cover(row, col): result.append("🧱盾墙挡投石")
+	if float(unit.get("sealedT", 0.0)) > 0: result.append("🌀被封住了！")
+	if str(battle_run.mutations.get(battle_run.wave, "")) == "rainstorm" and (bool(hero.get("burn", false)) or bool(hero.get("firebrand", false))):
+		result.append("🌧️大雨之潮，点不着火")
+	return result
+
+func _unit_range_text(hero: Dictionary) -> String:
+	match str(hero.get("cls", "")):
+		"cav": return "冲一整列"
+		"shield": return "保护周围单位"
+		"support": return "管一圈"
+		"granary": return "站着屯粮"
+		"egg": return "干孵着"
+		"dragon": return "全场横扫"
+	var attack_range := float(hero.get("rng", 0.0))
+	if attack_range <= 0.0: return "全场都打"
+	return "打近处" if attack_range <= 250.0 else ("打半场" if attack_range <= 380.0 else "打得远")
+
+func _unit_play_note(hero: Dictionary) -> String:
+	match str(hero.get("cls", "")):
+		"spear": return "%s · 旁边人攻击+%d%%" % [str(hero.get("desc", "")), roundi((0.10 + float(battle_run.buffs.get("spearAura", 0.0))) * 100.0)]
+		"cav": return "冲左中右贼多的一列·乱军越多越猛(现+%d%%) · %s" % [roundi((battle_run.cavalry_crowd_multiplier() - 1.0) * 100.0), str(hero.get("desc", ""))]
+		"shield":
+			var current_unit: Dictionary = unit_info_popup.get("unit", {})
+			var hp_max := maxf(1.0, float(current_unit.get("hp_max", 1.0)))
+			var reflect := roundi(hp_max * (0.04 + float(battle_run.buffs.get("shieldReflect", 0.0))))
+			var charge := roundi(100.0 * float(current_unit.get("tanked", 0.0)) / (hp_max * 0.6))
+			return "拉仇恨(远箭七成冲他)·挨刀反弹%d点·怒气%d%%攒满反击" % [reflect, charge]
+		"support": return "不打人 · 每隔几秒%s" % str(hero.get("desc", ""))
+		"granary": return "不打人 · 产粮喂旁边武将升星，敌人能拆它"
+		"egg": return "不打人 · 干孵着等觉醒，被打碎就血本无归"
+		"dragon": return "吐龙息：重击最强的贼头并镇住它，圈内跟着烧"
+	return "射箭 · %s" % str(hero.get("desc", ""))
+
+func _unit_ult_condition_copy(ult: Dictionary) -> String:
+	var need := int(ult.get("need", 1))
+	match str(ult.get("condition", "")):
+		"range": return "跟前有敌人" if need <= 1 else "跟前敌人≥%d" % need
+		"column": return "这列有敌人" if need <= 1 else "这列敌人≥%d" % need
+		"enemies": return "场上有敌人" if need <= 1 else "敌人≥%d" % need
+		"elite": return "场上有大怪"
+		"near": return "敌人冲进阵"
+		"cluster": return "敌人扎堆≥%d" % need
+		"ally_hp": return "有队友受伤"
+		"self_hp": return "自己血量危险"
+	return "时机合适"
+
+func _draw_unit_info_popup() -> void:
+	var spec := unit_info_popup_spec()
+	if spec.is_empty():
+		return
+	var unit: Dictionary = spec.unit
+	var cell: Vector2i = spec.source_cell
+	_draw_unit_info_range(unit, cell)
+	var source_rect := BattleDragControllerSource.cell_rect(cell).grow(1.0)
+	_draw_dashed_rounded_rect(source_rect, 10.0, GOLD, 3.0, 6.0, 4.0)
+	var rect: Rect2 = spec.rect
+	_rounded_panel(rect, Color("181208f5"), GOLD, 2.5, 14.0)
+	var hp_width := _font().get_string_size(str(spec.hp_text), HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+	var title_max_width := rect.size.x - 34.0 - hp_width - 12.0
+	var visible_title := str(spec.title)
+	if _font().get_string_size(visible_title, HORIZONTAL_ALIGNMENT_LEFT, -1, 19).x > title_max_width:
+		visible_title = str(spec.title_base)
+	var title_font_size := _fit_font_size(visible_title, title_max_width, 19, 15)
+	_text(visible_title, rect.position + Vector2(18, 30), title_font_size, GOLD)
+	draw_string(_font(), rect.position + Vector2(rect.size.x - 112, 30), str(spec.hp_text), HORIZONTAL_ALIGNMENT_RIGHT, 96, 13, GREEN if float(unit.hp) >= float(unit.hp_max) * 0.4 else RED)
+	var badge_rect := Rect2(rect.position + Vector2(24, 40), Vector2(rect.size.x - 48, 24))
+	_rounded_panel(badge_rect, Color("00000066"), spec.element_color, 1.5, 8.0)
+	_text_centered_in_rect(str(spec.badge), badge_rect, 13, spec.element_color)
+	_text_centered_in_rect(str(spec.play_note), Rect2(rect.position + Vector2(10, 70), Vector2(rect.size.x - 20, 22)), 13, Color("e8dcc0"))
+	var ult_color: Color = {"dmg": Color("ff8a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "exec": Color("ffd24a"), "util": Color("c9a8ff")}.get(str(spec.ultimate_type), GOLD)
+	_text_centered_in_rect(str(spec.ultimate_line), Rect2(rect.position + Vector2(10, 94), Vector2(rect.size.x - 20, 22)), 13, ult_color)
+	var cooldown_rect := Rect2(rect.position + Vector2(40, 118), Vector2(rect.size.x - 80, 8))
+	_rounded_panel(cooldown_rect, Color("ffffff26"), Color.TRANSPARENT, 0.0, 4.0)
+	if float(spec.cooldown_progress) > 0.0:
+		_rounded_panel(Rect2(cooldown_rect.position, Vector2(cooldown_rect.size.x * float(spec.cooldown_progress), cooldown_rect.size.y)), ult_color, Color.TRANSPARENT, 0.0, 4.0)
+	_text_centered_in_rect(str(spec.cooldown_text), Rect2(rect.position + Vector2(8, 130), Vector2(rect.size.x - 16, 20)), 12, GREEN if float(spec.cooldown_progress) >= 0.999 else Color("c9b69a"))
+	draw_line(rect.position + Vector2(26, 156), rect.position + Vector2(rect.size.x - 26, 156), Color("ffffff24"), 1.0)
+	var status_y := 164.0
+	if not str(spec.trait_text).is_empty():
+		_text_centered_in_rect(str(spec.trait_text), Rect2(rect.position + Vector2(8, 160), Vector2(rect.size.x - 16, 18)), 12, GOLD)
+		status_y = 180.0
+	var status_font_size := _fit_font_size(str(spec.status_text), rect.size.x - 24.0, 13, 12)
+	_text_centered_in_rect(str(spec.status_text), Rect2(rect.position + Vector2(8, status_y), Vector2(rect.size.x - 16, 18)), status_font_size, GREEN if str(spec.status_text) != "加成：暂时没有" else Color("ffffff73"))
+	if not str(spec.bond_text).is_empty():
+		var bond_font_size := _fit_font_size(str(spec.bond_text), rect.size.x - 24.0, 13, 12)
+		_text_centered_in_rect(str(spec.bond_text), Rect2(rect.position + Vector2(8, status_y + 20), Vector2(rect.size.x - 16, 18)), bond_font_size, GOLD)
+	_text_centered_in_rect("点别处关闭（已暂停）", Rect2(rect.position + Vector2(0, rect.size.y + 5), Vector2(rect.size.x, 18)), 12, Color("ffffff8c"))
+
+func _draw_unit_info_range(unit: Dictionary, cell: Vector2i) -> void:
+	var spec := _drag_preview_spec(unit, cell)
+	var anchor: Vector2 = spec.anchor
+	var color: Color = UNIT_ELEMENT_COPY.get(str(unit.hero.elem), {"color": GOLD}).color
+	match str(spec.kind):
+		"corridor":
+			for corridor_x in spec.get("adjacent_corridors", []):
+				draw_rect(Rect2(float(corridor_x) - float(spec.width), 30, float(spec.width) * 2.0, anchor.y - 78.0), Color(color, 0.05), true)
+			var corridor_rect := Rect2(anchor.x - float(spec.width), 30, float(spec.width) * 2.0, anchor.y - 78.0)
+			draw_rect(corridor_rect, Color(color, 0.12), true)
+			_draw_dashed_rect(corridor_rect, Color(color, 0.5), 2.0, 10.0, 8.0)
+		"ripple", "range":
+			draw_circle(anchor - Vector2(0, 18), float(spec.radius), Color(color, 0.07))
+			_draw_dashed_arc(anchor - Vector2(0, 18), float(spec.radius), 0.0, TAU, Color(color, 0.55), 2.0, 8.0, 6.0)
+
+func _draw_dashed_arc(center: Vector2, radius: float, start_angle: float, end_angle: float, color: Color, width: float, dash: float, gap: float) -> void:
+	if radius <= 0.0 or end_angle <= start_angle:
+		return
+	var cycle_angle := (dash + gap) / radius
+	var dash_angle := dash / radius
+	var angle := start_angle
+	while angle < end_angle:
+		var dash_end := minf(end_angle, angle + dash_angle)
+		var points := maxi(2, ceili((dash_end - angle) * radius / 4.0))
+		draw_arc(center, radius, angle, dash_end, points, color, width, true)
+		angle += cycle_angle
+
+func _draw_dashed_rect(rect: Rect2, color: Color, width: float, dash: float, gap: float) -> void:
+	draw_dashed_line(rect.position, Vector2(rect.end.x, rect.position.y), color, width, dash, false, true)
+	draw_dashed_line(Vector2(rect.end.x, rect.position.y), rect.end, color, width, dash, false, true)
+	draw_dashed_line(rect.end, Vector2(rect.position.x, rect.end.y), color, width, dash, false, true)
+	draw_dashed_line(Vector2(rect.position.x, rect.end.y), rect.position, color, width, dash, false, true)
+
+func _draw_dashed_rounded_rect(rect: Rect2, radius: float, color: Color, width: float, dash: float, gap: float) -> void:
+	draw_dashed_line(rect.position + Vector2(radius, 0), Vector2(rect.end.x - radius, rect.position.y), color, width, dash, false, true)
+	draw_dashed_line(Vector2(rect.end.x, rect.position.y + radius), Vector2(rect.end.x, rect.end.y - radius), color, width, dash, false, true)
+	draw_dashed_line(Vector2(rect.end.x - radius, rect.end.y), Vector2(rect.position.x + radius, rect.end.y), color, width, dash, false, true)
+	draw_dashed_line(Vector2(rect.position.x, rect.end.y - radius), Vector2(rect.position.x, rect.position.y + radius), color, width, dash, false, true)
+	_draw_dashed_arc(rect.position + Vector2(radius, radius), radius, PI, PI * 1.5, color, width, dash, gap)
+	_draw_dashed_arc(Vector2(rect.end.x - radius, rect.position.y + radius), radius, PI * 1.5, TAU, color, width, dash, gap)
+	_draw_dashed_arc(rect.end - Vector2(radius, radius), radius, 0.0, PI * 0.5, color, width, dash, gap)
+	_draw_dashed_arc(Vector2(rect.position.x + radius, rect.end.y - radius), radius, PI * 0.5, PI, color, width, dash, gap)
+
+func _draw_battle_interaction_notice() -> void:
+	if battle_interaction_notice.is_empty():
+		return
+	var position: Vector2 = battle_interaction_notice.position
+	var alpha := clampf(float(battle_interaction_notice.time) / 0.35, 0.0, 1.0)
+	var color: Color = battle_interaction_notice.color
+	color.a *= alpha
+	_text_centered_in_rect(str(battle_interaction_notice.text), Rect2(clampf(position.x - 160.0, 6.0, 154.0), position.y - 20.0, 320.0, 24.0), 14, color)
 
 func _dance_overlay_spec() -> Dictionary:
 	if battle_run == null or battle_run.dance_time <= 0.0:
@@ -1610,6 +1984,15 @@ func _draw_battle_entities() -> void:
 	for event in battle_run.field_events:
 		var event_pos := Vector2(float(event.x), float(event.y))
 		match str(event.kind):
+			"shield_counter":
+				var counter_age := 1.0 - clampf(float(event.t) / 0.55, 0.0, 1.0)
+				var counter_radius := 12.0 + counter_age * 34.0
+				draw_circle(event_pos, 18.0 * (1.0 - counter_age), Color(1.0, 0.82, 0.25, 0.28 * (1.0 - counter_age)))
+				draw_arc(event_pos, counter_radius, 0, TAU, 28, Color(1.0, 0.82, 0.25, 1.0 - counter_age), 3.0)
+				for spoke in 8:
+					var direction := Vector2.RIGHT.rotated(TAU * float(spoke) / 8.0)
+					draw_line(event_pos + direction * (counter_radius - 5.0), event_pos + direction * (counter_radius + 8.0), Color(1.0, 0.9, 0.45, 1.0 - counter_age), 2.0)
+				_text_centered_in_rect(str(event.get("label", "蓄势反击!")), Rect2(event_pos.x - 70.0, event_pos.y - 48.0 - counter_age * 12.0, 140.0, 20.0), 14, GOLD)
 			"volcano":
 				draw_circle(event_pos, 80.0 * float(event.t), Color("ff5a2a33"))
 				draw_arc(event_pos, 110.0, 0, TAU, 40, Color("ff8a4a"), 2.0)
@@ -1834,7 +2217,7 @@ func _draw_battle_formation() -> void:
 			var unit = battle_run.grid[row][col]
 			if unit == null:
 				continue
-			if battle_drag.is_dragging() and battle_drag.source_cell == Vector2i(col, row):
+			if battle_drag.is_active() and battle_drag.source_cell == Vector2i(col, row):
 				continue
 			_draw_battle_unit(unit, rect.get_center(), 1.0, row, col)
 	_draw_battle_drag_preview()
@@ -1909,78 +2292,112 @@ func _draw_battle_drag_preview() -> void:
 	if not battle_drag.is_active():
 		return
 	var source: Vector2i = battle_drag.source_cell
-	var source_rect := BattleDragControllerSource.cell_rect(source)
-	draw_rect(source_rect, Color("18140faa"), true)
-	draw_rect(source_rect, GOLD, false, 2.0)
-	if not battle_drag.is_dragging():
-		return
 	var unit = battle_run.grid[source.y][source.x]
 	if unit == null:
 		return
 	var hover: Vector2i = battle_drag.hover_cell
-	if hover != Vector2i(-1, -1):
-		_draw_drag_range_preview(unit, hover)
-		var hover_rect := BattleDragControllerSource.cell_rect(hover)
-		var blocked: bool = battle_run.obstacles.has("%d,%d" % [hover.y, hover.x])
-		draw_rect(hover_rect, Color("74d96826") if not blocked else Color("ff654026"), true)
-		draw_rect(hover_rect, GREEN if not blocked else RED, false, 3.0)
 	var pointer: Vector2 = battle_drag.pointer_position
-	if pointer.y < BattleRunSource.GRID_Y - 40.0:
+	_draw_drag_range_preview(unit, hover, pointer - Vector2(0, 24))
+	if hover != Vector2i(-1, -1):
+		var hover_rect := BattleDragControllerSource.cell_rect(hover)
+		_rounded_panel(hover_rect, Color("74d96826"), GREEN, 3.0, 10.0)
+	if battle_drag.is_dragging() and pointer.y < BattleRunSource.GRID_Y - 40.0:
 		var sell_text := "最后一个武将不能卖" if battle_run.units().size() <= 1 else "🗑 松手卖掉%s，腾出一格（不退经验）" % str(unit.hero.name)
 		_text_centered_in_rect(sell_text, Rect2(clampf(pointer.x - 150, 8, 172), pointer.y - 78, 300, 22), 13, RED)
 	_draw_battle_unit(unit, pointer - Vector2(0, 24), 1.15)
 
-func _drag_preview_spec(unit: Dictionary, target: Vector2i) -> Dictionary:
+func _drag_preview_spec(unit: Dictionary, target: Vector2i, fallback_anchor := Vector2.ZERO) -> Dictionary:
 	var hero: Dictionary = unit.hero
-	var anchor := BattleRunSource.slot_center(target.y, target.x)
+	var has_target := _valid_battle_cell(target)
+	var anchor := BattleRunSource.slot_center(target.y, target.x) if has_target else fallback_anchor
 	var class_display: Dictionary = BATTLE_CLASS_DISPLAY.get(str(hero.cls), {"color": Color("cfd6dc")})
-	var result := {"kind": "global", "anchor": anchor, "radius": 0.0, "width": 0.0, "color": class_display.color}
+	var result := {
+		"kind": "global", "anchor": anchor, "radius": 0.0, "width": 0.0,
+		"color": class_display.color, "label": "🏹 全场都能射", "adjacent_corridors": [],
+		"trait_text": "", "spear_beneficiaries": [], "reverse_spear_cells": [],
+	}
 	match str(hero.cls):
 		"cav":
 			result.kind = "corridor"
 			result.width = (46.0 if float(hero.get("splash", 0.0)) > 0 else 34.0) + float(battle_run.buffs.get("cavWide", 0.0))
+			result.label = "🐎 左中右挑贼多的道冲"
+			for offset in [-BattleRunSource.CELL, BattleRunSource.CELL]:
+				var corridor_x := anchor.x + float(offset)
+				if corridor_x >= BattleRunSource.GRID_X and corridor_x <= BattleRunSource.GRID_X + BattleRunSource.GRID_COLS * BattleRunSource.CELL:
+					result.adjacent_corridors.append(corridor_x)
 		"support":
 			result.kind = "ripple"
 			result.radius = battle_run.team.ripple_max(battle_run, unit)
+			match str(hero.get("ripple", "")):
+				"slow": result.label = "❄️ 这一圈都冻慢"
+				"soothe": result.label = "🎵 这一圈解封回血"
+				"cdr": result.label = "🕐 这一圈大招转快"
+				_: result.label = "🎐 这一圈都加"
 		_:
-			var radius := float(hero.get("rng", 0.0))
+			var radius: float = battle_run.effective_archer_range(hero)
 			if radius > 0:
 				result.kind = "range"
 				result.radius = radius
+				result.label = _unit_range_text(hero)
+	var trait_id := str(battle_run.traits.get("%d,%d" % [target.y, target.x], "")) if has_target else ""
+	if has_target and not trait_id.is_empty() and not battle_run.obstacles.has("%d,%d" % [target.y, target.x]) and DRAG_TRAIT_COPY.has(trait_id):
+		var trait_copy: Dictionary = DRAG_TRAIT_COPY[trait_id]
+		result.trait_text = "%s%s %s" % [trait_copy.icon, trait_copy.name, _crit_text(str(trait_copy.desc))]
+	if not has_target:
+		return result
+	for row in range(maxi(0, target.y - 1), mini(BattleRunSource.GRID_ROWS - 1, target.y + 1) + 1):
+		for col in range(maxi(0, target.x - 1), mini(BattleRunSource.GRID_COLS - 1, target.x + 1) + 1):
+			if row == target.y and col == target.x:
+				continue
+			var ally = battle_run.grid[row][col]
+			if ally == null or ally == unit:
+				continue
+			if str(hero.cls) == "spear" and float(ally.hero.get("dmg", 0.0)) > 0.0:
+				result.spear_beneficiaries.append(Vector2i(col, row))
+			if float(hero.get("dmg", 0.0)) > 0.0 and str(ally.hero.get("cls", "")) == "spear":
+				result.reverse_spear_cells.append(Vector2i(col, row))
 	return result
 
-func _draw_drag_range_preview(unit: Dictionary, target: Vector2i) -> void:
+func _crit_word() -> String:
+	return "三倍暴击" if battle_run != null and battle_run.relic_ids.has("qinggang") else "双倍暴击"
+
+func _crit_text(value: String) -> String:
+	return value.replace("双倍暴击", "三倍暴击") if battle_run != null and battle_run.relic_ids.has("qinggang") else value
+
+func _draw_drag_range_preview(unit: Dictionary, target: Vector2i, fallback_anchor := Vector2.ZERO) -> void:
 	if unit == null:
 		return
-	var spec := _drag_preview_spec(unit, target)
+	var spec := _drag_preview_spec(unit, target, fallback_anchor)
 	var anchor: Vector2 = spec.anchor
 	var color: Color = spec.color
 	match str(spec.kind):
 		"corridor":
 			var width := float(spec.width)
-			draw_rect(Rect2(anchor.x - width, 30, width * 2.0, anchor.y - 78.0), Color(color, 0.14), true)
-			draw_rect(Rect2(anchor.x - width, 30, width * 2.0, anchor.y - 78.0), Color(color, 0.65), false, 2.0)
-			_text_centered_in_rect("🐎 左中右挑贼多的道冲", Rect2(anchor.x - 110, anchor.y - 78, 220, 20), 11, color)
+			for corridor_x in spec.adjacent_corridors:
+				draw_rect(Rect2(float(corridor_x) - width, 30, width * 2.0, anchor.y - 78.0), Color(color, 0.06), true)
+			var corridor_rect := Rect2(anchor.x - width, 30, width * 2.0, anchor.y - 78.0)
+			draw_rect(corridor_rect, Color(color, 0.14), true)
+			_draw_dashed_rect(corridor_rect, Color(color, 0.65), 2.0, 10.0, 8.0)
+			_text_centered_in_rect(str(spec.label), Rect2(anchor.x - 110, anchor.y - 78, 220, 20), 11, color)
 		"ripple":
 			draw_circle(anchor - Vector2(0, 18), float(spec.radius), Color(color, 0.06))
-			draw_arc(anchor - Vector2(0, 18), float(spec.radius), 0, TAU, 64, Color(color, 0.65), 2.0)
+			_draw_dashed_arc(anchor - Vector2(0, 18), float(spec.radius), 0.0, TAU, Color(color, 0.65), 2.0, 8.0, 6.0)
+			_text_centered_in_rect(str(spec.label), Rect2(anchor.x - 110, anchor.y - 78, 220, 20), 11, color)
 		"range":
 			draw_circle(anchor - Vector2(0, 18), float(spec.radius), Color(color, 0.06))
-			draw_arc(anchor - Vector2(0, 18), float(spec.radius), 0, TAU, 64, Color(color, 0.65), 2.0)
+			_draw_dashed_arc(anchor - Vector2(0, 18), float(spec.radius), 0.0, TAU, Color(color, 0.65), 2.0, 8.0, 6.0)
 		"global":
-			_text_centered_in_rect("🏹 全场都能射", Rect2(anchor.x - 80, anchor.y - 72, 160, 20), 12, color)
-	if str(unit.hero.cls) == "spear":
-		for row in range(maxi(0, target.y - 1), mini(BattleRunSource.GRID_ROWS - 1, target.y + 1) + 1):
-			for col in range(maxi(0, target.x - 1), mini(BattleRunSource.GRID_COLS - 1, target.x + 1) + 1):
-				if row == target.y and col == target.x:
-					continue
-				var ally = battle_run.grid[row][col]
-				if ally != null and ally != unit:
-					var rect := BattleDragControllerSource.cell_rect(Vector2i(col, row))
-					draw_rect(rect, Color("6fd44e38"), true)
-	var trait_id := str(battle_run.traits.get("%d,%d" % [target.y, target.x], ""))
-	if not trait_id.is_empty() and not battle_run.obstacles.has("%d,%d" % [target.y, target.x]):
-		_text_centered_in_rect("地利 %s" % trait_id, Rect2(anchor.x - 90, anchor.y - 58, 180, 18), 10, GOLD)
+			_text_centered_in_rect(str(spec.label), Rect2(anchor.x - 80, anchor.y - 72, 160, 20), 12, color)
+	var aura_percent := roundi((0.10 + float(battle_run.buffs.get("spearAura", 0.0))) * 100.0)
+	for cell in spec.spear_beneficiaries:
+		var rect := BattleDragControllerSource.cell_rect(cell)
+		draw_rect(rect, Color("6fd44e38"), true)
+		_text_centered_in_rect("+%d%%" % aura_percent, Rect2(rect.position.x, rect.position.y - 3, rect.size.x, 18), 10, Color("9aff8a"))
+	for spear_cell in spec.reverse_spear_cells:
+		var spear_center := BattleRunSource.slot_center(spear_cell.y, spear_cell.x)
+		draw_dashed_line(spear_center, anchor, Color("6fd44e99"), 2.0, 4.0)
+	if not str(spec.trait_text).is_empty():
+		_text_centered_in_rect(str(spec.trait_text), Rect2(anchor.x - 105, anchor.y - 62, 210, 18), 10, GOLD)
 
 func _unit_visual_spec(unit: Dictionary) -> Dictionary:
 	var hero: Dictionary = unit.hero
