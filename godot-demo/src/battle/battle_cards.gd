@@ -14,6 +14,21 @@ const ACTIVE_RELIC_IDS := [
 	"xuantie", "chensha", "madeng", "jili", "dujing", "jiaowei", "shuijingshu", "jinlan", "fenghuang", "hufu",
 ]
 const EGG_MAX := 3
+const ELEMENT_CARD_META := {
+	"badao": {"name": "霸道", "icon": "✊", "color": "#ff6b4a"},
+	"liangmou": {"name": "良谋", "icon": "✌️", "color": "#4aa8ff"},
+	"rende": {"name": "仁德", "icon": "✋", "color": "#7ad86a"},
+}
+const CLASS_CARD_META := {
+	"spear": {"name": "枪兵", "icon": "🔱"},
+	"cav": {"name": "骑兵", "icon": "🐎"},
+	"archer": {"name": "弓兵", "icon": "🏹"},
+	"shield": {"name": "盾兵", "icon": "🛡️"},
+	"support": {"name": "辅兵", "icon": "🎐"},
+	"granary": {"name": "粮仓", "icon": "🌾"},
+	"egg": {"name": "龙蛋", "icon": "🥚"},
+	"dragon": {"name": "神兽", "icon": "🐉"},
+}
 const EGG_TYPE := {"id": "dragonegg", "name": "龙蛋", "char": "蛋", "cls": "egg", "elem": "badao", "dmg": 0, "rate": 9.0, "speed": 0, "hp": 300, "desc": "孵着持续吐纳经验，三阶可觉醒"}
 const DRAGON_TYPE := {"id": "yinglong", "name": "应龙", "char": "龍", "cls": "dragon", "elem": "badao", "dmg": 0, "rate": 2.8, "speed": 0, "hp": 520, "desc": "龙息重击并镇压最强威胁"}
 
@@ -52,11 +67,13 @@ func build_pool(run) -> Array:
 				weight += 6.0
 			if _is_kin(hero_id, run.ruler_id):
 				weight += 6.0
-			pool.append({
+			var card := {
 				"kind": "unit", "hero_id": hero_id, "weight": maxf(2.0, weight),
 				"title": ("神·" if shen else "") + str(hero.name) + "出征",
 				"icon": "", "desc": str(hero.desc), "cls": str(hero.cls), "elem": str(hero.elem),
-			})
+			}
+			_add_hero_card_presentation(card, hero, run, shen, _completing_bond_name(hero_id, owned))
+			pool.append(card)
 	var seen := {}
 	for unit in units:
 		var hero: Dictionary = unit.hero
@@ -78,11 +95,13 @@ func build_pool(run) -> Array:
 			desc = "二阶升华：伤害×1.3"
 		elif next_star > 5:
 			desc = "升华星：伤害×1.4"
-		pool.append({
+		var card := {
 			"kind": "upgrade", "hero_id": hero_id, "weight": 13.0,
 			"title": ("神·" if run.shen_ids.has(hero_id) else "") + str(hero.name) + "练兵",
 			"icon": "", "desc": desc, "cls": str(hero.cls), "elem": str(hero.elem), "stars": next_star,
-		})
+		}
+		_add_hero_card_presentation(card, hero, run, run.shen_ids.has(hero_id), "", false)
+		pool.append(card)
 
 	var buffs: Dictionary = run.buffs
 	_add_capped_buff(pool, buffs.dmg < 3.0, "dmg", 0.25, 9, "全军猛攻", "⚔️", "全军伤害+25%（叠到+200%封顶）")
@@ -259,7 +278,9 @@ func apply(run, card) -> bool:
 			run.xp_need = round((10.0 + (run.level - 1) * 9.0 + pow(run.level, 1.72)) * (0.88 if run.relic_ids.has("hanshu") else 1.0))
 			run.pending_picks += 1
 		"seppuku": run.finish("over")
-		"dance": run.permanent_tactics.gewu = true
+		"dance":
+			run.permanent_tactics.gewu = true
+			run.dance_time = 3.0
 		"merit": run.run_gold += float(data.get("value", 0.0))
 		"reroll": run.pending_picks += 1
 		"relic":
@@ -356,6 +377,9 @@ func _element_weight(hero_element: String, enemy_element: String) -> float:
 	return 0.0
 
 func _completes_bond(hero_id: String, owned: Dictionary) -> bool:
+	return not _completing_bond_name(hero_id, owned).is_empty()
+
+func _completing_bond_name(hero_id: String, owned: Dictionary) -> String:
 	for bond in catalog.list("bonds"):
 		if not bond.members.has(hero_id):
 			continue
@@ -365,8 +389,26 @@ func _completes_bond(hero_id: String, owned: Dictionary) -> bool:
 				complete = false
 				break
 		if complete:
-			return true
-	return false
+			return str(bond.name)
+	return ""
+
+func _add_hero_card_presentation(card: Dictionary, hero: Dictionary, run, shen: bool, bond_name := "", include_tag := true) -> void:
+	var element: Dictionary = ELEMENT_CARD_META.get(str(hero.elem), {"name": str(hero.elem), "icon": "", "color": "#e8dcc0"})
+	var hero_class: Dictionary = CLASS_CARD_META.get(str(hero.cls), {"name": str(hero.cls), "icon": ""})
+	card.info = "%s%s系 · %s%s" % [element.icon, element.name, hero_class.icon, hero_class.name]
+	card.infoColor = str(element.color)
+	card.lvN = int(run.hero_levels.get(str(hero.id), 1))
+	if not include_tag:
+		return
+	if shen:
+		card.tag = "👼本期神将!"
+	elif not str(bond_name).is_empty():
+		card.tag = "🔗成羁绊「%s」!" % bond_name
+	elif _is_kin(str(hero.id), run.ruler_id):
+		card.tag = "🤝亲军·登场+%d星" % run.kin_gift_stars(str(hero.id))
+	else:
+		card.tag = ""
+	card.tagBad = false
 
 func _is_kin(hero_id: String, ruler_id: String) -> bool:
 	if hero_id == "jiaxu":

@@ -76,6 +76,8 @@ var picking_relic := false
 var card_choices: Array = []
 var card_picks: Dictionary = {}
 var gewu_auto_timer := 0.0
+var gewu_auto_index := -1
+var dance_time := 0.0
 var buffs: Dictionary = {}
 var lord_atk_buff := 0.0
 var lord_atk_gap := 1.0
@@ -160,7 +162,7 @@ func _init(content_catalog, random_source) -> void:
 	foe_behavior = BattleFoesScript.new()
 	environment = BattleEnvironmentScript.new()
 
-func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String, selected_ruler_level := 1, selected_hero_levels: Dictionary = {}) -> void:
+func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String, selected_ruler_level := 1, selected_hero_levels: Dictionary = {}, selected_shen_period := 0, selected_shen_ids: Array = []) -> void:
 	city = level_data.duplicate(true)
 	ruler_id = selected_ruler_id
 	ruler_level = maxi(1, int(selected_ruler_level))
@@ -176,8 +178,8 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	foe_curse_time = 0.0
 	foe_rage_time = 0.0
 	status = "play"
-	shen_period = 0
-	shen_ids = []
+	shen_period = int(selected_shen_period)
+	shen_ids = selected_shen_ids.duplicate()
 	speed = 2
 	wall = int(city.wall)
 	wall_max = wall
@@ -199,6 +201,8 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	card_choices = []
 	card_picks = {}
 	gewu_auto_timer = 0.0
+	gewu_auto_index = -1
+	dance_time = 0.0
 	buffs = {
 		"dmg": 1.0,
 		"rate": 1.0,
@@ -306,17 +310,20 @@ func advance_real(delta: float) -> void:
 	if status != "play":
 		return
 	if awaiting_card_choice:
-		if bool(permanent_tactics.get("gewu", false)):
-			gewu_auto_timer += delta
-			if gewu_auto_timer >= 1.5 and not card_choices.is_empty():
+		game_time += delta
+		dance_time = maxf(0.0, dance_time - delta)
+		if bool(permanent_tactics.get("gewu", false)) and dance_time <= 0.0:
+			if gewu_auto_index < 0 and not card_choices.is_empty():
 				var safe_indices := []
 				for index in card_choices.size():
 					if not ["seppuku", "dance"].has(str(card_choices[index].kind)):
 						safe_indices.append(index)
-				var choice_index := 0
+				gewu_auto_index = 0
 				if not safe_indices.is_empty():
-					choice_index = int(safe_indices[int(floor(rng.next_float() * safe_indices.size()))])
-				choose_card(choice_index)
+					gewu_auto_index = int(safe_indices[int(floor(rng.next_float() * safe_indices.size()))])
+			gewu_auto_timer += delta
+			if gewu_auto_timer >= 1.5 and not card_choices.is_empty():
+				choose_card(gewu_auto_index)
 		return
 	for step in speed:
 		_update_step(delta)
@@ -477,6 +484,7 @@ func choose_card(index: int) -> bool:
 	if not awaiting_card_choice or index < 0 or index >= card_choices.size():
 		return false
 	gewu_auto_timer = 0.0
+	gewu_auto_index = -1
 	return card_system.apply(self, card_choices[index])
 
 func queue_relic_draft() -> void:
@@ -489,6 +497,7 @@ func queue_relic_draft() -> void:
 
 func _update_step(delta: float) -> void:
 	game_time += delta
+	dance_time = maxf(0.0, dance_time - delta)
 	_update_focus(delta)
 	for event in field_events:
 		event.t = float(event.t) - delta
@@ -1868,6 +1877,10 @@ func _place_opening_hero(hero_id: String) -> void:
 func _make_unit(hero: Dictionary, row: int, col: int) -> Dictionary:
 	var meta_level := int(hero_levels.get(str(hero.id), 1))
 	var starting_stars := 1 + (1 if meta_level >= 4 else 0) + (1 if meta_level >= 10 else 0) + (1 if meta_level >= 20 else 0) + (1 if meta_level >= 30 else 0)
+	var rarity := str(catalog.content.get("hero_tiers", {}).get(str(hero.id), "common"))
+	if shen_ids.has(str(hero.id)):
+		starting_stars += int({"common": 3, "uncommon": 2, "rare": 1, "epic": 0}.get(rarity, 0))
+	starting_stars = mini(15, starting_stars + kin_gift_stars(str(hero.id)))
 	var max_hp := _unit_max_hp(hero, starting_stars)
 	var unit := {
 		"hero": hero,
@@ -1888,6 +1901,13 @@ func _make_unit(hero: Dictionary, row: int, col: int) -> Dictionary:
 	}
 	unit.ultCd = ult_system.initial_cooldown(self, str(hero.id))
 	return unit
+
+func kin_gift_stars(hero_id: String) -> int:
+	var kin_ids: Array = catalog.content.get("lord_kin", {}).get(ruler_id, [])
+	if hero_id != "jiaxu" and not kin_ids.has(hero_id):
+		return 0
+	var rarity := str(catalog.content.get("hero_tiers", {}).get(hero_id, "common"))
+	return 2 if ["common", "uncommon"].has(rarity) else 1
 
 func _unit_max_hp(hero: Dictionary, stars := 1) -> int:
 	var base := float(hero.get("hp", 0))

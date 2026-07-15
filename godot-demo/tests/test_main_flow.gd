@@ -97,6 +97,8 @@ func _run() -> void:
     var battle_run = main.get("battle_run")
     if not _expect(battle_run != null, "Entering battle must construct the authoritative BattleRun model"):
         return
+    if not _expect(battle_run.shen_period > 0 and battle_run.shen_ids.size() == 6, "production battle start must lock the current Web six-hero Shen rotation"):
+        return
     if not _expect(battle_run.city.k == 0 and battle_run.ruler_id == "caocao", "BattleRun must retain the selected city and ruler"):
         return
     if not _expect(int(battle_run.city.metaWins) == 8, "the playable battle must receive account wins for exact dragon-egg gating"):
@@ -182,19 +184,19 @@ func _run() -> void:
     battle_run.card_choices = battle_run.card_system.roll(battle_run)
     if not _expect(battle_run.card_choices.size() == 4 and main._growth_card_rect(3).end.x <= 480.0, "Yiji's fourth growth card must remain fully clickable inside the 480px viewport"):
         return
-    if not _expect("四选一" in main.card_draft_heading(), "Yiji's expanded growth draft heading must say four choices"):
+    if not _expect(main.card_draft_heading() == "✨ 升级！挑一张 ✨", "Yiji's expanded growth draft must retain the Web pick-one heading"):
         return
     battle_run.card_choices = []
     for index in 5:
         battle_run.card_choices.append({"kind": "merit", "title": "门生牌%d" % index, "value": 1})
     battle_run.awaiting_card_choice = true
-    if not _expect(main._growth_card_rect(4).end.x <= 480.0 and "五选一" in main.card_draft_heading(), "Mensheng's fifth card must be visible and the draft heading must say five choices"):
+    if not _expect(main._growth_card_rect(4).end.x <= 480.0 and "五张里挑" in main.card_draft_heading(), "Mensheng's fifth card must be visible and use the Web five-card heading"):
         return
     _click(main, main._growth_card_rect(4).get_center())
     if not _expect(int(battle_run.card_picks.get("门生牌4", 0)) == 1, "Mensheng's fifth card must be clickable inside the viewport"):
         return
     battle_run.picking_relic = true
-    if not _expect(main.has_method("card_draft_heading") and "遗宝" in main.card_draft_heading(), "a relic draft must identify itself instead of claiming to be a level-up draft"):
+    if not _expect(main.has_method("card_draft_heading") and main.card_draft_heading() == "🎁 挑件宝贝 🎁", "a relic draft must use the Web treasure-pick heading"):
         return
 
     battle_run.picking_relic = false

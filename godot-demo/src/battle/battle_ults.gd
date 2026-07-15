@@ -71,6 +71,10 @@ func initial_cooldown(run, hero_id: String) -> float:
 	if ult.is_empty():
 		return 0.0
 	var meta_level := int(run.hero_levels.get(hero_id, 1))
+	var rarity := str(run.catalog.content.get("hero_tiers", {}).get(hero_id, "common"))
+	var shen_gift := int({"common": 3, "uncommon": 2, "rare": 1, "epic": 0}.get(rarity, 0)) if run.shen_ids.has(hero_id) else 0
+	if shen_gift >= 2:
+		return 0.0
 	if meta_level >= 25:
 		return 0.0
 	var low := 0.08 if meta_level >= 15 else 0.4

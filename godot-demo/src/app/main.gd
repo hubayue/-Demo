@@ -15,6 +15,7 @@ const HeroProgressionSource = preload("res://src/progression/hero_progression.gd
 const VisitSystemSource = preload("res://src/progression/visit_system.gd")
 const AchievementProgressSource = preload("res://src/progression/achievement_progress.gd")
 const BattleDragControllerSource = preload("res://src/input/battle_drag_controller.gd")
+const ShenRotationSource = preload("res://src/progression/shen_rotation.gd")
 
 const VIEW_SIZE := Vector2(480.0, 800.0)
 const CURRENT_WEEK := 2948
@@ -121,6 +122,9 @@ var battle_drag = BattleDragControllerSource.new()
 var sound_enabled := true
 var damage_panel_visible := false
 var battle_field_banner_time := 0.0
+var growth_card_age := 999.0
+var growth_card_anim := 0.0
+var growth_card_signature := ""
 var quit_armed := false
 var quit_arm_time := 0.0
 var profile_path := "user://v7.19.14-local-profile.json"
@@ -211,8 +215,11 @@ func select_opening_hero(hero_id: String) -> void:
 	city.weekGuest = BattleRecordsSource.week_guest_lords(CURRENT_WEEK).has(selected_ruler)
 	city.visitGoldUntil = int(profile.get("visit_buffs", {}).get("gold", 0))
 	var seed := CURRENT_WEEK * 1009 + selected_city * 131 + RULER_IDS.find(selected_ruler) * 17
+	var shen_period := ShenRotationSource.current_period()
+	var hero_ids: Array = catalog.list("heroes").map(func(hero): return str(hero.id))
+	var shen_ids := ShenRotationSource.ids_for_period(shen_period, hero_ids)
 	battle_run = BattleRunSource.new(catalog, Mulberry32Source.new(seed))
-	battle_run.start(city, selected_ruler, selected_hero, LocalProfileSource.ruler_level(profile, selected_ruler), LocalProfileSource.hero_levels(profile))
+	battle_run.start(city, selected_ruler, selected_hero, LocalProfileSource.ruler_level(profile, selected_ruler), LocalProfileSource.hero_levels(profile), shen_period, shen_ids)
 	battle_field_banner_time = 9.0
 	foe_lord_popup = false
 	settlement_summary = {}
@@ -242,6 +249,7 @@ func _process(delta: float) -> void:
 	if battle_run.status == "play" and not battle_run.awaiting_card_choice and not foe_lord_popup:
 		battle_field_banner_time = maxf(0.0, battle_field_banner_time - delta * 2.0)
 	battle_run.advance_real(delta)
+	_sync_growth_card_ui(delta)
 	_sync_battle_result()
 	queue_redraw()
 
@@ -353,6 +361,12 @@ func _handle_pointer(point: Vector2) -> void:
 			if battle_run.status != "play":
 				_handle_result_pointer(point)
 				return
+			if bool(battle_run.permanent_tactics.get("gewu", false)) and battle_run.dance_time <= 0.0:
+				battle_run.permanent_tactics.gewu = false
+				battle_run.gewu_auto_timer = 0.0
+				battle_run.gewu_auto_index = -1
+				queue_redraw()
+				return
 			if battle_field_banner_is_visible() and battle_field_banner_rect().has_point(point):
 				battle_field_banner_time = 0.0
 				queue_redraw()
@@ -366,6 +380,25 @@ func _handle_pointer(point: Vector2) -> void:
 				if not urgent_cata.is_empty():
 					battle_run.focus_enemy(urgent_cata)
 					queue_redraw()
+				return
+			if foe_lord_popup:
+				foe_lord_popup = false
+				queue_redraw()
+				return
+			if FOE_LORD_RECT.has_point(point) and not battle_run.foe_lord.is_empty():
+				foe_lord_popup = true
+				queue_redraw()
+				return
+			if battle_run.awaiting_card_choice:
+				if growth_card_age < 0.35:
+					return
+				for index in battle_run.card_choices.size():
+					if _growth_card_rect(index).has_point(point):
+						battle_run.choose_card(index)
+						growth_card_signature = ""
+						_sync_growth_card_ui(0.0)
+						queue_redraw()
+						return
 				return
 			if BATTLE_MUTE_RECT.has_point(point):
 				sound_enabled = not sound_enabled
@@ -383,34 +416,33 @@ func _handle_pointer(point: Vector2) -> void:
 					quit_arm_time = 3.0
 				queue_redraw()
 				return
+			if LORD_COMMAND_RECT.has_point(point):
+				battle_run.cast_lord_command()
+				queue_redraw()
+				return
 			var clicked_enemy: Dictionary = _enemy_at_point(point)
 			if not clicked_enemy.is_empty():
 				battle_run.focus_enemy(clicked_enemy)
 				queue_redraw()
 				return
-			if bool(battle_run.permanent_tactics.get("gewu", false)):
-				battle_run.permanent_tactics.gewu = false
-				battle_run.gewu_auto_timer = 0.0
-				queue_redraw()
-				return
-			if foe_lord_popup:
-				foe_lord_popup = false
-				queue_redraw()
-				return
-			if battle_run.awaiting_card_choice:
-				for index in battle_run.card_choices.size():
-					if _growth_card_rect(index).has_point(point):
-						battle_run.choose_card(index)
-						queue_redraw()
-						return
-			elif FOE_LORD_RECT.has_point(point) and not battle_run.foe_lord.is_empty():
-				foe_lord_popup = true
-				queue_redraw()
-				return
-			elif LORD_COMMAND_RECT.has_point(point):
-				battle_run.cast_lord_command()
-				queue_redraw()
-				return
+
+func _sync_growth_card_ui(delta: float) -> void:
+	if battle_run == null or not battle_run.awaiting_card_choice or battle_run.card_choices.is_empty():
+		growth_card_age = 999.0
+		growth_card_anim = 0.0
+		growth_card_signature = ""
+		return
+	var titles := PackedStringArray()
+	for card in battle_run.card_choices:
+		titles.append(str(card.get("title", "")))
+	var signature := "%s|%s" % ["relic" if battle_run.picking_relic else "growth", "\u001f".join(titles)]
+	if signature != growth_card_signature:
+		growth_card_signature = signature
+		growth_card_age = 0.0
+		growth_card_anim = 0.0
+		return
+	growth_card_age += maxf(0.0, delta)
+	growth_card_anim = minf(1.0, growth_card_anim + maxf(0.0, delta) * 4.8)
 
 func _cata_warning_rect() -> Rect2:
 	if battle_run == null or battle_run.enemies.filter(func(enemy): return not bool(enemy.get("dead", false)) and str(enemy.get("special", "")) == "cata").is_empty():
@@ -1174,11 +1206,12 @@ func _hero_card_rect(index: int) -> Rect2:
 	return Rect2(8 + index * 158, 278, 148, 232)
 
 func _growth_card_rect(index: int) -> Rect2:
-	if battle_run != null and battle_run.card_choices.size() >= 5:
-		return Rect2(4 + index * 95, 278, 90, 244)
-	if battle_run != null and battle_run.card_choices.size() >= 4:
-		return Rect2(4 + index * 119, 278, 114, 244)
-	return Rect2(8 + index * 158, 278, 148, 244)
+	var count: int = battle_run.card_choices.size() if battle_run != null else 3
+	var width: float = 86.0 if count >= 5 else (108.0 if count == 4 else 140.0)
+	var gap: float = 8.0 if count >= 5 else 10.0
+	var total: float = count * width + (count - 1) * gap
+	var start_x: float = (480.0 - total) / 2.0
+	return Rect2(start_x + index * (width + gap), 294, width, 146)
 
 func active_bond_text() -> String:
 	if battle_run == null:
@@ -1215,10 +1248,10 @@ func active_tactic_text() -> String:
 
 func card_draft_heading() -> String:
 	if battle_run != null and battle_run.picking_relic:
-		return "遗宝！三选一"
+		return "🎁 挑件宝贝 🎁"
 	if battle_run != null and battle_run.card_choices.size() >= 5:
-		return "门生故吏！五选一"
-	return "升级！四选一" if battle_run != null and battle_run.card_choices.size() >= 4 else "升级！三选一"
+		return "📜 门生故吏！五张里挑%s" % ("（还有%d次）" % battle_run.pending_picks if battle_run.pending_picks else "")
+	return "✨ 升级！挑一张 ✨%s" % ("（还有%d次）" % battle_run.pending_picks if battle_run != null and battle_run.pending_picks else "")
 
 func _short_text(text: String, max_characters: int) -> String:
 	return text if text.length() <= max_characters else text.left(max_characters) + "…"
@@ -1242,6 +1275,7 @@ func _draw_battle() -> void:
 	_draw_battle_formation()
 	_draw_player_projectiles()
 	_draw_battle_skill_events()
+	_draw_dance_overlay()
 	# The Web battlefield spawns enemies above the playfield. Keep that motion,
 	# but paint the opaque HUD last so newly spawned units cannot obscure it.
 	_rounded_panel(Rect2(10, 10, 460, 84), Color("00000059"), Color.TRANSPARENT, 0.0, 12.0)
@@ -1302,14 +1336,51 @@ func _draw_battle() -> void:
 	_draw_cata_warning_bar()
 	if damage_panel_visible and battle_run.status == "play":
 		_draw_damage_panel()
-	if battle_run.awaiting_card_choice:
-		_draw_growth_cards()
-	elif foe_lord_popup_is_visible():
-		_draw_foe_lord_popup()
-	elif battle_run.status != "play":
-		_draw_result()
+	for layer in _battle_overlay_layers():
+		match layer:
+			"growth": _draw_growth_cards()
+			"foe_lord": _draw_foe_lord_popup()
+			"result": _draw_result()
 	if battle_field_banner_is_visible():
 		_draw_battle_field_banner()
+
+func _battle_overlay_layers() -> Array:
+	var layers := []
+	if battle_run == null:
+		return layers
+	if battle_run.awaiting_card_choice:
+		layers.append("growth")
+	if foe_lord_popup_is_visible():
+		layers.append("foe_lord")
+	elif battle_run.status != "play":
+		layers.append("result")
+	return layers
+
+func _dance_overlay_spec() -> Dictionary:
+	if battle_run == null or battle_run.dance_time <= 0.0:
+		return {"alpha": 0.0, "veil_alpha": 0.0, "center_y": 336.0}
+	var fade := minf(1.0, minf((3.0 - battle_run.dance_time) * 3.0, battle_run.dance_time * 2.0))
+	return {"alpha": maxf(0.0, fade), "veil_alpha": maxf(0.0, fade) * 0.55, "center_y": 336.0}
+
+func _draw_dance_overlay() -> void:
+	var spec := _dance_overlay_spec()
+	var alpha := float(spec.alpha)
+	if alpha <= 0.0:
+		return
+	draw_rect(Rect2(0, 0, 480, 800), Color(70.0 / 255.0, 12.0 / 255.0, 40.0 / 255.0, float(spec.veil_alpha)), true)
+	var center_y := float(spec.center_y)
+	var dancers := [[-120.0, 52, 1.1], [0.0, 96, 0.0], [120.0, 52, 2.3]]
+	for dancer in dancers:
+		var phase_offset := float(dancer[2])
+		var x := 240.0 + float(dancer[0]) + sin(float(battle_run.game_time) * 3.0 + phase_offset) * 12.0
+		var y := center_y + sin(float(battle_run.game_time) * 5.0 + phase_offset) * 6.0
+		_card_text_center("💃", x, y, int(dancer[1]), Color(1, 1, 1, alpha), float(dancer[1]) * 1.4)
+	for index in 12:
+		var flower_x := fposmod(float(index * 97 + 41) + sin(float(battle_run.game_time) * 1.5 + index) * 30.0, 480.0)
+		var flower_y := fposmod(float(index * 173) + float(battle_run.game_time) * 90.0, 840.0) - 20.0
+		_card_text_center("🌸" if index % 3 else "🎵", flower_x, flower_y, 18, Color(1, 1, 1, alpha), 40.0)
+	_text_center("此间乐，不思蜀……", center_y + 96.0, 20, Color(1.0, 0.784, 0.878, alpha))
+	_text_center("（全军攻击+30%；点击屏幕可重回朝堂）", center_y + 118.0, 12, Color(1, 1, 1, alpha * 0.75))
 
 func _draw_battle_backdrop() -> void:
 	for y in range(0, 800, 4):
@@ -2079,14 +2150,148 @@ func _draw_foe_lord_popup() -> void:
 	_text_center("点任意处关闭", rect.end.y - 10.0, 10, MUTED)
 
 func _draw_growth_cards() -> void:
-	draw_rect(Rect2(0, 0, 480, 800), Color(0, 0, 0, 0.76), true)
-	_text_center("🍷 乐不思蜀·自动抽卡中…" if bool(battle_run.permanent_tactics.get("gewu", false)) else card_draft_heading(), 226, 28, GOLD)
-	_text_center("战斗已暂停", 252, 13, Color("d5c9a8"))
+	var panel_rect := Rect2(8, 260, 464, 198)
+	_rounded_panel(panel_rect, Color(0.047, 0.035, 0.016, 0.72), Color(0.91, 0.78, 0.42, 0.35), 1.5, 14.0)
+	var heading := card_draft_heading()
+	if bool(battle_run.permanent_tactics.get("gewu", false)) and battle_run.gewu_auto_index >= 0:
+		heading = "🍷 乐不思蜀·自动抽卡中…" if battle_run.gewu_auto_timer < 1.0 else "🍷 就它了"
+	_text_center(heading, 286, 17, Color(1.0, 0.894, 0.353, 0.75 + sin(float(battle_run.game_time) * 5.0) * 0.25))
+	var auto_highlight := _growth_card_auto_highlight_index()
 	for index in battle_run.card_choices.size():
 		var card: Dictionary = battle_run.card_choices[index]
-		var rect := _growth_card_rect(index)
-		_panel(rect, Color("332714"), PALE_GOLD, 2.5)
-		_text_centered_in_rect(str(card.get("icon", "策")), Rect2(rect.position.x, rect.position.y + 25, rect.size.x, 40), 28, GOLD)
-		_text_centered_in_rect(_short_text(str(card.title), 8), Rect2(rect.position.x + 4, rect.position.y + 78, rect.size.x - 8, 28), 16, Color.WHITE)
-		_text_centered_in_rect(_short_text(str(card.get("desc", "")), 11), Rect2(rect.position.x + 8, rect.position.y + 126, rect.size.x - 16, 38), 12, BLUE)
-		_text_centered_in_rect("点击选择", Rect2(rect.position.x, rect.end.y - 38, rect.size.x, 24), 12, PALE_GOLD)
+		var spec := _growth_card_visual_spec(index, card)
+		var rect: Rect2 = spec.rect
+		_draw_rounded_vertical_gradient(rect, spec.top_color, spec.bottom_color, 12.0)
+		_rounded_panel(rect, Color(0, 0, 0, 0), spec.border_color, 2.5, 12.0)
+		if index == auto_highlight:
+			var highlight := Color("ff9ac8") if battle_run.gewu_auto_timer < 1.0 else Color("8df05a")
+			_rounded_panel(rect.grow(4.0), Color(0, 0, 0, 0), highlight, 4.0, 14.0)
+		_draw_growth_card_content(card, rect)
+
+func _growth_card_visual_spec(index: int, card: Dictionary) -> Dictionary:
+	var base_rect := _growth_card_rect(index)
+	var entrance_dy := pow(1.0 - clampf(growth_card_anim, 0.0, 1.0), 3.0) * 100.0
+	var rect := Rect2(base_rect.position + Vector2(0, entrance_dy), base_rect.size)
+	var is_relic := str(card.get("kind", "")) == "relic"
+	var class_display: Dictionary = BATTLE_CLASS_DISPLAY.get(str(card.get("cls", "")), {})
+	return {
+		"panel_rect": Rect2(8, 260, 464, 198),
+		"rect": rect,
+		"top_color": Color("5a4a22") if is_relic else Color("54452a"),
+		"bottom_color": Color("42361a") if is_relic else Color("3a3020"),
+		"border_color": Color("ffd24a") if is_relic else class_display.get("color", Color("c9a86a")),
+		"tag_rect": Rect2(rect.position.x + 6, rect.position.y + 4, 76, 18),
+	}
+
+func _growth_card_auto_highlight_index() -> int:
+	if battle_run == null or not bool(battle_run.permanent_tactics.get("gewu", false)) or battle_run.gewu_auto_index < 0 or battle_run.card_choices.is_empty():
+		return -1
+	if battle_run.gewu_auto_timer < 1.0:
+		return int(floor(battle_run.gewu_auto_timer * 8.0)) % battle_run.card_choices.size()
+	return battle_run.gewu_auto_index
+
+func _draw_growth_card_content(card: Dictionary, rect: Rect2) -> void:
+	var center_x := rect.position.x + rect.size.x / 2.0
+	var hero_id := str(card.get("hero_id", ""))
+	if not hero_id.is_empty():
+		var hero: Dictionary = catalog.by_id("heroes", hero_id)
+		var rarity_id := HeroProgressionSource.rarity(hero_id, catalog.content.get("hero_tiers", {}))
+		var rarity: Dictionary = catalog.content.get("rarities", {}).get(rarity_id, {})
+		var disc_center := Vector2(center_x, rect.position.y + 34)
+		draw_circle(disc_center, 20, Color("3a3024"))
+		draw_arc(disc_center, 20, 0, TAU, 48, Color(str(rarity.get("color", "#cfd6dc"))), 2.0)
+		var hero_name := str(hero.get("name", hero_id))
+		var name_size := _name_disc_font_size(hero_name, 20.0)
+		draw_string(_font(), Vector2(center_x - 20, rect.position.y + 35 + name_size / 3.0), hero_name, HORIZONTAL_ALIGNMENT_CENTER, 40, name_size, GOLD)
+	else:
+		_card_text_center(str(card.get("icon", "")), center_x, rect.position.y + 44, 32, Color.WHITE, rect.size.x)
+	_card_text_center(str(card.get("title", "")), center_x, rect.position.y + 70, 15, GOLD, rect.size.x - 6)
+	if card.has("stars"):
+		var has_info := not str(card.get("info", "")).is_empty()
+		if has_info:
+			_card_text_center(str(card.info), center_x, rect.position.y + 88, 12 if rect.size.x < 120 else 13, Color(str(card.get("infoColor", "#e8dcc0"))), rect.size.x - 6)
+		var star_y := rect.position.y + (106 if has_info else 90)
+		_draw_growth_star_row(center_x, star_y, int(card.stars))
+		_card_text_center(str(card.get("desc", "")), center_x, star_y + 17, 12, Color("e8dcc0"), rect.size.x - 8)
+		if card.has("lvN"):
+			_card_text_center("图鉴 %d 级" % int(card.lvN), center_x, star_y + 36, 13, Color("8ad2ff"), rect.size.x - 8)
+	elif card.has("lvN") and not str(card.get("info", "")).is_empty():
+		_card_text_center(str(card.info), center_x, rect.position.y + 90, 12 if rect.size.x < 120 else 14, Color(str(card.get("infoColor", "#e8dcc0"))), rect.size.x - 6)
+		_card_text_center("图鉴 %d 级" % int(card.lvN), center_x, rect.position.y + 110, 14, Color("8ad2ff"), rect.size.x - 8)
+		_draw_wrapped_centered(str(card.get("desc", "")), center_x, rect.position.y + 128, rect.size.x - 12, 12, Color("c9b69a"), 14, 2)
+	else:
+		_draw_wrapped_centered(str(card.get("desc", "")), center_x, rect.position.y + 86, rect.size.x - 14, 12, Color("e8dcc0"), 14, 3)
+	if not str(card.get("tag", "")).is_empty():
+		var tag_rect := Rect2(rect.position.x + 6, rect.position.y + 4, 76, 18)
+		var bad := bool(card.get("tagBad", false))
+		_rounded_panel(tag_rect, Color("5a2a2a") if bad else Color("2a5a3a"), Color("ff8a6a") if bad else Color("9adf5a"), 1.5, 6.0)
+		_card_text_center(str(card.tag), tag_rect.get_center().x, tag_rect.position.y + 13, 10, Color("ffb8a8") if bad else Color("c9f0a0"), tag_rect.size.x)
+
+func _draw_rounded_vertical_gradient(rect: Rect2, top_color: Color, bottom_color: Color, radius: float) -> void:
+	var height := maxi(1, roundi(rect.size.y))
+	for row in height:
+		var local_y := float(row) + 0.5
+		var inset := 0.0
+		if local_y < radius:
+			inset = radius - sqrt(maxf(0.0, radius * radius - pow(radius - local_y, 2.0)))
+		elif local_y > rect.size.y - radius:
+			inset = radius - sqrt(maxf(0.0, radius * radius - pow(local_y - (rect.size.y - radius), 2.0)))
+		var color := top_color.lerp(bottom_color, float(row) / maxf(1.0, rect.size.y - 1.0))
+		draw_line(Vector2(rect.position.x + inset, rect.position.y + row), Vector2(rect.end.x - inset, rect.position.y + row), color, 1.2)
+
+func _card_text_center(text: String, center_x: float, baseline_y: float, size: int, color: Color, width: float) -> void:
+	draw_string(_font(), Vector2(center_x - width / 2.0, baseline_y), text, HORIZONTAL_ALIGNMENT_CENTER, width, size, color)
+
+func _draw_growth_star_row(center_x: float, baseline_y: float, stars: int) -> void:
+	var tiers := _growth_star_tiers(stars)
+	if tiers.is_empty():
+		return
+	var widths: Array[float] = []
+	var padding := 2.0
+	var total := -padding
+	for tier in tiers:
+		var size := 18 if int(tier) > 0 else 16
+		var width := _font().get_string_size("★", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		widths.append(width)
+		total += width + padding
+	var x := center_x - total / 2.0
+	for index in tiers.size():
+		var tier := int(tiers[index])
+		var color := Color("8df05a") if index == tiers.size() - 1 else (Color("3a9aff") if tier == 2 else (Color("ff7a3a") if tier == 1 else Color("ffd24a")))
+		var size := 18 if tier > 0 else 16
+		draw_string(_font(), Vector2(x, baseline_y), "★", HORIZONTAL_ALIGNMENT_LEFT, widths[index], size, color)
+		x += widths[index] + padding
+
+func _growth_star_tiers(stars: int) -> Array:
+	var tiers := []
+	if stars <= 5:
+		for _index in maxi(0, stars):
+			tiers.append(0)
+	elif stars <= 10:
+		for _index in stars - 5:
+			tiers.append(1)
+		for _index in 10 - stars:
+			tiers.append(0)
+	else:
+		for _index in mini(5, stars - 10):
+			tiers.append(2)
+		for _index in maxi(0, 15 - stars):
+			tiers.append(1)
+	return tiers
+
+func _draw_wrapped_centered(text: String, center_x: float, first_baseline: float, max_width: float, size: int, color: Color, line_height: float, max_lines: int) -> void:
+	var lines: Array[String] = []
+	var current := ""
+	for character in text:
+		var candidate := current + character
+		if not current.is_empty() and _font().get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_width:
+			lines.append(current)
+			current = character
+			if lines.size() >= max_lines:
+				break
+		else:
+			current = candidate
+	if lines.size() < max_lines and not current.is_empty():
+		lines.append(current)
+	for index in lines.size():
+		_card_text_center(lines[index], center_x, first_baseline + index * line_height, size, color, max_width)

@@ -41,6 +41,8 @@ func _run() -> void:
 
 	if not _test_applications(catalog, fixture.city):
 		return
+	if not _test_card_presentation_and_kin(catalog, fixture.city):
+		return
 	if not _test_gewu_autoplay(catalog, fixture.city):
 		return
 	if not _test_relic_drops(catalog, fixture.city):
@@ -83,13 +85,75 @@ func _test_applications(catalog, city: Dictionary) -> bool:
 		return false
 	return true
 
+func _test_card_presentation_and_kin(catalog, city: Dictionary) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(71914))
+	run.start(city, "liubei", "zhaoyun", 1, {"zhangfei": 7, "yanyan": 1})
+	var cards = BattleCards.new(catalog, Mulberry32.new(71914))
+	var pool: Array = cards.build_pool(run)
+	var zhangfei_card = _find_title(pool, "张飞出征")
+	if not _expect(zhangfei_card != null, "Liu Bei draft must contain the unowned Zhang Fei card"):
+		return false
+	if not _expect(str(zhangfei_card.get("info", "")) == "✊霸道系 · 🔱枪兵", "unit card must expose the Web element and class line"):
+		return false
+	if not _expect(str(zhangfei_card.get("infoColor", "")) == "#ff6b4a" and int(zhangfei_card.get("lvN", 0)) == 7, "unit card must expose the Web element colour and hero level"):
+		return false
+	if not _expect(str(zhangfei_card.get("tag", "")) == "🤝亲军·登场+1星", "rare kin card must expose the Web one-star entry tag"):
+		return false
+	var yanyan_card = _find_title(pool, "严颜出征")
+	if not _expect(yanyan_card != null and str(yanyan_card.get("tag", "")) == "🤝亲军·登场+2星", "uncommon kin card must expose the Web two-star entry tag"):
+		return false
+	if not _expect(cards.apply(run, zhangfei_card), "kin unit card must place the selected hero"):
+		return false
+	var zhangfei_units: Array = run.units().filter(func(unit): return str(unit.hero.id) == "zhangfei")
+	if not _expect(zhangfei_units.size() == 1 and int(zhangfei_units[0].level) == 3, "level-seven rare kin must enter at two base stars plus one kin star"):
+		return false
+	var opening = BattleRun.new(catalog, Mulberry32.new(71914))
+	opening.start(city, "liubei", "zhangfei", 1, {"zhangfei": 7})
+	if not _expect(int(opening.units()[0].level) == 3, "opening kin hero must receive the same entry-star bonus"):
+		return false
+	var shen_run = BattleRun.new(catalog, Mulberry32.new(71914))
+	shen_run.start(city, "liubei", "zhaoyun")
+	shen_run.clear_formation()
+	shen_run.shen_ids = ["xuhuang"]
+	shen_run.add_unit_at("xuhuang", 1, 2)
+	var shen_unit: Dictionary = shen_run.units()[0]
+	return _expect(int(shen_unit.level) == 3 and is_zero_approx(float(shen_unit.ultCd)), "common and uncommon Shen heroes must receive entry stars and start with their ultimate ready")
+
 func _test_gewu_autoplay(catalog, city: Dictionary) -> bool:
 	var run = BattleRun.new(catalog, Mulberry32.new(7192))
 	run.start(city, "caocao", "zhangfei")
+	run.awaiting_card_choice = true
+	run.card_choices = [{"kind": "dance", "title": "乐不思蜀", "icon": "💃", "desc": "挂机"}]
+	if not _expect(run.choose_card(0) and bool(run.permanent_tactics.gewu) and is_equal_approx(run.dance_time, 3.0), "choosing Dance must enter the Web three-second performance before autoplay"):
+		return false
+	run.advance_real(1.49)
+	if not _expect(run.dance_time > 0.0, "without an open card, speed-two Web dance must still last until 1.5 real seconds"):
+		return false
+	run.advance_real(0.02)
+	if not _expect(is_zero_approx(run.dance_time), "without an open card, speed-two Web dance must end after about 1.5 real seconds"):
+		return false
+	run.dance_time = 3.0
+	run.awaiting_card_choice = true
+	run.card_choices = [{"kind": "merit", "title": "歌舞后的牌", "value": 1}]
+	run.advance_real(2.99)
+	if not _expect(run.gewu_auto_index == -1 and run.awaiting_card_choice, "Gewu must not start roulette during the three-second dance"):
+		return false
+	run.advance_real(0.02)
+	if not _expect(run.gewu_auto_index == 0 and run.awaiting_card_choice, "Gewu must start roulette as soon as the dance ends"):
+		return false
+	run.permanent_tactics.gewu = false
+	run.dance_time = 0.0
+	run.gewu_auto_timer = 0.0
+	run.gewu_auto_index = -1
+	run.awaiting_card_choice = false
+	run.card_choices = []
 	run.permanent_tactics.gewu = true
 	run.awaiting_card_choice = true
 	run.card_choices = [{"kind": "merit", "title": "挂机拍板", "value": 1}]
-	run.advance_real(1.49)
+	run.advance_real(0.01)
+	if not _expect(run.gewu_auto_index == 0, "Gewu must lock a safe final card as soon as autoplay begins"):
+		return false
+	run.advance_real(1.48)
 	if not _expect(run.awaiting_card_choice, "Gewu autoplay must preserve the Web 1.5-second roulette pause"):
 		return false
 	run.advance_real(0.02)
