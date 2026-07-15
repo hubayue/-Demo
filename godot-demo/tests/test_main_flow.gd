@@ -156,7 +156,7 @@ func _run() -> void:
     battle_run.enemies = _command_enemies(8)
     battle_run.spawn_queue = []
     battle_run.lord_command_cd = 0.0
-    _click(main, Vector2(400, 770))
+    _click(main, main.LORD_COMMAND_RECT.get_center())
     if not _expect(battle_run.lord_command_used == 1 and battle_run.wuxing_time > 0, "Clicking the ready lord-command panel must cast it manually"):
         return
     battle_run.permanent_tactics.gewu = true

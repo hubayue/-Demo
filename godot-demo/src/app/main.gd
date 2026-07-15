@@ -56,9 +56,12 @@ const MAP_TAB_RECTS := [
 	Rect2(339, 706, 93, 34),
 ]
 const STATE_GO_RECT := Rect2(150, 648, 180, 44)
-const LORD_COMMAND_RECT := Rect2(324, 751, 146, 42)
+const LORD_COMMAND_RECT := Rect2(414, 208, 56, 58)
 const FOE_LORD_RECT := Rect2(208, 108, 64, 43)
 const RULER_BACK_RECT := Rect2(14, 22, 90, 34)
+const BATTLE_MUTE_RECT := Rect2(402, 102, 64, 32)
+const BATTLE_QUIT_RECT := Rect2(402, 140, 64, 32)
+const BATTLE_DMG_RECT := Rect2(402, 456, 64, 30)
 const RESULT_BTN1 := Rect2(38, 690, 404, 42)
 const RESULT_BTN2 := Rect2(38, 744, 404, 42)
 const HOME_CODEX_RECT := Rect2(28, 604, 200, 44)
@@ -96,6 +99,10 @@ var map_message := ""
 var battle_run
 var foe_lord_popup := false
 var battle_drag = BattleDragControllerSource.new()
+var sound_enabled := true
+var damage_panel_visible := false
+var quit_armed := false
+var quit_arm_time := 0.0
 var profile_path := "user://v7.19.14-local-profile.json"
 var legacy_profile_path := "user://v7.19.2-local-profile.json"
 var profile: Dictionary = {}
@@ -205,6 +212,10 @@ func region_clear_count(region: int) -> int:
 	return cleared
 
 func _process(delta: float) -> void:
+	if quit_armed:
+		quit_arm_time = maxf(0.0, quit_arm_time - delta)
+		if quit_arm_time <= 0:
+			quit_armed = false
 	if phase != "battle" or battle_run == null:
 		return
 	battle_run.advance_real(delta)
@@ -315,6 +326,22 @@ func _handle_pointer(point: Vector2) -> void:
 				return
 			if battle_run.status != "play":
 				_handle_result_pointer(point)
+				return
+			if BATTLE_MUTE_RECT.has_point(point):
+				sound_enabled = not sound_enabled
+				queue_redraw()
+				return
+			if BATTLE_DMG_RECT.has_point(point):
+				damage_panel_visible = not damage_panel_visible
+				queue_redraw()
+				return
+			if BATTLE_QUIT_RECT.has_point(point):
+				if quit_armed:
+					_return_to_map()
+				else:
+					quit_armed = true
+					quit_arm_time = 3.0
+				queue_redraw()
 				return
 			if bool(battle_run.permanent_tactics.get("gewu", false)):
 				battle_run.permanent_tactics.gewu = false
@@ -510,6 +537,10 @@ func _return_to_map() -> void:
 	state_popup = -1
 	battle_run = null
 	foe_lord_popup = false
+	battle_drag.cancel()
+	damage_panel_visible = false
+	quit_armed = false
+	quit_arm_time = 0.0
 
 func _handle_map_pointer(point: Vector2) -> void:
 	if state_popup >= 0:
@@ -1033,40 +1064,41 @@ func _draw_battle() -> void:
 		_text_center("战场载入中…", 400, 22, PALE_GOLD)
 		return
 	var city: Dictionary = battle_run.city
+	_draw_battle_backdrop()
 	_draw_battle_entities()
 	_draw_battle_formation()
 	# The Web battlefield spawns enemies above the playfield. Keep that motion,
 	# but paint the opaque HUD last so newly spawned units cannot obscure it.
-	draw_rect(Rect2(0, 0, 480, 108), INK, true)
-	_text("Lv.%d" % battle_run.level, Vector2(14, 30), 22, GOLD)
-	_text("第%d波" % battle_run.wave, Vector2(14, 58), 17, PALE_GOLD)
-	_text("城防 %d/%d" % [battle_run.wall, battle_run.wall_max], Vector2(116, 28), 14, RED)
-	_text("击破 %d / %d" % [battle_run.kills, city.killTarget], Vector2(278, 28), 14, Color.WHITE)
-	draw_rect(Rect2(116, 38, 334, 10), Color("433b31"), true)
-	draw_rect(Rect2(116, 38, minf(334.0, battle_run.kills / float(city.killTarget) * 334.0), 10), GREEN, true)
-	draw_rect(Rect2(14, 70, 436, 8), Color("433b31"), true)
-	draw_rect(Rect2(14, 70, minf(436.0, battle_run.xp / maxf(1.0, battle_run.xp_need) * 436.0), 8), BLUE, true)
-	_text("经验 %.1f / %.0f" % [battle_run.xp, battle_run.xp_need], Vector2(14, 96), 12, Color("b9dfff"))
+	draw_rect(Rect2(10, 10, 460, 84), Color("00000059"), true)
+	_text("Lv.%d" % battle_run.level, Vector2(24, 34), 16, GOLD)
+	_text("⚔ 第 %d 波" % maxi(battle_run.wave, 1), Vector2(24, 60), 15, PALE_GOLD)
+	_text("%s%s" % [str(city.get("icon", "⚡")), str(city.get("tag", city.get("name", "")))], Vector2(88, 34), 12, Color(str(city.get("color", "ffb84a"))))
+	_text("击破 %d / %s" % [battle_run.kills, "∞" if battle_run.endless else str(city.killTarget)], Vector2(130, 28), 13, Color.WHITE)
+	draw_rect(Rect2(130, 34, 330, 10), Color("ffffff26"), true)
+	draw_rect(Rect2(130, 34, minf(330.0, battle_run.kills / float(city.killTarget) * 330.0), 10), Color("9aff5a"), true)
+	_text("EXP", Vector2(130, 62), 12, Color("8ad2ff"))
+	draw_rect(Rect2(164, 53, 296, 10), Color("ffffff26"), true)
+	draw_rect(Rect2(164, 53, minf(296.0, battle_run.xp / maxf(1.0, battle_run.xp_need) * 296.0), 10), Color("4ab0ff"), true)
 	var battle_field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
-	_text(_short_text("%s · %s" % [str(city.name), str(battle_field.get("name", ""))], 13), Vector2(154, 96), 11, BLUE)
-	_text("金 %.0f" % battle_run.run_gold, Vector2(316, 96), 11, GOLD)
-	_text("固定 2倍速", Vector2(398, 96), 10, PALE_GOLD)
+	draw_rect(Rect2(10, 98, 118, 19), Color("00000059"), true)
+	_text("%s%s" % [battle_field.get("icon", ""), battle_field.get("name", "")], Vector2(16, 112), 12, Color("c9e0a0"))
 	var foe_offset := 46.0 if not battle_run.foe_lord.is_empty() else 0.0
 	if foe_offset > 0:
 		_draw_foe_lord_status()
 	var field_clear: bool = battle_run.spawn_queue.is_empty() and battle_run.enemies.is_empty()
-	draw_rect(Rect2(128, 109 + foe_offset, 224, 27), Color("17120ce6"), true)
+	draw_rect(Rect2(128, 130 + foe_offset, 224, 27), Color("17120ce6"), true)
 	if battle_run.wave == 0 and battle_run.enemies.is_empty():
-		_text_center("黄巾来袭 %.1fs" % maxf(0.0, battle_run.wave_timer), 130 + foe_offset, 16, PALE_GOLD)
+		_text_center("黄巾来袭 %.1fs" % maxf(0.0, battle_run.wave_timer), 150 + foe_offset, 16, PALE_GOLD)
+		_draw_battle_field_banner()
 	elif field_clear:
 		var threat := _next_wave_threat_text()
-		_text_center(_short_text("下波 %.1fs%s" % [maxf(0.0, battle_run.wave_timer), " · " + threat if not threat.is_empty() else ""], 34), 130 + foe_offset, 14, PALE_GOLD)
+		_text_center(_short_text("下波 %.1fs%s" % [maxf(0.0, battle_run.wave_timer), " · " + threat if not threat.is_empty() else ""], 34), 150 + foe_offset, 14, PALE_GOLD)
 	else:
 		var pressure_left := maxf(0.0, battle_run.wave_budget - battle_run.wave_clock)
 		var pressure_note := ""
 		if not battle_run.endless_mod.is_empty(): pressure_note = " · 军令「%s」" % str(battle_run.endless_mod.name)
 		elif battle_run.foe_tenacity() < 0.999: pressure_note = " · 攻坚·控效%d%%" % roundi(battle_run.foe_tenacity() * 100.0)
-		_text_center(_short_text("第%d波 · 催战 %.1fs%s" % [battle_run.wave, pressure_left, pressure_note], 34), 130 + foe_offset, 14, RED if pressure_left < 5.0 else MUTED)
+		_text_center(_short_text("第%d波 · 催战 %.1fs%s" % [battle_run.wave, pressure_left, pressure_note], 34), 150 + foe_offset, 14, RED if pressure_left < 5.0 else MUTED)
 	var bond_text := active_bond_text()
 	if not bond_text.is_empty():
 		draw_rect(Rect2(66, 140 + foe_offset, 348, 25), Color("332714e8"), true)
@@ -1091,12 +1123,60 @@ func _draw_battle() -> void:
 	if battle_run.taoyuan_time > 0:
 		draw_rect(Rect2(5, 5, 470, 790), Color("ffd27899"), false, 5.0)
 		_text_center("桃园金身 · 全军刀枪不入 %.1fs" % battle_run.taoyuan_time, 246, 18, Color("ffe8b0"))
+	_draw_battle_side_controls()
+	if damage_panel_visible and battle_run.status == "play":
+		_draw_damage_panel()
 	if battle_run.awaiting_card_choice:
 		_draw_growth_cards()
 	elif foe_lord_popup_is_visible():
 		_draw_foe_lord_popup()
 	elif battle_run.status != "play":
 		_draw_result()
+
+func _draw_battle_backdrop() -> void:
+	draw_rect(Rect2(0, 0, 480, 260), Color("2a2012"), true)
+	draw_rect(Rect2(0, 260, 480, 232), Color("3a2c18"), true)
+	for index in 26:
+		var x := fmod(index * 137.5, 480.0)
+		var y := fmod(index * 89.3 + float(battle_run.game_time) * 6.0, 432.0)
+		draw_rect(Rect2(x, y, 2, 2), Color("ffdc9624"), true)
+
+func _draw_battle_side_controls() -> void:
+	_panel(BATTLE_MUTE_RECT, Color("3a5a6a") if sound_enabled else Color("5a3a3a"), Color("ffffff4d"), 1.5)
+	_text_centered_in_rect("🔊音效" if sound_enabled else "🔇静音", BATTLE_MUTE_RECT, 12, Color.WHITE)
+	_panel(BATTLE_QUIT_RECT, Color("8a3a2a") if quit_armed else Color("4a4048"), Color("ffffff4d"), 1.5)
+	_text_centered_in_rect("真退?" if quit_armed else "🚪退出", BATTLE_QUIT_RECT, 12, Color.WHITE)
+	_panel(BATTLE_DMG_RECT, Color("5a7a3a") if damage_panel_visible else Color("3a4a5a"), Color("ffffff4d"), 1.5)
+	_text_centered_in_rect("📊输出", BATTLE_DMG_RECT, 11, Color.WHITE)
+	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
+	_panel(Rect2(410, 178, 64, 24), Color("140e06d9"), Color("ffd74a99"), 1.2)
+	_text_centered_in_rect("👑%s" % ruler.get("name", ""), Rect2(410, 178, 64, 24), 11, GOLD)
+
+func _draw_battle_field_banner() -> void:
+	var city: Dictionary = battle_run.city
+	var field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
+	var rect := Rect2(8, 138, 392, 112)
+	draw_rect(rect, Color("120d07e8"), true)
+	draw_rect(rect, Color("e8c86acc"), false, 2.0)
+	_text_centered_in_rect("⚡ %s · %s" % [city.get("name", "本州"), field.get("name", "")], Rect2(8, 150, 392, 24), 16, GOLD)
+	_text_centered_in_rect(str(field.get("desc", "")), Rect2(16, 182, 376, 22), 11, Color("d5c9a8"))
+	var tri: Dictionary = TRI_DISPLAY.get(str(city.get("foes", {}).get("tri", "badao")), TRI_DISPLAY.badao)
+	var counter: Dictionary = TRI_DISPLAY.get(str(tri.counter), TRI_DISPLAY.rende)
+	_text_centered_in_rect("这州的贼是 %s%s　带 %s%s 克他" % [tri.icon, tri.name, counter.icon, counter.name], Rect2(16, 206, 376, 22), 12, GREEN)
+	var rules: Array = city.get("rules", [])
+	if not rules.is_empty():
+		_text_centered_in_rect("⚠ 本关：%s" % _rule_names(rules), Rect2(16, 228, 376, 18), 10, Color("ff9a6a"))
+
+func _draw_damage_panel() -> void:
+	var rect := Rect2(85, 244, 310, 122)
+	draw_rect(rect, Color("0c0904e8"), true)
+	draw_rect(rect, Color("8a7d5a"), false, 1.2)
+	_text_centered_in_rect("📊 实时输出", Rect2(85, 252, 310, 22), 13, GOLD)
+	var rows: Array = battle_run.units().duplicate()
+	rows.sort_custom(func(a, b): return float(a.get("damage_dealt", 0.0)) > float(b.get("damage_dealt", 0.0)))
+	for index in mini(4, rows.size()):
+		var unit: Dictionary = rows[index]
+		_text("%s　累计 %.0f" % [unit.hero.name, float(unit.get("damage_dealt", 0.0))], Vector2(102, 290 + index * 18), 10, Color("c9b69a"))
 
 func _draw_result() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color("140e06ed"), true)
@@ -1332,9 +1412,8 @@ func _draw_battle_formation() -> void:
 			if battle_run.traits.has(key):
 				_text(str(battle_run.traits[key]).left(1).to_upper(), rect.position + Vector2(5, 14), 9, MUTED)
 			if battle_run.obstacles.has(key):
-				draw_circle(rect.get_center(), 24, Color("50493d"))
-				draw_arc(rect.get_center(), 25, 0, TAU, 28, Color("756b58"), 2)
-				_text_centered_in_rect("岩", Rect2(rect.position.x, rect.position.y + 27, rect.size.x, 24), 16, Color("c4b99f"))
+				draw_rect(rect, Color("3c32248c"), true)
+				_text_centered_in_rect("🪨" if (row + col) % 2 else "🌲", Rect2(rect.position.x, rect.position.y + 20, rect.size.x, 32), 26, Color.WHITE)
 				continue
 			var unit = battle_run.grid[row][col]
 			if unit == null:
@@ -1380,11 +1459,13 @@ func _draw_battle_formation() -> void:
 	if not command.is_empty():
 		var command_ready: bool = battle_run.lord_command_cd <= 0 and not bool(battle_run.permanent_tactics.get("gewu", false))
 		var auto_ready: bool = command_ready and battle_run.lord_command_auto_ready()
-		draw_rect(LORD_COMMAND_RECT, Color("25311f") if command_ready else Color("352e26"), true)
-		draw_rect(LORD_COMMAND_RECT, GREEN if command_ready else MUTED, false, 1.5)
-		_text_centered_in_rect(str(command.name), Rect2(326, 755, 142, 17), 12, GOLD if command_ready else PALE_GOLD)
+		var command_center := LORD_COMMAND_RECT.get_center()
+		draw_circle(command_center, 27, Color("25311f") if command_ready else Color("352e26"))
+		draw_arc(command_center, 28, 0, TAU, 36, GREEN if command_ready else MUTED, 2.0)
+		_text_centered_in_rect(str(LORD_COMMAND_ICONS.get(battle_run.lord_skill_id, "令")), Rect2(LORD_COMMAND_RECT.position.x, LORD_COMMAND_RECT.position.y + 8, LORD_COMMAND_RECT.size.x, 20), 16, GOLD if command_ready else PALE_GOLD)
+		_text_centered_in_rect(_short_text(str(command.name), 4), Rect2(LORD_COMMAND_RECT.position.x, LORD_COMMAND_RECT.position.y + 30, LORD_COMMAND_RECT.size.x, 16), 9, Color.WHITE)
 		var cooldown_text := "自动待发" if auto_ready else ("点击施放" if command_ready else ("CD %.1fs" % battle_run.lord_command_cd if battle_run.lord_command_cd > 0 else "号令罢工"))
-		_text_centered_in_rect(cooldown_text, Rect2(326, 773, 142, 16), 10, GREEN if command_ready else MUTED)
+		_text_centered_in_rect(_short_text(cooldown_text, 6), Rect2(LORD_COMMAND_RECT.position.x, LORD_COMMAND_RECT.position.y + 44, LORD_COMMAND_RECT.size.x, 12), 7, GREEN if command_ready else MUTED)
 
 func _draw_battle_drag_preview() -> void:
 	if not battle_drag.is_active():
