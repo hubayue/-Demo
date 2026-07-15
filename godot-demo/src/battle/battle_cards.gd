@@ -242,7 +242,7 @@ func apply(run, card) -> bool:
 			run.level += 1
 			run.xp_need = round((10.0 + (run.level - 1) * 9.0 + pow(run.level, 1.72)) * (0.88 if run.relic_ids.has("hanshu") else 1.0))
 			run.pending_picks += 1
-		"seppuku": run.status = "over"
+		"seppuku": run.finish("over")
 		"dance": run.permanent_tactics.gewu = true
 		"merit": pass
 		"reroll": run.pending_picks += 1
