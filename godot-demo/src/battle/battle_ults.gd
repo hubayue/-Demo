@@ -1,6 +1,20 @@
 class_name BattleUlts
 extends RefCounted
 
+const VISUAL_EFFECTS := {
+	"zhangfei": "shock", "zhaoyun": "fan", "machao": "lightning", "huangzhong": "snipe",
+	"xiahouyuan": "ricochet", "luxun": "fire_pit", "guanyu": "lane", "lvbu": "bounce",
+	"zhangliao": "fear", "taishici": "blast", "dianwei": "cleave", "sunce": "charge",
+	"xuchu": "barricade", "weiyan": "trap", "ganning": "bombard", "diaochan": "charm",
+	"zhouyu": "fire_line", "jiangwei": "homing", "zhugeliang": "link", "caoren": "shock",
+	"zhoutai": "reflect", "huatuo": "heal", "xiaoqiao": "haste", "lusu": "army_buff",
+	"huanggai": "immolate", "xuhuang": "palisade", "daqiao": "ice_wave", "huangyueying": "turret",
+	"caiwenji": "sleep", "gaoshun": "gather", "zhanghe": "multi_charge", "zhurong": "fan",
+	"wutugu": "poison", "simayi": "clock", "pangde": "lane", "yanliang": "execute",
+	"sunshangxiang": "fan", "yanyan": "frost", "caohong": "guard", "xushu": "sunder",
+	"jiaxu": "charm", "zuoci": "sheep", "dengai": "row", "menghuo": "fear", "wenchou": "duel",
+}
+
 const DEFINITIONS := {
 	"zhangfei": {"name": "燕人怒喝", "type": "ctrl", "cd": 13, "condition": "range", "need": 3},
 	"zhaoyun": {"name": "七探盘蛇", "type": "dmg", "cd": 10, "condition": "range", "need": 1},
@@ -121,7 +135,16 @@ func cast(run, unit: Dictionary) -> bool:
 	if ult.is_empty():
 		return false
 	run.ults_used += 1
-	run.ult_events.append({"hero_id": hero_id, "name": str(ult.name), "type": str(ult.type), "t": 1.6})
+	var duration := 1.6
+	run.ult_events.append({
+		"hero_id": hero_id,
+		"name": str(ult.name),
+		"type": str(ult.type),
+		"effect": visual_effect(hero_id),
+		"origin": _center(run, unit) - Vector2(0, 18),
+		"duration": duration,
+		"t": duration,
+	})
 	var base := float(run.team.unit_damage(run, unit, run.team.unit_mods(run, unit)))
 	if run.relic_ids.has("jiuhu"):
 		base *= 1.5
@@ -186,6 +209,9 @@ func cast(run, unit: Dictionary) -> bool:
 		"menghuo": _menghuo(run, unit)
 		"wenchou": _wenchou(run, unit, base)
 	return true
+
+func visual_effect(hero_id: String) -> String:
+	return str(VISUAL_EFFECTS.get(hero_id, ""))
 
 func _alive(run) -> Array:
 	return run.enemies.filter(func(enemy): return not bool(enemy.get("dead", false)))

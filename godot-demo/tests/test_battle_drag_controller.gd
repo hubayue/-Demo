@@ -63,7 +63,13 @@ func _run() -> void:
 		return
 	drag.update(Vector2(470, 300))
 	result = drag.finish(Vector2(470, 300))
-	if not _expect(result.action == "cancel" and result.target == Vector2i(-1, -1), "release outside formation must cancel"):
+	if not _expect(result.action == "sell" and result.target == Vector2i(-1, -1), "dragging above the formation must request Web sell behavior"):
+		return
+	if not _expect(run.sell_unit(1, 3), "selling with two units must remove the dragged unit"):
+		return
+	if not _expect(run.units().size() == 1 and run.units()[0].hero.id == "zhaoyun", "selling must keep the other formation unit and refund nothing"):
+		return
+	if not _expect(not run.sell_unit(0, 4), "the last formation unit must be protected from selling"):
 		return
 
 	print("Godot v7.19.14 battle drag controller: PASS")

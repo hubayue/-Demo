@@ -39,10 +39,15 @@ func finish(point: Vector2) -> Dictionary:
 		return {"action": "none", "source": Vector2i(-1, -1), "target": Vector2i(-1, -1)}
 	update(point)
 	var target := hover_cell
+	var action := "cancel"
+	if dragged and point.y < GRID_Y - 40.0:
+		action = "sell"
+	elif dragged and _valid_cell(target):
+		action = "drop"
 	var result := {
-		"action": "drop" if dragged and _valid_cell(target) else "cancel",
+		"action": action,
 		"source": source_cell,
-		"target": target if _valid_cell(target) else Vector2i(-1, -1),
+		"target": target if action == "drop" else Vector2i(-1, -1),
 	}
 	reset()
 	return result

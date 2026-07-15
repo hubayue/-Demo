@@ -29,16 +29,26 @@ func _run() -> void:
 	main.queue_redraw()
 	await process_frame
 	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.14-battle-drag.png")):
+		return
+	main.battle_drag.update(Vector2(240, 410))
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.14-battle-sell.png")):
+		return
+	print("Godot v7.19.14 drag and sell screenshots: %s" % output_directory)
+	quit(0)
+
+func _save_capture(path: String) -> bool:
 	var image := root.get_viewport().get_texture().get_image()
 	if image == null or image.is_empty() or image.get_size() != Vector2i(480, 800):
 		push_error("Drag capture requires a non-empty 480x800 rendered window")
 		quit(1)
-		return
-	var path := output_directory.path_join("v7.19.14-battle-drag.png")
+		return false
 	var error := image.save_png(path)
 	if error != OK:
 		push_error("Unable to save drag capture: %s" % error_string(error))
 		quit(1)
-		return
-	print("Godot v7.19.14 drag screenshot: %s" % path)
-	quit(0)
+		return false
+	return true

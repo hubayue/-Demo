@@ -36,6 +36,16 @@ const CLASS_COLORS := {
 	"spear": Color("8b4b3b"), "cav": Color("66502f"), "archer": Color("365d43"),
 	"shield": Color("455b73"), "support": Color("65466f"), "granary": Color("76623b"),
 }
+const BATTLE_CLASS_DISPLAY := {
+	"spear": {"icon": "🔱", "color": Color("6fd44e")},
+	"cav": {"icon": "🐎", "color": Color("4ab0ff")},
+	"archer": {"icon": "🏹", "color": Color("ff6b4a")},
+	"shield": {"icon": "🛡", "color": Color("e8c96a")},
+	"support": {"icon": "🎐", "color": Color("d97bff")},
+	"granary": {"icon": "🌾", "color": Color("e8c86a")},
+	"egg": {"icon": "🥚", "color": Color("c9a8ff")},
+	"dragon": {"icon": "🐉", "color": Color("8ad2ff")},
+}
 const TRI_DISPLAY := {
 	"badao": {"name": "霸道", "icon": "✊", "color": Color("ff6b4a"), "counter": "rende"},
 	"liangmou": {"name": "良谋", "icon": "✌", "color": Color("4aa8ff"), "counter": "badao"},
@@ -298,6 +308,9 @@ func _finish_battle_drag(point: Vector2) -> void:
 		var source: Vector2i = result.source
 		var target: Vector2i = result.target
 		battle_run.move_or_swap_unit(source.y, source.x, target.y, target.x)
+	elif str(result.get("action", "")) == "sell":
+		var source: Vector2i = result.source
+		battle_run.sell_unit(source.y, source.x)
 	queue_redraw()
 
 func _handle_pointer(point: Vector2) -> void:
@@ -1067,6 +1080,7 @@ func _draw_battle() -> void:
 	_draw_battle_backdrop()
 	_draw_battle_entities()
 	_draw_battle_formation()
+	_draw_battle_skill_events()
 	# The Web battlefield spawns enemies above the playfield. Keep that motion,
 	# but paint the opaque HUD last so newly spawned units cannot obscure it.
 	draw_rect(Rect2(10, 10, 460, 84), Color("00000059"), true)
@@ -1367,14 +1381,66 @@ func _draw_battle_entities() -> void:
 			_text_centered_in_rect(control_mark, Rect2(position.x - 10, position.y - radius - 39, 20, 16), 10, control_color)
 	for trace in battle_run.lord_attack_traces:
 		draw_line(Vector2(float(trace.x1), float(trace.y1)), Vector2(float(trace.x2), float(trace.y2)), Color(str(trace.color)), 3.0)
+
+func _battle_render_layers() -> Array:
+	return ["backdrop", "entities", "formation", "skill_fx", "hud", "overlays"]
+
+func _draw_battle_skill_events() -> void:
 	for event in battle_run.lord_command_events:
 		var command: Dictionary = BattleLordSource.COMMANDS.get(str(event.id), {})
 		if not command.is_empty():
 			_text_center("主公号令 · %s！" % command.name, 264, 20, GOLD)
-
 	for event in battle_run.ult_events:
+		_draw_ult_visual_event(event)
 		var event_color: Color = {"dmg": Color("ff9a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": GOLD}.get(str(event.type), GOLD)
 		_text_center("绝技【%s】" % str(event.name), 238, 20, event_color)
+
+func _draw_ult_visual_event(event: Dictionary) -> void:
+	if not event.has("origin"):
+		return
+	var origin: Vector2 = event.origin
+	var duration := maxf(0.01, float(event.get("duration", 1.6)))
+	var progress := clampf(1.0 - float(event.get("t", 0.0)) / duration, 0.0, 1.0)
+	var color: Color = {"dmg": Color("ff8a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": GOLD}.get(str(event.get("type", "")), GOLD)
+	var effect := str(event.get("effect", ""))
+	match effect:
+		"fan":
+			for index in 9:
+				var angle := -PI / 2.0 + (index - 4) * 0.12
+				var length := 70.0 + 130.0 * progress
+				draw_line(origin, origin + Vector2(cos(angle), sin(angle)) * length, Color(color, 0.85 - progress * 0.35), 2.0)
+		"lightning":
+			var hit := origin + Vector2(0, -150.0 - 80.0 * progress)
+			draw_polyline(PackedVector2Array([origin, origin + Vector2(-9, -48), origin + Vector2(8, -91), hit]), color, 4.0)
+			draw_line(hit, hit + Vector2(-62, -54), Color(color, 0.65), 2.5)
+			draw_line(hit, hit + Vector2(62, -54), Color(color, 0.65), 2.5)
+		"lane", "row", "charge", "multi_charge":
+			draw_line(origin, Vector2(origin.x, 70), Color(color, 0.25), 34.0)
+			draw_line(origin, Vector2(origin.x, 70), color, 3.0)
+		"snipe", "ricochet", "homing", "bounce", "execute", "duel":
+			draw_line(origin, origin + Vector2(0, -220), color, 4.0)
+			draw_circle(origin + Vector2(0, -220), 8.0 + 12.0 * progress, Color(color, 0.35))
+		"fire_pit", "fire_line", "immolate", "bombard":
+			draw_circle(origin + Vector2(0, -70), 36.0 + 90.0 * progress, Color(color, 0.12))
+			draw_arc(origin + Vector2(0, -70), 36.0 + 90.0 * progress, 0, TAU, 40, color, 2.5)
+		"charm":
+			for index in 6:
+				var angle := progress * TAU + index * TAU / 6.0
+				_text_centered_in_rect("💗", Rect2(origin + Vector2(cos(angle), sin(angle)) * (28.0 + 45.0 * progress) - Vector2(9, 9), Vector2(18, 18)), 10, Color.WHITE)
+		"trap", "barricade", "palisade", "turret", "gather":
+			draw_arc(origin, 30.0 + 110.0 * progress, 0, TAU, 40, color, 2.0)
+			draw_line(origin + Vector2(-90, -40), origin + Vector2(90, -40), Color(color, 0.65), 3.0)
+		"link":
+			for index in 5:
+				var point := origin + Vector2((index - 2) * 48.0, -70.0 - abs(index - 2) * 16.0)
+				draw_line(origin, point, Color(color, 0.7), 2.0)
+				draw_circle(point, 6, color)
+		"heal", "haste", "army_buff", "reflect", "guard", "clock":
+			draw_arc(origin, 28.0 + 95.0 * progress, 0, TAU, 48, color, 3.0)
+			_text_centered_in_rect("✦", Rect2(origin.x - 14, origin.y - 82 - 30 * progress, 28, 28), 18, color)
+		"poison", "frost", "ice_wave", "fear", "sleep", "sunder", "sheep", "shock", "blast", "cleave":
+			draw_circle(origin, 24.0 + 150.0 * progress, Color(color, 0.08))
+			draw_arc(origin, 24.0 + 150.0 * progress, 0, TAU, 48, color, 2.5)
 
 func _next_wave_threat_text() -> String:
 	if battle_run == null or battle_run.next_wave_preview.is_empty(): return ""
@@ -1418,30 +1484,9 @@ func _draw_battle_formation() -> void:
 			var unit = battle_run.grid[row][col]
 			if unit == null:
 				continue
-			var hero: Dictionary = unit.hero
-			var tri: Dictionary = TRI_DISPLAY.get(str(hero.elem), TRI_DISPLAY.badao)
-			var center := rect.get_center()
-			var class_color: Color = CLASS_COLORS.get(str(hero.cls), Color("435064"))
-			draw_circle(center, 27, class_color.darkened(0.25))
-			draw_arc(center, 28, 0, TAU, 36, tri.color, 2.5)
-			var ult: Dictionary = battle_run.ult_system.definition(str(hero.id))
-			if not ult.is_empty():
-				var ult_max: float = maxf(0.01, battle_run.ult_system.cooldown_max(battle_run, unit))
-				var ult_progress := 1.0 - clampf(float(unit.get("ultCd", 0.0)) / ult_max, 0.0, 1.0)
-				var ult_color: Color = {"dmg": Color("ff8a5a"), "ctrl": Color("6ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": GOLD}.get(str(ult.type), GOLD)
-				if ult_progress >= 0.999:
-					draw_arc(center, 31, 0, TAU, 40, ult_color, 4.0)
-				elif ult_progress > 0.01:
-					draw_arc(center, 31, -PI / 2.0, -PI / 2.0 + TAU * ult_progress, 32, ult_color, 3.0)
-			_text_centered_in_rect(str(hero.char), Rect2(rect.position.x, rect.position.y + 26, rect.size.x, 24), 18, Color.WHITE)
-			_text_centered_in_rect(str(hero.name), Rect2(rect.position.x, rect.position.y + 50, rect.size.x, 17), 10, PALE_GOLD)
-			var unit_hp_ratio := maxf(0.0, float(unit.hp) / maxf(1.0, float(unit.hp_max)))
-			draw_rect(Rect2(rect.position.x + 6, rect.position.y + 67, rect.size.x - 12, 4), Color("4a211b"), true)
-			draw_rect(Rect2(rect.position.x + 6, rect.position.y + 67, (rect.size.x - 12) * unit_hp_ratio, 4), GREEN, true)
-			_text("★".repeat(int(unit.level)), rect.position + Vector2(4, 77), 8, GOLD)
-			if float(unit.get("sealedT", 0.0)) > 0:
-				draw_rect(rect, Color("7f38b855"), true)
-				_text_centered_in_rect("🌀封 %.1fs" % float(unit.sealedT), Rect2(rect.position.x, rect.position.y + 25, rect.size.x, 20), 11, Color("e0b0ff"))
+			if battle_drag.is_dragging() and battle_drag.source_cell == Vector2i(col, row):
+				continue
+			_draw_battle_unit(unit, rect.get_center(), 1.0, row, col)
 	_draw_battle_drag_preview()
 	draw_rect(Rect2(0, BattleRunSource.DEFENSE_LINE, 480, 800 - BattleRunSource.DEFENSE_LINE), Color("5b4024"), true)
 	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
@@ -1485,12 +1530,93 @@ func _draw_battle_drag_preview() -> void:
 	var unit = battle_run.grid[source.y][source.x]
 	if unit == null:
 		return
-	var hero: Dictionary = unit.hero
 	var pointer: Vector2 = battle_drag.pointer_position
-	draw_circle(pointer, 34.0, Color("110e0bcc"))
-	draw_arc(pointer, 35.0, 0, TAU, 40, GOLD, 4.0)
-	_text_centered_in_rect(str(hero.get("char", "将")), Rect2(pointer.x - 30, pointer.y - 17, 60, 25), 20, Color.WHITE)
-	_text_centered_in_rect(str(hero.get("name", "")), Rect2(pointer.x - 42, pointer.y + 11, 84, 18), 10, PALE_GOLD)
+	if pointer.y < BattleRunSource.GRID_Y - 40.0:
+		var sell_text := "最后一个武将不能卖" if battle_run.units().size() <= 1 else "🗑 松手卖掉%s，腾出一格（不退经验）" % str(unit.hero.name)
+		_text_centered_in_rect(sell_text, Rect2(clampf(pointer.x - 150, 8, 172), pointer.y - 78, 300, 22), 13, RED)
+	_draw_battle_unit(unit, pointer - Vector2(0, 24), 1.15)
+
+func _unit_visual_spec(unit: Dictionary) -> Dictionary:
+	var hero: Dictionary = unit.hero
+	var rarity_id := HeroProgressionSource.rarity(str(hero.id), catalog.content.get("hero_tiers", {}))
+	var rarity: Dictionary = catalog.content.get("rarities", {}).get(rarity_id, {})
+	var class_display: Dictionary = BATTLE_CLASS_DISPLAY.get(str(hero.cls), {"icon": "兵", "color": Color("cfd6dc")})
+	var element: Dictionary = TRI_DISPLAY.get(str(hero.elem), TRI_DISPLAY.badao)
+	var hp_fraction := clampf(float(unit.hp) / maxf(1.0, float(unit.hp_max)), 0.0, 1.0)
+	var health_color := Color("7aff5a") if hp_fraction > 0.5 else (Color("ffd24a") if hp_fraction > 0.25 else Color("ff5a3a"))
+	var ult: Dictionary = battle_run.ult_system.definition(str(hero.id)) if battle_run != null else {}
+	var ult_progress := 0.0
+	var ult_color := GOLD
+	if not ult.is_empty():
+		var ult_max: float = maxf(0.01, battle_run.ult_system.cooldown_max(battle_run, unit))
+		ult_progress = 1.0 - clampf(float(unit.get("ultCd", 0.0)) / ult_max, 0.0, 1.0)
+		ult_color = {"dmg": Color("ff8a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": Color("ffd24a")}.get(str(ult.type), GOLD)
+	return {
+		"body_radius": 21.0,
+		"aura_radius": 25.0,
+		"ult_radius": 30.0,
+		"aura_color": Color(str(rarity.get("color", "#cfd6dc"))),
+		"class_icon": str(class_display.icon),
+		"class_color": class_display.color,
+		"class_center": Vector2(19, -18),
+		"element_icon": str(element.icon),
+		"element_color": element.color,
+		"element_center": Vector2(-19, 18),
+		"star_y": 27.0,
+		"health_rect": Rect2(-20, 31, 40, 5),
+		"health_visible": hp_fraction < 0.999,
+		"health_fraction": hp_fraction,
+		"health_color": health_color,
+		"ult_progress": ult_progress,
+		"ult_color": ult_color,
+		"has_ult": not ult.is_empty(),
+	}
+
+func _draw_battle_unit(unit: Dictionary, center: Vector2, scale := 1.0, row := -1, col := -1) -> void:
+	var hero: Dictionary = unit.hero
+	var spec := _unit_visual_spec(unit)
+	draw_set_transform(center, 0.0, Vector2(scale, scale))
+	draw_circle(Vector2(0, 22), 10, Color("0000004d"))
+	draw_arc(Vector2.ZERO, spec.aura_radius, 0, TAU, 36, spec.aura_color, 3.0)
+	if spec.has_ult:
+		if float(spec.ult_progress) >= 0.999:
+			draw_arc(Vector2.ZERO, spec.ult_radius, 0, TAU, 40, spec.ult_color, 4.0)
+		elif float(spec.ult_progress) > 0.02:
+			draw_arc(Vector2.ZERO, spec.ult_radius, -PI / 2.0, -PI / 2.0 + TAU * float(spec.ult_progress), 32, spec.ult_color, 3.5)
+	var bonded := false
+	for bond_id in battle_run.team.active_bond_ids():
+		var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
+		if bond.get("members", []).has(str(hero.id)):
+			bonded = true
+			break
+	if bonded:
+		draw_arc(Vector2.ZERO, 30, 0, TAU, 36, Color("ffd24ad9"), 1.6)
+		_text_centered_in_rect("🔗", Rect2(-32, 16, 20, 16), 10, Color.WHITE)
+	draw_circle(Vector2.ZERO, spec.body_radius, Color("3a3024"))
+	_text_centered_in_rect(str(hero.get("char", str(hero.get("name", "将")).left(1))), Rect2(-21, -12, 42, 22), 16, Color("ffe8c0"))
+	_text_centered_in_rect(str(hero.get("name", "")), Rect2(-25, 7, 50, 14), 8, Color("d5c9a8"))
+	var class_center: Vector2 = spec.class_center
+	draw_circle(class_center, 11, Color("140e06eb"))
+	draw_arc(class_center, 11, 0, TAU, 24, spec.class_color, 2.0)
+	_text_centered_in_rect(spec.class_icon, Rect2(class_center.x - 11, class_center.y - 8, 22, 16), 11, Color.WHITE)
+	if not ["granary", "egg", "dragon"].has(str(hero.cls)):
+		var element_center: Vector2 = spec.element_center
+		draw_circle(element_center, 10, Color("140e06eb"))
+		draw_arc(element_center, 10, 0, TAU, 24, spec.element_color, 2.0)
+		_text_centered_in_rect(spec.element_icon, Rect2(element_center.x - 10, element_center.y - 7, 20, 14), 9, Color.WHITE)
+	if str(hero.cls) != "dragon":
+		_text_centered_in_rect("★".repeat(int(unit.level)), Rect2(-34, spec.star_y - 10, 68, 14), 9, GOLD)
+	if float(unit.get("sealedT", 0.0)) > 0:
+		_text_centered_in_rect("🌀", Rect2(-18, -14, 36, 28), 22, Color("e0b0ff"))
+	if float(unit.get("hurtFlash", 0.0)) > 0:
+		draw_circle(Vector2.ZERO, 23, Color(1.0, 0.29, 0.23, minf(0.45, float(unit.hurtFlash) * 0.45)))
+	if spec.health_visible:
+		var health_rect: Rect2 = spec.health_rect
+		draw_rect(health_rect, Color("00000099"), true)
+		draw_rect(Rect2(health_rect.position, Vector2(health_rect.size.x * float(spec.health_fraction), health_rect.size.y)), spec.health_color, true)
+	if row >= 0 and col >= 0 and str(hero.cls) != "shield" and battle_run._has_adjacent_shield(row, col):
+		_text_centered_in_rect("🛡", Rect2(-32, -37, 22, 16), 10, Color.WHITE)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _active_lord_effect_text() -> String:
 	if battle_run == null:

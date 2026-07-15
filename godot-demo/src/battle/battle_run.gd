@@ -1409,6 +1409,15 @@ func move_or_swap_unit(source_row: int, source_col: int, target_row: int, target
 	team.recompute(self)
 	return true
 
+func sell_unit(row: int, col: int) -> bool:
+	if row < 0 or row >= GRID_ROWS or col < 0 or col >= GRID_COLS:
+		return false
+	if grid[row][col] == null or units().size() <= 1:
+		return false
+	grid[row][col] = null
+	team.recompute(self)
+	return true
+
 func _hit_enemy(enemy: Dictionary, amount: float, attacker_tri: String, critical_chance: float, source_unit: Dictionary = {}) -> int:
 	var final_amount := amount
 	if baihu_ready or (critical_chance > 0 and rng.next_float() < critical_chance):
