@@ -58,6 +58,7 @@ var shen_ids: Array = []
 var speed := 2
 var wall := 0
 var wall_max := 0
+var wall_shield := 0
 var wave := 0
 var wave_timer := 2.0
 var game_time := 0.0
@@ -129,6 +130,8 @@ var enemy_projectiles: Array = []
 var enemy_lobs: Array = []
 var enemy_wall_lobs: Array = []
 var cata_volley_time := 0.0
+var focus_target: Dictionary = {}
+var focus_time := 0.0
 var ult_events: Array = []
 var ults_used := 0
 var blockade: Dictionary = {}
@@ -175,6 +178,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	speed = 2
 	wall = int(city.wall)
 	wall_max = wall
+	wall_shield = 0
 	wave = 0
 	wave_timer = 2.0
 	game_time = 0.0
@@ -264,6 +268,8 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	enemy_lobs = []
 	enemy_wall_lobs = []
 	cata_volley_time = 0.0
+	focus_target = {}
+	focus_time = 0.0
 	ult_events = []
 	ults_used = 0
 	blockade = {}
@@ -467,6 +473,7 @@ func queue_relic_draft() -> void:
 
 func _update_step(delta: float) -> void:
 	game_time += delta
+	_update_focus(delta)
 	for event in field_events:
 		event.t = float(event.t) - delta
 	for index in range(field_events.size() - 1, -1, -1):
@@ -779,13 +786,27 @@ func _update_enemies(delta: float) -> void:
 			if float(enemy.throwT) <= 0:
 				enemy.throwT = 4.0
 				_throw_enemy_lob(enemy, 0.8)
-		elif special == "cata" and float(enemy.y) > GRID_Y - 380.0:
+		elif special == "cata" and float(enemy.y) > GRID_Y - 220.0:
 			if float(enemy.get("silencedT", 0.0)) <= 0 and not enemy_in_flood(enemy):
 				enemy.lobT = maxf(-0.5, float(enemy.get("lobT", 4.0)) - delta)
-				if float(enemy.lobT) <= 0 and cata_volley_time <= 0:
-					enemy.lobT = 6.0
-					cata_volley_time = 2.0
-					enemy_wall_lobs.append({"x0": float(enemy.x), "y0": float(enemy.y), "x1": clampf(float(enemy.x) + _randf(-24.0, 24.0), 20.0, 460.0), "y1": DEFENSE_LINE - 4.0, "t": 0.0, "dur": 1.4, "source": enemy, "dead": false})
+				if float(enemy.lobT) <= 0 and cata_volley_time <= 0 and not enemy.has("cataWind"):
+					enemy.cataWind = 2.0
+					cata_volley_time = 4.0
+				if enemy.has("cataWind"):
+					enemy.cataWind = float(enemy.cataWind) - delta
+					if float(enemy.cataWind) <= 0:
+						enemy.erase("cataWind")
+						enemy.lobT = 10.0
+						enemy.cataHit = 1.4
+						enemy_wall_lobs.append({"x0": float(enemy.x), "y0": float(enemy.y) + float(enemy.r) * 0.6, "x1": clampf(float(enemy.x) + _randf(-24.0, 24.0), 20.0, 460.0), "y1": DEFENSE_LINE - 4.0, "t": 0.0, "dur": 1.4, "source": enemy, "visual_only": true, "dead": false})
+			elif enemy.has("cataWind"):
+				enemy.erase("cataWind")
+				enemy.lobT = 1.0
+			if enemy.has("cataHit"):
+				enemy.cataHit = float(enemy.cataHit) - delta
+				if float(enemy.cataHit) <= 0:
+					enemy.erase("cataHit")
+					damage_wall(1)
 		elif not blocker.is_empty():
 			_update_enemy_melee(enemy, blocker, speed_now, delta)
 		else:
@@ -793,10 +814,8 @@ func _update_enemies(delta: float) -> void:
 		if float(enemy.y) > DEFENSE_LINE - 6.0:
 			var wall_damage := int(enemy.dmg)
 			if relic_ids.has("lianhuan"): wall_damage = maxi(1, wall_damage - 1)
-			wall = maxi(0, wall - wall_damage)
-			wall_hurt = true
+			damage_wall(wall_damage)
 			enemy.dead = true
-			if wall <= 0: finish("over")
 	for index in range(enemies.size() - 1, -1, -1):
 		if bool(enemies[index].get("dead", false)): enemies.remove_at(index)
 
@@ -996,9 +1015,8 @@ func _update_enemy_attacks(delta: float) -> void:
 		lob.t = float(lob.t) + delta
 		if float(lob.t) < float(lob.dur): continue
 		lob.dead = true
-		wall = maxi(0, wall - 1)
-		wall_hurt = true
-		if wall <= 0: finish("over")
+		if bool(lob.get("visual_only", false)): continue
+		damage_wall(1)
 	for index in range(enemy_wall_lobs.size() - 1, -1, -1):
 		if bool(enemy_wall_lobs[index].get("dead", false)): enemy_wall_lobs.remove_at(index)
 
@@ -1007,6 +1025,60 @@ func _find_unit_position(target: Dictionary) -> Dictionary:
 		for col in GRID_COLS:
 			if grid[row][col] == target: return {"row": row, "col": col}
 	return {}
+
+func damage_wall(amount: int) -> int:
+	var remaining := maxi(0, amount)
+	if wall_shield > 0 and remaining > 0:
+		var absorbed := mini(wall_shield, remaining)
+		wall_shield -= absorbed
+		remaining -= absorbed
+	if remaining > 0:
+		wall = maxi(0, wall - remaining)
+		wall_hurt = true
+		if wall <= 0:
+			finish("over")
+	return remaining
+
+func focus_enemy(enemy: Dictionary) -> bool:
+	if enemy.is_empty() or bool(enemy.get("dead", false)) or not enemies.has(enemy):
+		return false
+	focus_target = enemy
+	focus_time = 3.0
+	return true
+
+func focus_priority_catapult() -> Dictionary:
+	var catapults: Array = enemies.filter(func(enemy): return not bool(enemy.get("dead", false)) and str(enemy.get("special", "")) == "cata")
+	if catapults.is_empty():
+		return {}
+	catapults.sort_custom(func(a, b):
+		var a_winding: bool = a.has("cataWind")
+		var b_winding: bool = b.has("cataWind")
+		if a_winding != b_winding:
+			return a_winding
+		return float(a.get("lobT", 9.0)) < float(b.get("lobT", 9.0))
+	)
+	return catapults[0]
+
+func _update_focus(delta: float) -> void:
+	if focus_target.is_empty():
+		focus_time = 0.0
+		return
+	focus_time = maxf(0.0, focus_time - delta)
+	if focus_time <= 0.0 or bool(focus_target.get("dead", false)) or not enemies.has(focus_target):
+		focus_target = {}
+		focus_time = 0.0
+
+func _focused_target_for_unit(unit: Dictionary, center: Vector2, attack_range: float) -> Dictionary:
+	if focus_target.is_empty() or focus_time <= 0.0 or bool(focus_target.get("dead", false)):
+		return {}
+	var hero_class := str(unit.get("hero", {}).get("cls", ""))
+	if ["shield", "egg", "granary", "support"].has(hero_class):
+		return {}
+	if hero_class == "dragon" and float(focus_target.get("y", -20.0)) < 20.0:
+		return {}
+	if ["cav", "dragon"].has(hero_class) or attack_range <= 0.0:
+		return focus_target
+	return focus_target if center.distance_squared_to(Vector2(float(focus_target.x), float(focus_target.y))) <= attack_range * attack_range else {}
 
 func _on_enemy_death(enemy: Dictionary) -> void:
 	if int(enemy.get("kitSplit", 0)) > 0:
@@ -1166,16 +1238,17 @@ func _update_units(delta: float) -> void:
 			continue
 		var center := slot_center(int(unit.row), int(unit.col))
 		var attack_range := effective_archer_range(hero)
-		var target: Dictionary = {}
+		var target: Dictionary = _focused_target_for_unit(unit, center - Vector2(0, 18), attack_range)
 		var front_y := -INF
-		for enemy in enemies:
-			if bool(enemy.get("dead", false)):
-				continue
-			if attack_range > 0 and center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) > attack_range * attack_range:
-				continue
-			if float(enemy.y) > front_y:
-				front_y = float(enemy.y)
-				target = enemy
+		if target.is_empty():
+			for enemy in enemies:
+				if bool(enemy.get("dead", false)):
+					continue
+				if attack_range > 0 and center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) > attack_range * attack_range:
+					continue
+				if float(enemy.y) > front_y:
+					front_y = float(enemy.y)
+					target = enemy
 		if target.is_empty():
 			continue
 		unit.cd = team.unit_rate(unit, mods)
@@ -1195,12 +1268,13 @@ func _update_units(delta: float) -> void:
 				"crit": float(mods.crit),
 				"pierce": int(hero.get("pierce", 0)) + int(mods.pierceAdd),
 				"owner": unit,
+				"lock_target": target if focus_target == target and focus_time > 0.0 else {},
 				"hit": [],
 				"dead": false,
 			})
 		elif hero_class == "cav":
 			charges.append({
-				"x": center.x,
+				"x": float(focus_target.x) if focus_target == target and focus_time > 0.0 else center.x,
 				"y": center.y - 20.0,
 				"y0": center.y - 20.0,
 				"vy": -300.0,
@@ -1250,6 +1324,9 @@ func _update_projectiles(delta: float) -> void:
 			continue
 		for enemy in enemies.duplicate():
 			if bool(enemy.get("dead", false)) or projectile.hit.has(enemy):
+				continue
+			var lock_target: Dictionary = projectile.get("lock_target", {})
+			if not lock_target.is_empty() and not bool(lock_target.get("dead", false)) and enemy != lock_target:
 				continue
 			var hit_radius := float(projectile.r) + float(enemy.r)
 			if Vector2(float(projectile.x), float(projectile.y)).distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) <= hit_radius * hit_radius:
@@ -1445,15 +1522,16 @@ func egg_hatch_chance(egg: Dictionary) -> float:
 	return minf(0.9, chance)
 
 func _update_dragon(unit: Dictionary) -> void:
-	var target: Dictionary = {}
+	var target: Dictionary = _focused_target_for_unit(unit, slot_center(int(unit.row), int(unit.col)), 0.0)
 	var best_score := -INF
-	for enemy in enemies:
-		if bool(enemy.get("dead", false)) or float(enemy.get("y", -20.0)) < 20.0: continue
-		var caster := bool(enemy.get("summoner", false)) or enemy.get("kit") != null or ["shooter", "thrower", "shaman", "healer", "banner"].has(str(enemy.get("special", "")))
-		var score := float(enemy.hp_max) * (0.25 if caster and float(enemy.get("silencedT", 0.0)) > 1.0 else 1.0)
-		if score > best_score:
-			best_score = score
-			target = enemy
+	if target.is_empty():
+		for enemy in enemies:
+			if bool(enemy.get("dead", false)) or float(enemy.get("y", -20.0)) < 20.0: continue
+			var caster := bool(enemy.get("summoner", false)) or enemy.get("kit") != null or ["shooter", "thrower", "shaman", "healer", "banner"].has(str(enemy.get("special", "")))
+			var score := float(enemy.hp_max) * (0.25 if caster and float(enemy.get("silencedT", 0.0)) > 1.0 else 1.0)
+			if score > best_score:
+				best_score = score
+				target = enemy
 	if target.is_empty():
 		unit.cd = 0.4
 		return

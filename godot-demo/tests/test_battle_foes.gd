@@ -163,22 +163,25 @@ func _test_ranged_and_siege(catalog) -> bool:
 
 	var cata_run = _make_run(catalog)
 	cata_run.wave = 12
-	var cata := _enemy("cata", 240.0, BattleRun.GRID_Y - 300.0, 0.0)
-	var cata_two := _enemy("cata", 300.0, BattleRun.GRID_Y - 280.0, 0.0)
+	var cata := _enemy("cata", 240.0, BattleRun.GRID_Y - 200.0, 0.0)
+	var cata_two := _enemy("cata", 300.0, BattleRun.GRID_Y - 200.0, 0.0)
 	cata.lobT = 0.0
 	cata_two.lobT = 0.0
 	cata_run.enemies = [cata, cata_two]
 	var wall_before: int = cata_run.wall
 	cata_run._update_enemies(0.01)
-	if not _expect(cata_run.enemy_wall_lobs.size() == 1, "catapult must create a marked 1.4-second wall shot and obey the global two-second volley gap"): return false
-	cata_run._update_enemy_attacks(1.4)
+	if not _expect(cata.has("cataWind") and not cata_two.has("cataWind") and cata_run.cata_volley_time > 3.9, "catapult must telegraph for two seconds and obey the global four-second volley gap"): return false
+	for step in 199: cata_run._update_enemies(0.01)
+	if not _expect(cata_run.enemy_wall_lobs.size() == 1 and is_equal_approx(float(cata.lobT), 10.0), "catapult must create a marked 1.4-second wall shot and reset its ten-second interval"): return false
+	for step in 140: cata_run._update_enemies(0.01)
 	if not _expect(cata_run.wall == wall_before - 1, "catapult wall shot must remove one wall point on landing"): return false
 	var cancel_run = _make_run(catalog)
 	cancel_run.wave = 12
-	var doomed_cata := _enemy("cata", 240.0, BattleRun.GRID_Y - 300.0, 0.0)
+	var doomed_cata := _enemy("cata", 240.0, BattleRun.GRID_Y - 200.0, 0.0)
 	doomed_cata.lobT = 0.0
 	cancel_run.enemies = [doomed_cata]
 	cancel_run._update_enemies(0.01)
+	for step in 199: cancel_run._update_enemies(0.01)
 	wall_before = cancel_run.wall
 	cancel_run.damage_enemy(doomed_cata, 999.0)
 	cancel_run._update_enemy_attacks(1.4)

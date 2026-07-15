@@ -103,7 +103,7 @@ func cast_card(run, card_id: String) -> void:
 		"snipe":
 			_hit_unit_nonlethal(_top_damage_unit(run), 0.45)
 		"ramwall":
-			run.wall = maxi(0, run.wall - 3)
+			run.damage_wall(3)
 		"dispel":
 			run.army_buff = {}
 			run.wuxing_time = 0.0

@@ -340,6 +340,12 @@ func _handle_pointer(point: Vector2) -> void:
 			if battle_run.status != "play":
 				_handle_result_pointer(point)
 				return
+			if _cata_warning_rect().has_point(point):
+				var urgent_cata: Dictionary = battle_run.focus_priority_catapult()
+				if not urgent_cata.is_empty():
+					battle_run.focus_enemy(urgent_cata)
+					queue_redraw()
+				return
 			if BATTLE_MUTE_RECT.has_point(point):
 				sound_enabled = not sound_enabled
 				queue_redraw()
@@ -354,6 +360,11 @@ func _handle_pointer(point: Vector2) -> void:
 				else:
 					quit_armed = true
 					quit_arm_time = 3.0
+				queue_redraw()
+				return
+			var clicked_enemy: Dictionary = _enemy_at_point(point)
+			if not clicked_enemy.is_empty():
+				battle_run.focus_enemy(clicked_enemy)
 				queue_redraw()
 				return
 			if bool(battle_run.permanent_tactics.get("gewu", false)):
@@ -379,6 +390,26 @@ func _handle_pointer(point: Vector2) -> void:
 				battle_run.cast_lord_command()
 				queue_redraw()
 				return
+
+func _cata_warning_rect() -> Rect2:
+	if battle_run == null or battle_run.enemies.filter(func(enemy): return not bool(enemy.get("dead", false)) and str(enemy.get("special", "")) == "cata").is_empty():
+		return Rect2()
+	return Rect2(62, 128, 356, 30)
+
+func _enemy_at_point(point: Vector2) -> Dictionary:
+	if battle_run == null:
+		return {}
+	var best: Dictionary = {}
+	var best_distance := INF
+	for enemy in battle_run.enemies:
+		if bool(enemy.get("dead", false)):
+			continue
+		var distance := point.distance_squared_to(Vector2(float(enemy.x), float(enemy.y)))
+		var hit_radius := maxf(24.0, float(enemy.r) + 10.0)
+		if distance < hit_radius * hit_radius and distance < best_distance:
+			best = enemy
+			best_distance = distance
+	return best
 
 func _handle_title_pointer(point: Vector2) -> void:
 	if home_overlay.is_empty():
@@ -1138,6 +1169,7 @@ func _draw_battle() -> void:
 		draw_rect(Rect2(5, 5, 470, 790), Color("ffd27899"), false, 5.0)
 		_text_center("桃园金身 · 全军刀枪不入 %.1fs" % battle_run.taoyuan_time, 246, 18, Color("ffe8b0"))
 	_draw_battle_side_controls()
+	_draw_cata_warning_bar()
 	if damage_panel_visible and battle_run.status == "play":
 		_draw_damage_panel()
 	if battle_run.awaiting_card_choice:
@@ -1165,6 +1197,16 @@ func _draw_battle_side_controls() -> void:
 	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
 	_panel(Rect2(410, 178, 64, 24), Color("140e06d9"), Color("ffd74a99"), 1.2)
 	_text_centered_in_rect("👑%s" % ruler.get("name", ""), Rect2(410, 178, 64, 24), 11, GOLD)
+
+func _draw_cata_warning_bar() -> void:
+	var rect := _cata_warning_rect()
+	if rect.size == Vector2.ZERO:
+		return
+	var count: int = battle_run.enemies.filter(func(enemy): return not bool(enemy.get("dead", false)) and str(enemy.get("special", "")) == "cata").size()
+	var pulse := 0.5 + 0.5 * sin(float(battle_run.game_time) * 5.0)
+	draw_rect(rect.grow(3.0 + pulse * 2.0), Color(1.0, 0.2, 0.1, 0.08 + pulse * 0.08), true)
+	_panel(rect, Color("480c08f5"), Color(1.0, 0.43, 0.27, 0.7 + pulse * 0.3), 2.0)
+	_text_centered_in_rect("🏗️ 投石车×%d 砸墙中——点这条集火!" % count, rect, 15, Color("ffc0a8"))
 
 func _draw_battle_field_banner() -> void:
 	var city: Dictionary = battle_run.city
@@ -1359,6 +1401,11 @@ func _draw_battle_entities() -> void:
 			if special == "healer": draw_arc(position, 110.0, 0, TAU, 48, Color("8aff9a44"), 1.0)
 			elif special == "banner": draw_arc(position, 120.0, 0, TAU, 48, Color("ffd24a44"), 1.0)
 			elif special == "warden": draw_arc(position, 130.0, 0, TAU, 48, Color("ff6a5a44"), 1.0)
+			elif special == "cata" and enemy.has("cataWind"):
+				var wind_progress := clampf(1.0 - float(enemy.cataWind) / 2.0, 0.0, 1.0)
+				draw_arc(position, radius + 7.0, -PI / 2.0, -PI / 2.0 + TAU * wind_progress, 36, Color("ff783ce8"), 3.5)
+				if wind_progress > 0.72:
+					_text_centered_in_rect("🏗️蓄力中!", Rect2(position.x - 58, position.y - radius - 30, 116, 18), 12, Color("ff9a5a"))
 		var kit_value = enemy.get("kit", null)
 		if bool(enemy.get("boss", false)) and kit_value != null and not str(kit_value).is_empty():
 			var kit_name := str(BattleFoesSource.KIT_NAMES.get(str(kit_value), str(kit_value)))
@@ -1386,6 +1433,7 @@ func _battle_render_layers() -> Array:
 	return ["backdrop", "entities", "formation", "skill_fx", "hud", "overlays"]
 
 func _draw_battle_skill_events() -> void:
+	_draw_focus_order()
 	for event in battle_run.lord_command_events:
 		var command: Dictionary = BattleLordSource.COMMANDS.get(str(event.id), {})
 		if not command.is_empty():
@@ -1394,6 +1442,21 @@ func _draw_battle_skill_events() -> void:
 		_draw_ult_visual_event(event)
 		var event_color: Color = {"dmg": Color("ff9a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": GOLD}.get(str(event.type), GOLD)
 		_text_center("绝技【%s】" % str(event.name), 238, 20, event_color)
+
+func _draw_focus_order() -> void:
+	if battle_run.focus_target.is_empty() or battle_run.focus_time <= 0.0 or bool(battle_run.focus_target.get("dead", false)):
+		return
+	var target: Dictionary = battle_run.focus_target
+	var target_position := Vector2(float(target.x), float(target.y))
+	var pulse := 0.5 + 0.5 * sin(float(battle_run.game_time) * 8.0)
+	for unit in battle_run.units():
+		var center := BattleRunSource.slot_center(int(unit.row), int(unit.col)) - Vector2(0, 14)
+		var attack_range: float = battle_run.effective_archer_range(unit.hero)
+		if battle_run._focused_target_for_unit(unit, center, attack_range).is_empty():
+			continue
+		draw_line(center, target_position, Color(1.0, 0.35, 0.3, 0.2 + pulse * 0.08), 1.5)
+	draw_arc(target_position, float(target.r) + 7.0, 0, TAU, 36, Color(1.0, 0.31, 0.27, 0.65 + pulse * 0.25), 2.0)
+	_text_centered_in_rect("🎯集火", Rect2(target_position.x - 42, target_position.y - float(target.r) - 31, 84, 18), 13, Color("ff8a7a"))
 
 func _draw_ult_visual_event(event: Dictionary) -> void:
 	if not event.has("origin"):
@@ -1500,6 +1563,10 @@ func _draw_battle_formation() -> void:
 		draw_arc(mount_pos, 22, 0, TAU, 32, GOLD, 2.0)
 		_text_centered_in_rect("骑", Rect2(mount_pos.x - 16, mount_pos.y - 9, 32, 20), 13, Color.WHITE)
 	_text("主公：%s Lv.%d" % [ruler.name, battle_run.ruler_level], Vector2(12, 774), 12, PALE_GOLD)
+	var wall_text := "🏯 %d/%d" % [battle_run.wall, battle_run.wall_max]
+	if battle_run.wall_shield > 0:
+		wall_text += " +🛡️%d" % battle_run.wall_shield
+	_text(wall_text, Vector2(365, 774), 12, RED if battle_run.wall <= 4 else Color("ffd8a0"))
 	var command: Dictionary = BattleLordSource.COMMANDS.get(battle_run.lord_skill_id, {})
 	if not command.is_empty():
 		var command_ready: bool = battle_run.lord_command_cd <= 0 and not bool(battle_run.permanent_tactics.get("gewu", false))

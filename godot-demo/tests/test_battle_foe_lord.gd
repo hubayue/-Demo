@@ -75,13 +75,15 @@ func _test_bounded_cards(catalog) -> bool:
 	if not _expect(is_equal_approx(float(top.hp), 1.0), "foe direct-damage cards must never kill a fighter"):
 		return false
 	var wall_before: int = int(run.wall)
+	run.wall_shield = 2
 	run.foe_system.cast_card(run, "ramwall")
-	if not _expect(run.wall == wall_before - 3, "Ramwall must remove three real wall HP"):
+	if not _expect(run.wall_shield == 0 and run.wall == wall_before - 1, "v7.19.13 Ramwall must consume wall shield before its three wall damage"):
 		return false
 	run.wall = 2
+	run.wall_shield = 0
 	run.status = "play"
 	run.foe_system.cast_card(run, "ramwall")
-	if not _expect(run.wall == 0 and run.status == "play", "Ramwall may reduce the wall to zero but must not call the loss transition by itself"):
+	if not _expect(run.wall == 0 and run.status == "over", "v7.19.13 Ramwall must trigger the loss transition when wall health reaches zero"):
 		return false
 	run.wuxing_time = 5.0
 	run.army_buff = {"t": 6.0, "mul": 1.3}
