@@ -33,18 +33,20 @@
 
 验证：headless 测试断言关键矩形、圆心、字号和点击区；Godot 空壳截图与 Web 基准叠加检查。
 
-## 阶段 3：主公府精确复现
+## 阶段 3：点主公与主公府精确复现
 
 **文件：**
 
+- 新建：`godot-demo/src/ui/ruler_selection_view.gd`
 - 新建：`godot-demo/src/ui/lord_house_view.gd`
 - 修改：`godot-demo/src/app/main.gd`
+- 新建：`godot-demo/tests/test_ruler_selection_layout.gd`
 - 新建：`godot-demo/tests/test_lord_house_view.gd`
 - 修改：`godot-demo/src/data/content_catalog.gd`
 
-步骤：一次展示 8 位主公；逐行绘制姓名、称号、等级、号令/技能、兵法、亲兵、成长状态与升级入口；实现与 Web 一致的滚动/命中区和返回；数据只从 v7.19.14 目录读取。
+步骤：出征前“点主公”页一次展示 8 位主公，逐行绘制题面提示、称号、等级、招牌技、专属机制、普攻、亲兵和徽章；“主公府”养成页按 Web 当前规则 4 位一页，绘制经验条、技能星级与兵书解锁。两页均实现一致的命中区和返回，数据只从 v7.19.14 目录读取。
 
-验证：8 主公字段完整性测试、逐行命中测试、480×800 长页截图对照。
+验证：8 行选择页和 2 页养成页字段完整性测试、逐行/翻页命中测试及 480×800 截图对照。
 
 ## 阶段 4：战斗静态壳精确复现
 

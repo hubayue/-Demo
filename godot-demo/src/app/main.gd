@@ -58,6 +58,7 @@ const MAP_TAB_RECTS := [
 const STATE_GO_RECT := Rect2(150, 648, 180, 44)
 const LORD_COMMAND_RECT := Rect2(324, 751, 146, 42)
 const FOE_LORD_RECT := Rect2(208, 108, 64, 43)
+const RULER_BACK_RECT := Rect2(14, 22, 90, 34)
 const RESULT_BTN1 := Rect2(38, 690, 404, 42)
 const RESULT_BTN2 := Rect2(38, 744, 404, 42)
 const HOME_CODEX_RECT := Rect2(28, 604, 200, 44)
@@ -73,6 +74,12 @@ const HERO_UPGRADE_RECT := Rect2(34, 620, 198, 46)
 const HERO_REBIRTH_RECT := Rect2(248, 620, 198, 46)
 const HERO_RESET_RECT := Rect2(141, 690, 198, 40)
 const VISIT_ROLL_RECT := Rect2(156, 306, 168, 54)
+const LORD_COMMAND_ICONS := {"wuxing": "☯", "taoyuan": "🍑", "jiejiang": "🌊", "mensheng": "📜", "bingfeng": "🧊", "baima": "🐎", "fenluo": "🔥", "jianhao": "🪙"}
+const LORD_SPECIAL_LABELS := {
+	"tuntian": "🌾屯田", "yanglong": "🐉养龙", "qiangnu": "🏹强弩", "lijian": "💔离间",
+	"henzheng": "🧧横征", "luoyangchan": "🪏洛阳铲", "qinwang": "🐎勤王", "yishe": "🍚义舍", "shuijun": "⚓水军",
+}
+const LORD_ATTACK_ICONS := {"caocao": "🗡", "yuanshao": "🏹", "yuanshu": "🪙", "sunquan": "🌊", "liubiao": "❄", "liubei": "⚔", "dongzhuo": "🔥", "gongsunzan": "🏹"}
 
 var catalog
 var weekly
@@ -289,6 +296,11 @@ func _handle_pointer(point: Vector2) -> void:
 		"map":
 			_handle_map_pointer(point)
 		"ruler":
+			if RULER_BACK_RECT.has_point(point):
+				phase = "map"
+				selected_city = -1
+				queue_redraw()
+				return
 			for index in RULER_IDS.size():
 				if _ruler_rect(index).has_point(point):
 					select_ruler(RULER_IDS[index])
@@ -878,17 +890,59 @@ func _draw_rulers() -> void:
 	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
 	var tri: Dictionary = TRI_DISPLAY[str(city.foes.tri)]
 	var counter: Dictionary = TRI_DISPLAY[str(tri.counter)]
-	_text_center("点主公", 48, 32, GOLD)
-	_text_center("只能带一位；他的三张主公技就是这局的底牌", 78, 14, Color("d5c9a8"))
-	_text_center("%s的贼是%s%s，带%s%s克他" % [city.tag, tri.icon, tri.name, counter.icon, counter.name], 108, 15, GREEN)
+	draw_rect(Rect2(0, 0, 480, 800), Color("140e06f5"), true)
+	_text_center("👑 点主公 👑", 46, 26, GOLD)
+	_text_center("只能带一位——他的招牌技和被动就是这局的底牌，看好题面再点", 74, 13, Color("d5c9a8"))
+	var field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
+	var rules: Array = city.get("rules", [])
+	_text_center("这州的贼是 %s%s，%s%s克他 · %s%s%s" % [tri.icon, tri.name, counter.icon, counter.name, field.get("icon", ""), field.get("name", ""), " · ⚠" + _rule_names(rules) if not rules.is_empty() else ""], 96, 13, Color("c9b69a"))
+	var theme: Dictionary = weekly.theme_of(CURRENT_WEEK, 1 if selected_city >= 16 else 0)
+	_text_center("%s %s军略：%s——%s" % [theme.get("icon", ""), "下篇" if selected_city >= 16 else "上篇", theme.get("name", ""), theme.get("desc", "")], 116, 12, GOLD)
+	var guests := BattleRecordsSource.week_guest_lords(CURRENT_WEEK)
+	var hints := _ruler_hints(city, week_clears.has(str(selected_city)))
 	for index in RULER_IDS.size():
-		var ruler: Dictionary = catalog.by_id("rulers", RULER_IDS[index])
+		var ruler_id := str(RULER_IDS[index])
+		var ruler: Dictionary = catalog.by_id("rulers", ruler_id)
 		var rect := _ruler_rect(index)
-		var is_guest := BattleRecordsSource.week_guest_lords(CURRENT_WEEK).has(RULER_IDS[index])
-		_panel(rect, PANEL_2, Color("5d513c"), 1.5)
-		_text(str(ruler.name) + (" · 客卿" if is_guest else ""), Vector2(30, rect.position.y + 27), 21 if not is_guest else 18, GOLD)
-		_text(_short_text(str(ruler.desc), 24), Vector2(126, rect.position.y + 26), 13, Color("c9b69a"))
-		_text("Lv.%d%s" % [LocalProfileSource.ruler_level(profile, RULER_IDS[index]), " · 讨伐×1.3" if is_guest else ""], Vector2(30, rect.position.y + 49), 12, BLUE)
+		var is_guest := guests.has(ruler_id)
+		_panel(rect, Color("ffffff0d"), Color("786e5a59"), 1.2)
+		var disc_center := Vector2(rect.position.x + 32, rect.position.y + rect.size.y / 2.0)
+		draw_circle(disc_center, 20, Color("2b2115"))
+		draw_arc(disc_center, 21, 0, TAU, 32, GOLD, 2.0)
+		_text_centered_in_rect(str(ruler.name).left(1), Rect2(disc_center.x - 18, disc_center.y - 10, 36, 22), 15, GOLD)
+		var tx := rect.position.x + 62
+		_text("%s · %s" % [str(ruler.name), str(ruler.title)], Vector2(tx, rect.position.y + 20), 15, GOLD)
+		var badge_x := rect.end.x - 8.0
+		if hints.has(ruler_id):
+			_text("👍对题", Vector2(badge_x - 54, rect.position.y + 20), 10, GOLD)
+			badge_x -= 62
+		if is_guest:
+			_text("🍵客卿·讨伐+30%", Vector2(badge_x - 103, rect.position.y + 20), 10, GREEN)
+		var level := LocalProfileSource.ruler_level(profile, ruler_id)
+		var command: Dictionary = BattleLordSource.COMMANDS.get(str(ruler.skill), {})
+		var special_text := str(LORD_SPECIAL_LABELS.get(str(ruler.get("special", "")), ""))
+		var second_special := str(LORD_SPECIAL_LABELS.get(str(ruler.get("special2", "")), ""))
+		var attack: Dictionary = BattleLordSource.ATTACKS.get(ruler_id, {})
+		var kin_names := PackedStringArray()
+		for hero_id in catalog.content.get("lord_kin", {}).get(ruler_id, []):
+			kin_names.append(str(catalog.by_id("heroes", str(hero_id)).get("name", "")))
+		var line2 := "Lv.%d　%s%s%s%s　%s%s%s　🤝%s" % [level, LORD_COMMAND_ICONS.get(str(ruler.skill), ""), command.get("name", ""), "　" if not special_text.is_empty() else "", special_text + second_special, LORD_ATTACK_ICONS.get(ruler_id, ""), attack.get("name", ""), "↑" if float(attack.get("mul", 1.0)) > 1.0 else "", "·".join(kin_names)]
+		_text(_short_text(line2, 55), Vector2(tx, rect.position.y + 39), 10, BLUE)
+		_text(_short_text(str(ruler.desc), 58), Vector2(tx, rect.position.y + 58), 9, Color("c9b69a"))
+	_panel(RULER_BACK_RECT, Color("5a4a3a"), Color("8a7d66"), 1.0)
+	_text_centered_in_rect("← 选关", RULER_BACK_RECT, 13, Color.WHITE)
+
+func _ruler_hints(city: Dictionary, cleared: bool) -> Array:
+	var result := []
+	if cleared:
+		result.append("liubiao")
+	for rule_id in city.get("rules", []):
+		match str(rule_id):
+			"rush", "crossbow": result.append("sunquan")
+			"ruin": result.append("liubei")
+			"twinBoss", "elite": result.append("gongsunzan")
+			"rocks", "rich": result.append("dongzhuo")
+	return result
 
 func _draw_pick() -> void:
 	var city: Dictionary = weekly.make_level(CURRENT_WEEK, selected_city)
@@ -910,7 +964,7 @@ func _draw_pick() -> void:
 	_draw_grid(515)
 
 func _ruler_rect(index: int) -> Rect2:
-	return Rect2(16, 144 + index * 73, 448, 64)
+	return Rect2(8, 130 + index * 83, 464, 75)
 
 func _hero_card_rect(index: int) -> Rect2:
 	return Rect2(8 + index * 158, 278, 148, 232)
