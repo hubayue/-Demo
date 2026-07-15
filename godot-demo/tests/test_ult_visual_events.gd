@@ -19,6 +19,8 @@ func _run() -> void:
 			return
 	if not _expect(run.ult_system.visual_effect("zhangfei") == "shock" and run.ult_system.visual_effect("machao") == "lightning" and run.ult_system.visual_effect("huatuo") == "heal", "distinct Web geometries must not collapse into one generic banner"):
 		return
+	if not _expect(run.ult_system.visual_effect("taishici") == "arrow_rain" and run.ult_system.visual_effect("huangyueying") == "turret_deploy", "live lobs must replace Taishi Ci and Huang Yueying's old generic placeholder circles"):
+		return
 	run.start({"ch": 0, "wall": 13, "foes": {"tri": "badao"}, "theme": "tuanjie", "field": "plain", "rules": []}, "liubei", "zhaoyun")
 	var unit: Dictionary = run.units()[0]
 	var expected := BattleRun.slot_center(int(unit.row), int(unit.col)) - Vector2(0, 18)

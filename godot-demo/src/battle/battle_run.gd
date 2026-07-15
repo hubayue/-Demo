@@ -127,6 +127,7 @@ var projectiles: Array = []
 var homers: Array = []
 var charges: Array = []
 var ripples: Array = []
+var skill_lines: Array = []
 var enemy_projectiles: Array = []
 var enemy_lobs: Array = []
 var enemy_wall_lobs: Array = []
@@ -267,6 +268,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	homers = []
 	charges = []
 	ripples = []
+	skill_lines = []
 	enemy_projectiles = []
 	enemy_lobs = []
 	enemy_wall_lobs = []
@@ -406,6 +408,7 @@ func finish(result: String) -> void:
 	enemy_wall_lobs.clear()
 	homers.clear()
 	friendly_lobs.clear()
+	skill_lines.clear()
 
 func continue_endless() -> bool:
 	if status != "win" or win_wave <= 0: return false
@@ -522,6 +525,11 @@ func _update_step(delta: float) -> void:
 	_update_lord_visuals(delta)
 
 func _update_ultimate_effects(delta: float) -> void:
+	for line in skill_lines:
+		line.t = float(line.t) - delta
+	for index in range(skill_lines.size() - 1, -1, -1):
+		if float(skill_lines[index].t) <= 0.0:
+			skill_lines.remove_at(index)
 	for event in ult_events:
 		event.t = float(event.t) - delta
 	for index in range(ult_events.size() - 1, -1, -1):

@@ -22,6 +22,8 @@ func _run() -> void:
 		return
 	if not _test_persistent_battle_entities(catalog):
 		return
+	if not _test_targeted_web_geometries(catalog):
+		return
 	if not _test_unique_projectile_geometries(catalog):
 		return
 	if not _test_automatic_cast(catalog):
@@ -69,12 +71,16 @@ func _test_damage_control_and_support(catalog) -> bool:
 	var sniper = _make_run(catalog, "huangzhong")
 	var ordinary := _enemy(sniper.units()[0], -80.0, -120.0)
 	var elite := _enemy(sniper.units()[0], 80.0, -160.0)
-	elite.big = true
+	elite.affix = "frenzy"
 	elite.hp = 1000.0
 	elite.hp_max = 1000.0
-	sniper.enemies = [ordinary, elite]
+	var big_only := _enemy(sniper.units()[0], 0.0, -190.0)
+	big_only.big = true
+	big_only.hp = 2000.0
+	big_only.hp_max = 2000.0
+	sniper.enemies = [ordinary, elite, big_only]
 	sniper.ult_system.cast(sniper, sniper.units()[0])
-	if not _expect(float(elite.hp) < 1000.0 and is_equal_approx(float(ordinary.hp), 100.0), "Hundred-Pace Shot must hit the toughest elite target only"):
+	if not _expect(float(elite.hp) < 1000.0 and is_equal_approx(float(ordinary.hp), 100.0) and is_equal_approx(float(big_only.hp), 2000.0), "Hundred-Pace Shot must select only boss/affix elites and ignore ordinary big-bodied enemies"):
 		return false
 
 	var fear = _make_run(catalog, "zhangliao")
@@ -274,6 +280,88 @@ func _test_unique_projectile_geometries(catalog) -> bool:
 	ram.kb = 100.0
 	lvbu._update_enemies(0.1)
 	return _expect(is_equal_approx(float(ram.fearT), 0.0) and is_equal_approx(float(ram.sleepT), 0.0) and is_equal_approx(float(ram.charmT), 0.0) and float(ram.kb) <= 10.0 and float(ram.stunT) < 1.9, "ram carts must ignore mind control and shake off physical control twice as fast")
+
+func _test_targeted_web_geometries(catalog) -> bool:
+	var lightning = _make_run(catalog, "machao")
+	var lightning_unit: Dictionary = lightning.units()[0]
+	var primary := _enemy(lightning_unit, 0.0, -150.0)
+	primary.hp = 1000.0
+	primary.hp_max = 1000.0
+	lightning.enemies = [primary, _enemy(lightning_unit, -55.0, -185.0), _enemy(lightning_unit, 50.0, -190.0), _enemy(lightning_unit, 85.0, -130.0)]
+	lightning.ult_system.cast(lightning, lightning_unit)
+	if not _expect(lightning.skill_lines.size() == 4 and lightning.skill_lines.all(func(line): return is_equal_approx(float(line.t), 0.32)), "Ma Chao must draw one target-locked main lightning beam and three real branch beams"):
+		return false
+	var lightning_edge = _make_run(catalog, "machao")
+	var lightning_edge_unit: Dictionary = lightning_edge.units()[0]
+	var edge_target := _enemy(lightning_edge_unit, 0.0, -(float(lightning_edge_unit.hero.rng) + 20.0))
+	lightning_edge.enemies = [edge_target]
+	lightning_edge.ult_system.cast(lightning_edge, lightning_edge_unit)
+	if not _expect(lightning_edge.skill_lines.size() == 1 and float(edge_target.hp) < 100.0, "Ma Chao's main lightning search must use the Web attack range plus forty pixels"):
+		return false
+	var sniper = _make_run(catalog, "huangzhong")
+	var sniper_unit: Dictionary = sniper.units()[0]
+	var elite := _enemy(sniper_unit, 70.0, -170.0)
+	elite.affix = "frenzy"
+	elite.hp = 800.0
+	elite.hp_max = 800.0
+	sniper.enemies = [elite]
+	sniper.ult_system.cast(sniper, sniper_unit)
+	if not _expect(sniper.skill_lines.size() == 1 and sniper.skill_lines[0].to == Vector2(float(elite.x), float(elite.y)) and is_equal_approx(float(sniper.skill_lines[0].t), 0.35), "Huang Zhong must draw the Web beam to the actual selected elite"):
+		return false
+	var guanyu = _make_run(catalog, "guanyu")
+	var guanyu_unit: Dictionary = guanyu.units()[0]
+	var guanyu_offlane := _enemy(guanyu_unit, 55.0, -150.0)
+	guanyu.enemies = [_enemy(guanyu_unit, 0.0, -150.0), guanyu_offlane]
+	guanyu.ult_system.cast(guanyu, guanyu_unit)
+	if not _expect(guanyu.skill_lines.size() == 1 and is_equal_approx(float(guanyu.skill_lines[0].to.y), 20.0) and is_equal_approx(float(guanyu.skill_lines[0].width), 3.0) and is_equal_approx(float(guanyu_offlane.hp), 100.0), "Guan Yu must draw and damage only within the Web lane half-width of fifty pixels"):
+		return false
+	var pangde = _make_run(catalog, "pangde")
+	var pangde_unit: Dictionary = pangde.units()[0]
+	var pangde_offlane := _enemy(pangde_unit, 50.0, -150.0)
+	pangde.enemies = [_enemy(pangde_unit, 0.0, -150.0), pangde_offlane]
+	pangde.ult_system.cast(pangde, pangde_unit)
+	if not _expect(pangde.skill_lines.size() == 1 and is_equal_approx(float(pangde.skill_lines[0].to.y), 40.0) and is_equal_approx(float(pangde.skill_lines[0].width), 4.0) and is_equal_approx(float(pangde_offlane.hp), 100.0), "Pang De must draw and damage only within the Web lane half-width of forty-six pixels"):
+		return false
+	var cleave = _make_run(catalog, "dianwei")
+	var cleave_unit: Dictionary = cleave.units()[0]
+	var cleave_target := _enemy(cleave_unit, 0.0, -120.0)
+	cleave.enemies = [cleave_target]
+	cleave.ult_system.cast(cleave, cleave_unit)
+	if not _expect(cleave.skill_lines.size() == 1 and str(cleave.skill_lines[0].kind) == "slash" and cleave.skill_lines[0].to == Vector2(float(cleave_target.x), float(cleave_target.y)) and is_equal_approx(float(cleave.skill_lines[0].t), 0.18), "Dian Wei must slash toward the actual foremost target before the impact burst"):
+		return false
+	var cleave_edge = _make_run(catalog, "dianwei")
+	var cleave_edge_unit: Dictionary = cleave_edge.units()[0]
+	var cleave_edge_target := _enemy(cleave_edge_unit, 0.0, -(float(cleave_edge_unit.hero.rng) + 20.0))
+	cleave_edge.enemies = [cleave_edge_target]
+	cleave_edge.ult_system.cast(cleave_edge, cleave_edge_unit)
+	if not _expect(cleave_edge.skill_lines.size() == 1 and float(cleave_edge_target.hp) < 100.0, "Dian Wei's foremost-target search must use the Web attack range plus forty pixels"):
+		return false
+	var row_strike = _make_run(catalog, "dengai")
+	var row_unit: Dictionary = row_strike.units()[0]
+	row_strike.enemies = [_enemy(row_unit, 0.0, 0.0)]
+	row_strike.ult_system.cast(row_strike, row_unit)
+	if not _expect(row_strike.skill_lines.size() == 1 and is_equal_approx(float(row_strike.skill_lines[0].from.x), 10.0) and is_equal_approx(float(row_strike.skill_lines[0].to.x), 470.0) and is_equal_approx(float(row_strike.skill_lines[0].t), 0.22), "Deng Ai must draw the exact full-width row slash at his row height"):
+		return false
+	var duel = _make_run(catalog, "wenchou")
+	var duel_unit: Dictionary = duel.units()[0]
+	var duel_target := _enemy(duel_unit, 30.0, -150.0)
+	duel_target.duelT = 2.0
+	duel.enemies = [duel_target]
+	duel.ult_system.cast(duel, duel_unit)
+	if not _expect(duel.skill_lines.size() == 1 and str(duel.skill_lines[0].kind) == "slash" and duel.skill_lines[0].to == Vector2(float(duel_target.x), float(duel_target.y)) and is_equal_approx(float(duel.skill_lines[0].t), 0.2), "Wen Chou must draw the duel execution slash to the real marked target"):
+		return false
+	var arrows = _make_run(catalog, "taishici")
+	var arrow_unit: Dictionary = arrows.units()[0]
+	for index in 5:
+		arrows.enemies.append(_enemy(arrow_unit, (index - 2) * 20.0, -170.0 + (index % 2) * 15.0))
+	arrows.ult_system.cast(arrows, arrow_unit)
+	if not _expect(arrows.friendly_lobs.size() == 10 and arrows.friendly_lobs.all(func(lob): return float(lob.y0) == -20.0 and float(lob.dur) >= 0.25 and float(lob.dur) <= 0.5), "Taishi Ci must create ten independently timed falling-arrow trajectories over the densest cluster"):
+		return false
+	var turret = _make_run(catalog, "huangyueying")
+	var turret_unit: Dictionary = turret.units()[0]
+	turret.enemies = [_enemy(turret_unit, 0.0, -180.0)]
+	turret.ult_system.cast(turret, turret_unit)
+	return _expect(turret.turrets.size() == 1 and turret.friendly_lobs.size() == 1 and is_equal_approx(float(turret.friendly_lobs[0].dur), 0.5), "Huang Yueying must visibly throw the repeating-crossbow device to its real deployment point")
 
 func _make_run(catalog, hero_id: String):
 	var run = BattleRun.new(catalog, Mulberry32.new(7192))

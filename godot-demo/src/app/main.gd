@@ -1432,11 +1432,23 @@ func _battle_render_layers() -> Array:
 	return ["backdrop", "entities", "formation", "projectiles", "skill_fx", "hud", "overlays"]
 
 func _draw_player_projectiles() -> void:
+	for line in battle_run.skill_lines:
+		var alpha := clampf(float(line.t) / maxf(0.01, float(line.t_max)), 0.0, 1.0)
+		var line_color := Color(str(line.color))
+		line_color.a = alpha
+		draw_line(line.from, line.to, Color(line_color, alpha * 0.22), float(line.width) + 5.0)
+		draw_line(line.from, line.to, line_color, float(line.width))
 	for projectile in battle_run.projectiles:
 		draw_circle(Vector2(float(projectile.x), float(projectile.y)), maxf(4.0, float(projectile.get("r", 4.0))), GOLD)
 	for lob in battle_run.friendly_lobs:
 		var progress := clampf(float(lob.t) / maxf(0.01, float(lob.dur)), 0.0, 1.0)
 		var lob_position := Vector2(float(lob.x0), float(lob.y0)).lerp(Vector2(float(lob.x1), float(lob.y1)), progress) - Vector2(0, sin(progress * PI) * 80.0)
+		var previous_progress := maxf(0.0, progress - 0.08)
+		var previous_position := Vector2(float(lob.x0), float(lob.y0)).lerp(Vector2(float(lob.x1), float(lob.y1)), previous_progress) - Vector2(0, sin(previous_progress * PI) * 80.0)
+		var lob_color := Color(str(lob.get("color", "ffd24a")))
+		draw_line(previous_position, lob_position, Color(lob_color, 0.55), 3.0)
+		draw_circle(lob_position, 8.0, Color(lob_color, 0.18))
+		draw_circle(lob_position, 4.5, lob_color)
 		_text_centered_in_rect(str(lob.get("icon", "●")), Rect2(lob_position.x - 12, lob_position.y - 12, 24, 24), 18, Color(str(lob.get("color", "ffd24a"))))
 	for homer in battle_run.homers:
 		var homer_position := Vector2(float(homer.x), float(homer.y))
@@ -1487,16 +1499,21 @@ func _draw_ult_visual_event(event: Dictionary) -> void:
 				var length := 70.0 + 130.0 * progress
 				draw_line(origin, origin + Vector2(cos(angle), sin(angle)) * length, Color(color, 0.85 - progress * 0.35), 2.0)
 		"lightning":
-			var hit := origin + Vector2(0, -150.0 - 80.0 * progress)
-			draw_polyline(PackedVector2Array([origin, origin + Vector2(-9, -48), origin + Vector2(8, -91), hit]), color, 4.0)
-			draw_line(hit, hit + Vector2(-62, -54), Color(color, 0.65), 2.5)
-			draw_line(hit, hit + Vector2(62, -54), Color(color, 0.65), 2.5)
-		"lane", "row", "charge", "multi_charge":
+			pass # Ma Chao uses target-locked Web beam entities.
+		"lane", "row":
+			pass # Guan Yu, Pang De, and Deng Ai use exact Web line geometry.
+		"charge", "multi_charge":
 			draw_line(origin, Vector2(origin.x, 70), Color(color, 0.25), 34.0)
 			draw_line(origin, Vector2(origin.x, 70), color, 3.0)
 		"homing":
 			pass # Jiang Wei's eight live homers carry the complete Web effect.
-		"snipe", "ricochet", "bounce", "execute", "duel":
+		"arrow_rain", "turret_deploy":
+			pass # Live lob entities carry the falling-arrow and deployment geometry.
+		"snipe":
+			pass # Huang Zhong uses the selected elite's actual endpoint.
+		"duel":
+			pass # Wen Chou uses the marked target's actual endpoint.
+		"ricochet", "bounce", "execute":
 			draw_line(origin, origin + Vector2(0, -220), color, 4.0)
 			draw_circle(origin + Vector2(0, -220), 8.0 + 12.0 * progress, Color(color, 0.35))
 		"fire_pit", "fire_line", "immolate", "bombard":
@@ -1517,7 +1534,9 @@ func _draw_ult_visual_event(event: Dictionary) -> void:
 		"heal", "haste", "army_buff", "reflect", "guard", "clock":
 			draw_arc(origin, 28.0 + 95.0 * progress, 0, TAU, 48, color, 3.0)
 			_text_centered_in_rect("✦", Rect2(origin.x - 14, origin.y - 82 - 30 * progress, 28, 28), 18, color)
-		"poison", "frost", "ice_wave", "fear", "sleep", "sunder", "sheep", "shock", "blast", "cleave":
+		"cleave":
+			pass # Dian Wei uses a target-locked slash line.
+		"poison", "frost", "ice_wave", "fear", "sleep", "sunder", "sheep", "shock", "blast":
 			draw_circle(origin, 24.0 + 150.0 * progress, Color(color, 0.08))
 			draw_arc(origin, 24.0 + 150.0 * progress, 0, TAU, 48, color, 2.5)
 

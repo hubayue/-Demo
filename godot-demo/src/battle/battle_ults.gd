@@ -4,11 +4,11 @@ extends RefCounted
 const VISUAL_EFFECTS := {
 	"zhangfei": "shock", "zhaoyun": "fan", "machao": "lightning", "huangzhong": "snipe",
 	"xiahouyuan": "ricochet", "luxun": "fire_pit", "guanyu": "lane", "lvbu": "bounce",
-	"zhangliao": "fear", "taishici": "blast", "dianwei": "cleave", "sunce": "charge",
+	"zhangliao": "fear", "taishici": "arrow_rain", "dianwei": "cleave", "sunce": "charge",
 	"xuchu": "barricade", "weiyan": "trap", "ganning": "bombard", "diaochan": "charm",
 	"zhouyu": "fire_line", "jiangwei": "homing", "zhugeliang": "link", "caoren": "shock",
 	"zhoutai": "reflect", "huatuo": "heal", "xiaoqiao": "haste", "lusu": "army_buff",
-	"huanggai": "immolate", "xuhuang": "palisade", "daqiao": "ice_wave", "huangyueying": "turret",
+	"huanggai": "immolate", "xuhuang": "palisade", "daqiao": "ice_wave", "huangyueying": "turret_deploy",
 	"caiwenji": "sleep", "gaoshun": "gather", "zhanghe": "multi_charge", "zhurong": "fan",
 	"wutugu": "poison", "simayi": "clock", "pangde": "lane", "yanliang": "execute",
 	"sunshangxiang": "fan", "yanyan": "frost", "caohong": "guard", "xushu": "sunder",
@@ -115,7 +115,7 @@ func is_ready(run, unit: Dictionary) -> bool:
 		"enemies": return living.size() >= int(ult.need)
 		"near": return _near_wall(run, float(ult.distance)).size() >= int(ult.need)
 		"front": return _near_wall(run, float(ult.distance)).size() >= int(ult.need)
-		"elite": return living.filter(func(enemy): return bool(enemy.get("boss", false)) or enemy.get("affix") != null or bool(enemy.get("big", false))).size() >= int(ult.need)
+		"elite": return living.filter(func(enemy): return bool(enemy.get("boss", false)) or enemy.get("affix") != null).size() >= int(ult.need)
 		"cluster":
 			var cluster := _densest(living, float(ult.radius))
 			return not cluster.is_empty() and int(cluster.n) >= int(ult.need)
@@ -155,11 +155,11 @@ func cast(run, unit: Dictionary) -> bool:
 		"huangzhong": _huangzhong(run, unit, base)
 		"xiahouyuan": _wall_bounce_arrow(run, unit, base)
 		"luxun": _luxun(run, unit, base)
-		"guanyu": _lane_damage(run, unit, base * 3.5)
+		"guanyu": _lane_damage(run, unit, base * 3.5, 20.0, "7aff9a", 3.0, 50.0)
 		"lvbu": _bouncing_halberd(run, unit, base)
 		"zhangliao":
 			for enemy in _alive(run): enemy.fearT = maxf(float(enemy.get("fearT", 0.0)), 1.2 if bool(enemy.get("boss", false)) else 2.5)
-		"taishici": _cluster_damage(run, unit, base * 2.8, 130.0)
+		"taishici": _arrow_rain(run, unit, base * 2.8, 130.0)
 		"dianwei": _dianwei(run, unit, base)
 		"sunce": _add_charge(run, unit, base * 2.5, str(unit.hero.get("elem", "")), 60.0 + float(run.buffs.get("cavWide", 0.0)), 2.0)
 		"xuchu": _xuchu(run)
@@ -190,7 +190,7 @@ func cast(run, unit: Dictionary) -> bool:
 		"wutugu":
 			unit.ultT = 8.0
 			unit.auraTick = 0.0
-		"pangde": _lane_damage(run, unit, base * 2.4)
+		"pangde": _lane_damage(run, unit, base * 2.4, 40.0, "e8dcc0", 4.0, 46.0)
 		"yanliang": _yanliang(run, unit, base)
 		"sunshangxiang": _fan_projectiles(run, unit, base, 10, 1.5, 0, 520.0, true)
 		"yanyan": _yanyan(run, unit)
@@ -292,20 +292,30 @@ func _bouncing_halberd(run, unit: Dictionary, base: float) -> void:
 	})
 
 func _machao(run, unit: Dictionary, base: float) -> void:
-	var targets := _in_range(run, unit)
+	var center := _center(run, unit) - Vector2(0, 18)
+	var search_radius := float(unit.hero.get("rng", 0.0)) + 40.0
+	var targets := _alive(run).filter(func(enemy): return center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) <= search_radius * search_radius)
 	targets.sort_custom(func(a, b): return float(a.hp) > float(b.hp))
 	if targets.is_empty(): return
 	var main: Dictionary = targets[0]
+	var main_point := Vector2(float(main.x), float(main.y))
+	_add_skill_line(run, center, main_point, 0.32, "ffd24a", 2.0, "beam")
 	_deal(run, unit, main, base * 7.0)
 	var branches := _alive(run).filter(func(enemy): return enemy != main and Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(main.x), float(main.y))) < 200.0 * 200.0)
 	branches.sort_custom(func(a, b): return Vector2(float(a.x), float(a.y)).distance_squared_to(Vector2(float(main.x), float(main.y))) < Vector2(float(b.x), float(b.y)).distance_squared_to(Vector2(float(main.x), float(main.y))))
-	for index in mini(3, branches.size()): _deal(run, unit, branches[index], base * 3.0)
+	for index in mini(3, branches.size()):
+		var branch: Dictionary = branches[index]
+		_add_skill_line(run, main_point, Vector2(float(branch.x), float(branch.y)), 0.32, "ffd24a", 1.4, "beam")
+		_deal(run, unit, branch, base * 3.0)
 
 func _huangzhong(run, unit: Dictionary, base: float) -> void:
-	var targets := _alive(run).filter(func(enemy): return bool(enemy.get("boss", false)) or enemy.get("affix") != null or bool(enemy.get("big", false)))
+	var targets := _alive(run).filter(func(enemy): return bool(enemy.get("boss", false)) or enemy.get("affix") != null)
 	if targets.is_empty(): targets = _alive(run)
 	targets.sort_custom(func(a, b): return float(a.hp) > float(b.hp))
-	if not targets.is_empty(): _deal(run, unit, targets[0], base * 16.0)
+	if not targets.is_empty():
+		var target: Dictionary = targets[0]
+		_add_skill_line(run, _center(run, unit) - Vector2(0, 18), Vector2(float(target.x), float(target.y)), 0.35, "ffd24a", 2.5, "beam")
+		_deal(run, unit, target, base * 16.0)
 
 func _luxun(run, unit: Dictionary, base: float) -> void:
 	var targets := _alive(run).duplicate()
@@ -317,8 +327,13 @@ func _luxun(run, unit: Dictionary, base: float) -> void:
 		var origin := _center(run, unit) - Vector2(0, 18)
 		run.friendly_lobs.append({"x0": origin.x, "y0": origin.y, "x1": x, "y1": y, "t": 0.0, "dur": 0.7 + index * 0.12, "damage": 0.0, "splash": 0.0, "element": str(unit.hero.elem), "owner": unit, "icon": "🏺", "color": "ff7a3a", "pit": {"r": 85.0, "t": 7.0 if run.relic_ids.has("huoyou") else 5.0, "damage": maxf(4.0, round(base * 0.72))}, "dead": false})
 
-func _lane_damage(run, unit: Dictionary, damage: float) -> void:
-	for enemy in _in_column(run, unit).duplicate(): _deal(run, unit, enemy, damage)
+func _lane_damage(run, unit: Dictionary, damage: float, top_y: float, color: String, width: float, hit_half_width: float) -> void:
+	var lane_x: float = float(run.GRID_X) + int(unit.col) * float(run.CELL) + float(run.CELL) / 2.0
+	var origin := _center(run, unit) - Vector2(0, 18)
+	_add_skill_line(run, Vector2(lane_x, origin.y), Vector2(lane_x, top_y), 0.35, color, width, "beam")
+	for enemy in _alive(run).duplicate():
+		if absf(float(enemy.x) - lane_x) < hit_half_width:
+			_deal(run, unit, enemy, damage)
 
 func _cluster_damage(run, unit: Dictionary, damage: float, radius: float) -> void:
 	var cluster := _densest(_alive(run), radius)
@@ -327,12 +342,29 @@ func _cluster_damage(run, unit: Dictionary, damage: float, radius: float) -> voi
 		if Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(cluster.x), float(cluster.y))) < radius * radius:
 			_deal(run, unit, enemy, damage)
 
+func _arrow_rain(run, unit: Dictionary, damage: float, radius: float) -> void:
+	var cluster := _densest(_alive(run), radius)
+	if cluster.is_empty():
+		return
+	var center := Vector2(float(cluster.x), float(cluster.y))
+	for enemy in _alive(run).duplicate():
+		if Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(center) < radius * radius:
+			_deal(run, unit, enemy, damage)
+	for index in 10:
+		var angle: float = run._randf(0.0, TAU)
+		var spread: float = run._randf(0.0, 120.0)
+		var landing: Vector2 = center + Vector2(cos(angle), sin(angle)) * spread
+		run.friendly_lobs.append({"x0": landing.x + run._randf(-30.0, 30.0), "y0": -20.0, "x1": landing.x, "y1": landing.y, "t": 0.0, "dur": run._randf(0.25, 0.5), "damage": 0.0, "splash": 0.0, "element": str(unit.hero.elem), "owner": unit, "icon": "🏹", "color": "ffd24a", "pit": {}, "dead": false})
+
 func _dianwei(run, unit: Dictionary, base: float) -> void:
-	var targets := _in_range(run, unit)
+	var center := _center(run, unit) - Vector2(0, 18)
+	var search_radius := float(unit.hero.get("rng", 0.0)) + 40.0
+	var targets := _alive(run).filter(func(enemy): return center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) <= search_radius * search_radius)
 	targets.sort_custom(func(a, b): return float(a.y) > float(b.y))
 	if targets.is_empty(): return
 	var target: Dictionary = targets[0]
 	var point := Vector2(float(target.x), float(target.y))
+	_add_skill_line(run, center, point, 0.18, "d5c9a8", 6.0, "slash")
 	_deal(run, unit, target, base * 4.0)
 	for enemy in _alive(run).duplicate():
 		if enemy != target and point.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) < pow(120.0 + float(enemy.r), 2):
@@ -459,11 +491,34 @@ func _daqiao(run) -> void:
 
 func _huangyueying(run, unit: Dictionary) -> void:
 	var cluster := _densest(_alive(run), 140.0)
-	var x := clampf(float(cluster.get("x", 240.0)), 60.0, 420.0)
-	var y := minf(float(cluster.get("y", run.GRID_Y - 90.0)), run.GRID_Y - 60.0)
+	var x: float
+	var y: float
+	if not run.obstacles.is_empty():
+		var obstacle_keys: Array = run.obstacles.keys()
+		var best_key := str(obstacle_keys[0])
+		var best_distance := INF
+		for obstacle_key in obstacle_keys:
+			var parts := str(obstacle_key).split(",")
+			var point: Vector2 = run.slot_center(int(parts[0]), int(parts[1]))
+			var distance: float = point.distance_squared_to(Vector2(float(cluster.get("x", point.x)), float(cluster.get("y", point.y))))
+			if distance < best_distance:
+				best_distance = distance
+				best_key = str(obstacle_key)
+		var best_parts := best_key.split(",")
+		var obstacle_point: Vector2 = run.slot_center(int(best_parts[0]), int(best_parts[1]))
+		x = obstacle_point.x
+		y = obstacle_point.y - 8.0
+	else:
+		x = clampf(float(cluster.get("x", 240.0)), 60.0, 420.0)
+		y = run.GRID_Y - 90.0
 	var life := 13.0 if run.relic_ids.has("jiguan") else 10.0
 	var damage := maxf(4.0, round((5.0 + run.wave * 1.6) * (1.0 + (int(unit.level) - 1) * 0.35) * float(run.buffs.dmg)))
 	run.turrets.append({"x": x, "y": y, "t": life, "t_max": life, "cd": 0.2, "range": 420.0, "rate": 0.32, "damage": damage, "tri": str(unit.hero.elem), "owner": unit})
+	var origin := _center(run, unit) - Vector2(0, 18)
+	run.friendly_lobs.append({"x0": origin.x, "y0": origin.y, "x1": x, "y1": y, "t": 0.0, "dur": 0.5, "damage": 0.0, "splash": 0.0, "element": str(unit.hero.elem), "owner": unit, "icon": "⚙️", "color": "ffd24a", "pit": {}, "dead": false})
+
+func _add_skill_line(run, from: Vector2, to: Vector2, duration: float, color: String, width: float, kind: String) -> void:
+	run.skill_lines.append({"from": from, "to": to, "t": duration, "t_max": duration, "color": color, "width": width, "kind": kind})
 
 func _gaoshun(run, unit: Dictionary, base: float) -> void:
 	var lane_x: float = float(run.GRID_X) + int(unit.col) * float(run.CELL) + float(run.CELL) / 2.0
@@ -522,6 +577,7 @@ func _zuoci(run) -> void:
 
 func _dengai(run, unit: Dictionary, base: float) -> void:
 	var row_y := _center(run, unit).y
+	_add_skill_line(run, Vector2(10.0, row_y), Vector2(470.0, row_y), 0.22, "c9b69a", 8.0, "slash")
 	var on_rock: bool = run.obstacles.has("%d,%d" % [int(unit.row), int(unit.col)])
 	for enemy in _alive(run).duplicate():
 		if absf(float(enemy.y) - row_y) <= 70.0:
@@ -536,4 +592,7 @@ func _menghuo(run, unit: Dictionary) -> void:
 func _wenchou(run, unit: Dictionary, base: float) -> void:
 	var targets := _alive(run).filter(func(enemy): return float(enemy.get("duelT", 0.0)) > 0)
 	targets.sort_custom(func(a, b): return float(a.hp_max) > float(b.hp_max))
-	if not targets.is_empty(): _deal(run, unit, targets[0], base * 8.0)
+	if not targets.is_empty():
+		var target: Dictionary = targets[0]
+		_add_skill_line(run, _center(run, unit) - Vector2(0, 18), Vector2(float(target.x), float(target.y)), 0.2, "ff8a5a", 7.0, "slash")
+		_deal(run, unit, target, base * 8.0)
