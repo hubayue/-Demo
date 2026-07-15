@@ -14,6 +14,7 @@ const RunSettlementSource = preload("res://src/progression/run_settlement.gd")
 const HeroProgressionSource = preload("res://src/progression/hero_progression.gd")
 const VisitSystemSource = preload("res://src/progression/visit_system.gd")
 const AchievementProgressSource = preload("res://src/progression/achievement_progress.gd")
+const BattleDragControllerSource = preload("res://src/input/battle_drag_controller.gd")
 
 const VIEW_SIZE := Vector2(480.0, 800.0)
 const CURRENT_WEEK := 2948
@@ -87,7 +88,9 @@ var week_clears: Dictionary = {}
 var map_message := ""
 var battle_run
 var foe_lord_popup := false
-var profile_path := "user://v7.19.2-local-profile.json"
+var battle_drag = BattleDragControllerSource.new()
+var profile_path := "user://v7.19.14-local-profile.json"
+var legacy_profile_path := "user://v7.19.2-local-profile.json"
 var profile: Dictionary = {}
 var settlement_summary: Dictionary = {}
 var suppression_summary: Dictionary = {}
@@ -104,14 +107,18 @@ var ach_page := 0
 
 func _ready() -> void:
 	catalog = ContentCatalogSource.new()
-	var error: Error = catalog.load_from("res://data/content-v7.19.2.json")
+	var error: Error = catalog.load_from("res://data/content-v7.19.14.json")
 	if error != OK:
-		push_error("Unable to load v7.19.2 content catalog: %s" % error_string(error))
+		push_error("Unable to load v7.19.14 content catalog: %s" % error_string(error))
 		set_process(false)
 		return
 	weekly = WeeklyMapSource.new(catalog)
 	opening_picker = OpeningPickerSource.new()
-	profile = LocalProfileSource.load_from(profile_path, CURRENT_WEEK)
+	if not FileAccess.file_exists(profile_path) and FileAccess.file_exists(legacy_profile_path):
+		profile = LocalProfileSource.load_from(legacy_profile_path, CURRENT_WEEK)
+		LocalProfileSource.save_to(profile_path, profile)
+	else:
+		profile = LocalProfileSource.load_from(profile_path, CURRENT_WEEK)
 	HeroProgressionSource.ensure_roster(profile, catalog.list("heroes"))
 	visit_rng = Mulberry32Source.new(CURRENT_WEEK * 771 + int(profile.get("visit_pos", 0)) * 97 + 2026)
 	week_clears = profile.week_clears
@@ -228,10 +235,52 @@ func _theme_fit() -> bool:
 	return false
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_handle_pointer(event.position)
-	elif event is InputEventScreenTouch and event.pressed:
-		_handle_pointer(event.position)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if _try_begin_battle_drag(event.position):
+				accept_event()
+				return
+			_handle_pointer(event.position)
+		elif battle_drag.is_active():
+			_finish_battle_drag(event.position)
+			accept_event()
+	elif event is InputEventMouseMotion and battle_drag.is_active():
+		battle_drag.update(event.position)
+		queue_redraw()
+		accept_event()
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			if _try_begin_battle_drag(event.position):
+				accept_event()
+				return
+			_handle_pointer(event.position)
+		elif battle_drag.is_active():
+			_finish_battle_drag(event.position)
+			accept_event()
+	elif event is InputEventScreenDrag and battle_drag.is_active():
+		battle_drag.update(event.position)
+		queue_redraw()
+		accept_event()
+
+func _try_begin_battle_drag(point: Vector2) -> bool:
+	if phase != "battle" or battle_run == null or battle_run.status != "play":
+		return false
+	if foe_lord_popup or battle_run.awaiting_card_choice or bool(battle_run.permanent_tactics.get("gewu", false)):
+		return false
+	var cell := BattleDragControllerSource.cell_at(point)
+	if cell == Vector2i(-1, -1):
+		return false
+	if battle_run.grid[cell.y][cell.x] == null:
+		return false
+	return battle_drag.begin(cell, point)
+
+func _finish_battle_drag(point: Vector2) -> void:
+	var result: Dictionary = battle_drag.finish(point)
+	if str(result.get("action", "")) == "drop":
+		var source: Vector2i = result.source
+		var target: Vector2i = result.target
+		battle_run.move_or_swap_unit(source.y, source.x, target.y, target.x)
+	queue_redraw()
 
 func _handle_pointer(point: Vector2) -> void:
 	match phase:
@@ -470,7 +519,7 @@ func _handle_map_pointer(point: Vector2) -> void:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), INK)
 	if catalog == null or weekly == null:
-		_text_center("正在载入 v7.19.2…", 400, 22, PALE_GOLD)
+		_text_center("正在载入 v7.19.14…", 400, 22, PALE_GOLD)
 		return
 	match phase:
 		"title":
@@ -510,7 +559,7 @@ func _draw_title() -> void:
 	_text_center("贼军不等人：下一波会直接压上来", 510, 16, RED)
 	_text_center("破城后可继续讨伐，十大功绩计入势力", 550, 16, BLUE)
 	_text_center("点击空白处出征", 690, 24, PALE_GOLD)
-	_text_center("Godot 4.7 · v7.19.2 单机复现", 760, 12, MUTED)
+	_text_center("Godot 4.7 · v7.19.14 精确复现进行中", 760, 12, MUTED)
 
 func _draw_home_controls() -> void:
 	draw_rect(Rect2(0, 562, 480, 162), INK, true)
@@ -1260,6 +1309,7 @@ func _draw_battle_formation() -> void:
 			if float(unit.get("sealedT", 0.0)) > 0:
 				draw_rect(rect, Color("7f38b855"), true)
 				_text_centered_in_rect("🌀封 %.1fs" % float(unit.sealedT), Rect2(rect.position.x, rect.position.y + 25, rect.size.x, 20), 11, Color("e0b0ff"))
+	_draw_battle_drag_preview()
 	draw_rect(Rect2(0, BattleRunSource.DEFENSE_LINE, 480, 800 - BattleRunSource.DEFENSE_LINE), Color("5b4024"), true)
 	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
 	if battle_run.lord_mount.is_empty():
@@ -1281,6 +1331,31 @@ func _draw_battle_formation() -> void:
 		_text_centered_in_rect(str(command.name), Rect2(326, 755, 142, 17), 12, GOLD if command_ready else PALE_GOLD)
 		var cooldown_text := "自动待发" if auto_ready else ("点击施放" if command_ready else ("CD %.1fs" % battle_run.lord_command_cd if battle_run.lord_command_cd > 0 else "号令罢工"))
 		_text_centered_in_rect(cooldown_text, Rect2(326, 773, 142, 16), 10, GREEN if command_ready else MUTED)
+
+func _draw_battle_drag_preview() -> void:
+	if not battle_drag.is_active():
+		return
+	var source: Vector2i = battle_drag.source_cell
+	var source_rect := BattleDragControllerSource.cell_rect(source)
+	draw_rect(source_rect, Color("18140faa"), true)
+	draw_rect(source_rect, GOLD, false, 2.0)
+	if not battle_drag.is_dragging():
+		return
+	var hover: Vector2i = battle_drag.hover_cell
+	if hover != Vector2i(-1, -1):
+		var hover_rect := BattleDragControllerSource.cell_rect(hover)
+		var blocked: bool = battle_run.obstacles.has("%d,%d" % [hover.y, hover.x])
+		draw_rect(hover_rect, Color("74d96826") if not blocked else Color("ff654026"), true)
+		draw_rect(hover_rect, GREEN if not blocked else RED, false, 3.0)
+	var unit = battle_run.grid[source.y][source.x]
+	if unit == null:
+		return
+	var hero: Dictionary = unit.hero
+	var pointer: Vector2 = battle_drag.pointer_position
+	draw_circle(pointer, 34.0, Color("110e0bcc"))
+	draw_arc(pointer, 35.0, 0, TAU, 40, GOLD, 4.0)
+	_text_centered_in_rect(str(hero.get("char", "将")), Rect2(pointer.x - 30, pointer.y - 17, 60, 25), 20, Color.WHITE)
+	_text_centered_in_rect(str(hero.get("name", "")), Rect2(pointer.x - 42, pointer.y + 11, 84, 18), 10, PALE_GOLD)
 
 func _active_lord_effect_text() -> String:
 	if battle_run == null:

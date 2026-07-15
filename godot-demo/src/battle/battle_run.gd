@@ -1383,6 +1383,32 @@ func add_unit_at(hero_id: String, row: int, col: int) -> bool:
 	team.recompute(self)
 	return true
 
+func move_or_swap_unit(source_row: int, source_col: int, target_row: int, target_col: int) -> bool:
+	if source_row < 0 or source_row >= GRID_ROWS or source_col < 0 or source_col >= GRID_COLS:
+		return false
+	if target_row < 0 or target_row >= GRID_ROWS or target_col < 0 or target_col >= GRID_COLS:
+		return false
+	if source_row == target_row and source_col == target_col:
+		return false
+	var source = grid[source_row][source_col]
+	if source == null:
+		return false
+	var target_key := _cell_key(target_row, target_col)
+	if obstacles.has(target_key) and str(source.hero.get("id", "")) != "dengai":
+		return false
+	var target = grid[target_row][target_col]
+	if target != null and obstacles.has(_cell_key(source_row, source_col)) and str(target.hero.get("id", "")) != "dengai":
+		return false
+	grid[target_row][target_col] = source
+	grid[source_row][source_col] = target
+	source.row = target_row
+	source.col = target_col
+	if target != null:
+		target.row = source_row
+		target.col = source_col
+	team.recompute(self)
+	return true
+
 func _hit_enemy(enemy: Dictionary, amount: float, attacker_tri: String, critical_chance: float, source_unit: Dictionary = {}) -> int:
 	var final_amount := amount
 	if baihu_ready or (critical_chance > 0 and rng.next_float() < critical_chance):
