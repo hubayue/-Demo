@@ -635,6 +635,37 @@ func _panel(rect: Rect2, fill := PANEL_2, border := PALE_GOLD, width := 2.0) -> 
 	draw_rect(rect, fill, true)
 	draw_rect(rect, border, false, width)
 
+func _rounded_panel(rect: Rect2, fill: Color, border: Color, width: float, radius: float) -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	var border_width := maxi(1, roundi(width))
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	style.corner_radius_top_left = roundi(radius)
+	style.corner_radius_top_right = roundi(radius)
+	style.corner_radius_bottom_left = roundi(radius)
+	style.corner_radius_bottom_right = roundi(radius)
+	draw_style_box(style, rect)
+
+func _fit_font_size(text: String, max_width: float, start_size: int, min_size: int) -> int:
+	var size := start_size
+	while size > min_size and _font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_width:
+		size -= 1
+	return size
+
+func _name_disc_font_size(name: String, radius: float) -> int:
+	var length := name.length()
+	if length >= 4:
+		return roundi(radius * 0.48)
+	if length == 3:
+		return roundi(radius * 0.62)
+	if length == 2:
+		return roundi(radius * 0.78)
+	return roundi(radius * 1.05)
+
 func _text_centered_in_rect(text: String, rect: Rect2, size: int, color: Color) -> void:
 	draw_string(_font(), Vector2(rect.position.x, rect.position.y + size), text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, size, color)
 
@@ -979,20 +1010,28 @@ func _draw_rulers() -> void:
 		var ruler_id := str(RULER_IDS[index])
 		var ruler: Dictionary = catalog.by_id("rulers", ruler_id)
 		var rect := _ruler_rect(index)
+		var visual := _ruler_visual_spec(index)
 		var is_guest := guests.has(ruler_id)
-		_panel(rect, Color("ffffff0d"), Color("786e5a59"), 1.2)
-		var disc_center := Vector2(rect.position.x + 32, rect.position.y + rect.size.y / 2.0)
-		draw_circle(disc_center, 20, Color("2b2115"))
-		draw_arc(disc_center, 21, 0, TAU, 32, GOLD, 2.0)
-		_text_centered_in_rect(str(ruler.name).left(1), Rect2(disc_center.x - 18, disc_center.y - 10, 36, 22), 15, GOLD)
-		var tx := rect.position.x + 62
+		_rounded_panel(rect, Color("ffffff0d"), Color("786e5a59"), 1.2, float(visual.corner_radius))
+		var disc_center: Vector2 = visual.disc_center
+		draw_circle(disc_center, float(visual.disc_radius), Color("2b2115"))
+		draw_arc(disc_center, float(visual.disc_radius) + 1.0, 0, TAU, 32, GOLD, 2.0)
+		var disc_name := str(ruler.name)
+		var disc_font_size := _name_disc_font_size(disc_name, float(visual.disc_radius))
+		draw_string(_font(), Vector2(disc_center.x - float(visual.disc_radius), disc_center.y + disc_font_size / 3.0), disc_name, HORIZONTAL_ALIGNMENT_CENTER, float(visual.disc_radius) * 2.0, disc_font_size, GOLD)
+		var tx: float = visual.text_x
 		_text("%s · %s" % [str(ruler.name), str(ruler.title)], Vector2(tx, rect.position.y + 20), 15, GOLD)
 		var badge_x := rect.end.x - 8.0
-		if hints.has(ruler_id):
-			_text("👍对题", Vector2(badge_x - 54, rect.position.y + 20), 10, GOLD)
-			badge_x -= 62
 		if is_guest:
-			_text("🍵客卿·讨伐+30%", Vector2(badge_x - 103, rect.position.y + 20), 10, GREEN)
+			var guest_text := "🍵客卿·讨伐+30%"
+			var guest_width := _font().get_string_size(guest_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+			_text(guest_text, Vector2(badge_x - guest_width, rect.position.y + 20), 10, GREEN)
+			badge_x -= guest_width + 10.0
+		if hints.has(ruler_id):
+			var hint_text := "👍对题"
+			var hint_width := _font().get_string_size(hint_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+			_text(hint_text, Vector2(badge_x - hint_width, rect.position.y + 20), 10, GOLD)
+			badge_x -= hint_width + 10.0
 		var level := LocalProfileSource.ruler_level(profile, ruler_id)
 		var command: Dictionary = BattleLordSource.COMMANDS.get(str(ruler.skill), {})
 		var special_text := str(LORD_SPECIAL_LABELS.get(str(ruler.get("special", "")), ""))
@@ -1002,9 +1041,12 @@ func _draw_rulers() -> void:
 		for hero_id in catalog.content.get("lord_kin", {}).get(ruler_id, []):
 			kin_names.append(str(catalog.by_id("heroes", str(hero_id)).get("name", "")))
 		var line2 := "Lv.%d　%s%s%s%s　%s%s%s　🤝%s" % [level, LORD_COMMAND_ICONS.get(str(ruler.skill), ""), command.get("name", ""), "　" if not special_text.is_empty() else "", special_text + second_special, LORD_ATTACK_ICONS.get(ruler_id, ""), attack.get("name", ""), "↑" if float(attack.get("mul", 1.0)) > 1.0 else "", "·".join(kin_names)]
-		_text(_short_text(line2, 55), Vector2(tx, rect.position.y + 39), 10, BLUE)
-		_text(_short_text(str(ruler.desc), 58), Vector2(tx, rect.position.y + 58), 9, Color("c9b69a"))
-	_panel(RULER_BACK_RECT, Color("5a4a3a"), Color("8a7d66"), 1.0)
+		var line2_size := _fit_font_size(line2, rect.end.x - tx - 8.0, int(visual.line2_start_size), int(visual.line2_min_size))
+		_text(line2, Vector2(tx, rect.position.y + 38), line2_size, BLUE)
+		var desc := str(ruler.desc)
+		var desc_size := _fit_font_size(desc, rect.end.x - tx - 10.0, int(visual.desc_start_size), int(visual.desc_min_size))
+		_text(desc, Vector2(tx, rect.position.y + 57), desc_size, Color("c9b69a"))
+	_rounded_panel(RULER_BACK_RECT, Color("5a4a3a"), Color("8a7d66"), 1.0, 10.0)
 	_text_centered_in_rect("← 选关", RULER_BACK_RECT, 13, Color.WHITE)
 
 func _ruler_hints(city: Dictionary, cleared: bool) -> Array:
@@ -1040,6 +1082,19 @@ func _draw_pick() -> void:
 
 func _ruler_rect(index: int) -> Rect2:
 	return Rect2(8, 130 + index * 83, 464, 75)
+
+func _ruler_visual_spec(index: int) -> Dictionary:
+	var rect := _ruler_rect(index)
+	return {
+		"corner_radius": 12.0,
+		"disc_radius": 19.0,
+		"disc_center": Vector2(rect.position.x + 32.0, rect.position.y + rect.size.y / 2.0),
+		"text_x": rect.position.x + 62.0,
+		"line2_start_size": 12,
+		"line2_min_size": 10,
+		"desc_start_size": 12,
+		"desc_min_size": 10,
+	}
 
 func _hero_card_rect(index: int) -> Rect2:
 	return Rect2(8 + index * 158, 278, 148, 232)
