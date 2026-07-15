@@ -21,7 +21,7 @@ func _run() -> void:
         return
     if not _expect(main.has_method("select_map_region"), "Map must support four-region switching"):
         return
-    if not _expect(main.catalog.version == "7.19.2", "Main scene must load the frozen content catalog"):
+    if not _expect(main.catalog.version == "7.19.14", "Main scene must load the current frozen content catalog"):
         return
     if not _expect(main.weekly.make_slots(main.CURRENT_WEEK).size() == 64, "Main scene must bind all 64 weekly cities"):
         return
