@@ -6,6 +6,7 @@ const BattleTeamScript = preload("res://src/battle/battle_team.gd")
 const BattleLordScript = preload("res://src/battle/battle_lord.gd")
 const BattleFoeLordScript = preload("res://src/battle/battle_foe_lord.gd")
 const BattleUltsScript = preload("res://src/battle/battle_ults.gd")
+const BattleFoesScript = preload("res://src/battle/battle_foes.gd")
 
 const GRID_ROWS := 3
 const GRID_COLS := 5
@@ -27,6 +28,7 @@ var team
 var lord_system
 var foe_system
 var ult_system
+var foe_behavior
 var city: Dictionary = {}
 var ruler_id := ""
 var ruler_level := 1
@@ -92,6 +94,10 @@ var enemies: Array = []
 var projectiles: Array = []
 var charges: Array = []
 var ripples: Array = []
+var enemy_projectiles: Array = []
+var enemy_lobs: Array = []
+var enemy_wall_lobs: Array = []
+var cata_volley_time := 0.0
 var ult_events: Array = []
 var ults_used := 0
 var blockade: Dictionary = {}
@@ -114,6 +120,7 @@ func _init(content_catalog, random_source) -> void:
 	lord_system = BattleLordScript.new()
 	foe_system = BattleFoeLordScript.new()
 	ult_system = BattleUltsScript.new()
+	foe_behavior = BattleFoesScript.new()
 
 func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: String, selected_ruler_level := 1, selected_hero_levels: Dictionary = {}) -> void:
 	city = level_data.duplicate(true)
@@ -200,6 +207,10 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	projectiles = []
 	charges = []
 	ripples = []
+	enemy_projectiles = []
+	enemy_lobs = []
+	enemy_wall_lobs = []
+	cata_volley_time = 0.0
 	ult_events = []
 	ults_used = 0
 	blockade = {}
@@ -249,6 +260,8 @@ static func triangle_multiplier(attacker_tri: String, enemy_tri: String) -> floa
 func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source := "") -> int:
 	if bool(enemy.get("dead", false)):
 		return 0
+	if bool(enemy.get("_guarded", false)):
+		amount *= 0.7
 	var triangle := triangle_multiplier(attacker_tri, str(enemy.get("tri", "")))
 	if wuxing_time > 0 and not str(attacker_tri).is_empty():
 		if TRI_KE.get(str(enemy.get("tri", "")), "") == attacker_tri:
@@ -289,6 +302,10 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 					_hit_enemy(member, share, "", 0.0, death_link.get("owner", {}))
 			_link_propagating = false
 	if float(enemy.hp) <= 0:
+		if bool(enemy.get("boss", false)) and ["thunder", "avatar"].has(str(enemy.get("kit", ""))) and not bool(enemy.get("revived", false)):
+			enemy.revived = true
+			enemy.hp = round(float(enemy.hp_max) * 0.4)
+			return damage
 		var drowned := enemy_in_flood(enemy)
 		enemy.dead = true
 		kills += 1
@@ -301,13 +318,20 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 			xp_multiplier = 2.0
 		gain_xp(float(enemy.get("xp", 0.0)) * xp_multiplier)
 		if kills >= int(city.get("killTarget", 450)):
-			status = "win"
+			finish("win")
 		elif bool(enemy.get("boss", false)):
 			queue_relic_draft()
+		_on_enemy_death(enemy)
 		var index := enemies.find(enemy)
 		if index >= 0:
 			enemies.remove_at(index)
 	return damage
+
+func finish(result: String) -> void:
+	status = result
+	enemy_projectiles.clear()
+	enemy_lobs.clear()
+	enemy_wall_lobs.clear()
 
 func gain_xp(amount: float) -> void:
 	xp += amount
@@ -363,6 +387,7 @@ func _update_step(delta: float) -> void:
 	_update_units(delta)
 	_update_ultimate_effects(delta)
 	_update_projectiles(delta)
+	_update_enemy_attacks(delta)
 	_update_charges(delta)
 	_update_ripples(delta)
 	_update_foe_lord(delta)
@@ -517,43 +542,64 @@ func _start_next_wave() -> void:
 
 func _spawn_enemy(spec: Dictionary) -> void:
 	var hp := float(spec.hp)
+	var enemy_speed := float(spec.speed)
+	var x_min := 40.0
+	var x_max := 440.0
+	if bool(spec.get("apply_field", true)):
+		var field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
+		if field.has("hpMul"): hp = round(hp * float(field.hpMul))
+		if field.has("spdMul"): enemy_speed *= float(field.spdMul)
+		if bool(field.get("narrow", false)):
+			x_min = 480.0 * 0.28
+			x_max = 480.0 * 0.72
 	var enemy := spec.duplicate(true)
-	enemy["x"] = _randf(40.0, 440.0) if spec.get("x") == null else float(spec.x)
+	enemy["x"] = _randf(x_min, x_max) if spec.get("x") == null else float(spec.x)
 	enemy["y"] = -40.0 if spec.get("y") == null else float(spec.y)
 	enemy["hp"] = hp
 	enemy["hp_max"] = hp
-	enemy["base_speed"] = float(spec.speed)
+	enemy["base_speed"] = enemy_speed
 	enemy["dead"] = false
+	var shield: float = round(hp * 0.6) if str(spec.get("affix", "")) == "shield" else 0.0
+	enemy["shield"] = shield
+	enemy["shield_max"] = shield
+	enemy["boss"] = bool(spec.get("boss", false))
+	enemy["big"] = bool(spec.get("big", false))
+	enemy["summoner"] = bool(spec.get("summoner", false))
+	enemy["kit"] = spec.get("kit", null)
+	enemy["kitSplit"] = int(spec.get("kitSplit", 0))
+	enemy["summonT"] = 3.5 if ["summon", "avatar"].has(str(enemy.kit)) else 6.0
+	enemy["auraT"] = 0.0
+	enemy["sealCastT"] = 0.0
+	enemy["regenTick"] = 0.0
+	enemy["silencedT"] = float(enemy.get("silencedT", 0.0))
+	enemy["stunT"] = float(enemy.get("stunT", 0.0))
+	enemy["fearT"] = float(enemy.get("fearT", 0.0))
+	enemy["sleepT"] = float(enemy.get("sleepT", 0.0))
+	enemy["charmT"] = float(enemy.get("charmT", 0.0))
+	enemy["slowT"] = float(enemy.get("slowT", 0.0))
+	enemy["burnT"] = float(enemy.get("burnT", 0.0))
+	enemy["burnDmg"] = float(enemy.get("burnDmg", 0.0))
+	enemy["burnTick"] = float(enemy.get("burnTick", 0.0))
 	enemies.append(enemy)
 
 func _update_enemies(delta: float) -> void:
+	cata_volley_time = maxf(0.0, cata_volley_time - delta)
+	var banners := enemies.filter(func(other): return str(other.get("special", "")) == "banner" and not bool(other.get("dead", false)) and float(other.get("silencedT", 0.0)) <= 0)
+	var wardens := enemies.filter(func(other): return str(other.get("special", "")) == "warden" and not bool(other.get("dead", false)) and float(other.get("silencedT", 0.0)) <= 0)
 	for enemy in enemies.duplicate():
-		if bool(enemy.get("dead", false)):
-			continue
+		if bool(enemy.get("dead", false)): continue
 		if float(enemy.get("burnT", 0.0)) > 0:
 			enemy.burnT = maxf(0.0, float(enemy.burnT) - delta)
 			enemy.burnTick = float(enemy.get("burnTick", 0.0)) - delta
 			if float(enemy.burnTick) <= 0:
 				enemy.burnTick = 0.5
 				damage_enemy(enemy, float(enemy.get("burnDmg", 0.0)))
-				if bool(enemy.get("dead", false)):
-					continue
+				if bool(enemy.get("dead", false)): continue
 		var slowed := float(enemy.get("slowT", 0.0)) > 0
-		if slowed:
-			enemy.slowT = maxf(0.0, float(enemy.slowT) - delta)
-		if float(enemy.get("armorBreakT", 0.0)) > 0:
-			enemy.armorBreakT = maxf(0.0, float(enemy.armorBreakT) - delta)
+		if slowed: enemy.slowT = maxf(0.0, float(enemy.slowT) - delta)
+		if float(enemy.get("armorBreakT", 0.0)) > 0: enemy.armorBreakT = maxf(0.0, float(enemy.armorBreakT) - delta)
 		for status_key in ["charmT", "sleepT", "fearT", "silencedT", "jianjunT", "duelT"]:
-			if float(enemy.get(status_key, 0.0)) > 0:
-				enemy[status_key] = maxf(0.0, float(enemy.get(status_key, 0.0)) - delta)
-		if str(enemy.get("special", "")) == "shaman" and float(enemy.y) > 60.0 and float(enemy.get("silencedT", 0.0)) <= 0:
-			enemy.sealCastT = float(enemy.get("sealCastT", 0.0)) - delta
-			if float(enemy.sealCastT) <= 0:
-				enemy.sealCastT = 7.0
-				var seal_targets := units().filter(func(unit): return float(unit.get("sealedT", 0.0)) <= 0 and not ["egg", "granary"].has(str(unit.hero.cls)))
-				if not seal_targets.is_empty():
-					var sealed_unit: Dictionary = _pick(seal_targets)
-					sealed_unit.sealedT = 3.0
+			if float(enemy.get(status_key, 0.0)) > 0: enemy[status_key] = maxf(0.0, float(enemy.get(status_key, 0.0)) - delta)
 		if str(enemy.get("special", "")) == "ram":
 			enemy.fearT = 0.0
 			enemy.sleepT = 0.0
@@ -561,71 +607,332 @@ func _update_enemies(delta: float) -> void:
 			enemy.slowT = maxf(0.0, float(enemy.get("slowT", 0.0)) - delta)
 			enemy.stunT = maxf(0.0, float(enemy.get("stunT", 0.0)) - delta)
 			enemy.kb = minf(float(enemy.get("kb", 0.0)), 10.0)
+		_update_enemy_abilities(enemy, delta)
+		if bool(enemy.get("dead", false)): continue
+		enemy._guarded = false
+		var banner_multiplier := 1.0
+		if enemy.get("special") == null:
+			for banner in banners:
+				if Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(banner.x), float(banner.y))) < 120.0 * 120.0:
+					banner_multiplier = 1.35
+					break
+			for warden in wardens:
+				if Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(warden.x), float(warden.y))) < 130.0 * 130.0:
+					enemy._guarded = true
+					break
+		var frenzy := (str(enemy.get("affix", "")) == "frenzy" or str(enemy.get("kit", "")) == "affixlord") and float(enemy.hp) < float(enemy.hp_max) * 0.4
+		var speed_now := float(enemy.base_speed) * (0.55 if slowed else 1.0) * (0.6 if enemy_in_flood(enemy) else 1.0) * banner_multiplier * (1.6 if frenzy else 1.0)
 		if float(enemy.get("kb", 0.0)) > 0:
 			var knock_step := minf(float(enemy.kb), 300.0 * delta)
 			enemy.y = maxf(-30.0, float(enemy.y) - knock_step)
 			enemy.kb = float(enemy.kb) - knock_step
-		var stunned := float(enemy.get("stunT", 0.0)) > 0
-		if stunned:
+		if float(enemy.get("stunT", 0.0)) > 0:
 			enemy.stunT = maxf(0.0, float(enemy.stunT) - delta)
 			continue
-		if float(enemy.get("sleepT", 0.0)) > 0:
-			continue
+		if float(enemy.get("sleepT", 0.0)) > 0: continue
 		if float(enemy.get("turncoatT", 0.0)) > 0:
 			enemy.turncoatT = maxf(0.0, float(enemy.turncoatT) - delta)
 			enemy.turncoatTick = float(enemy.get("turncoatTick", 0.0)) - delta
 			if float(enemy.turncoatTick) <= 0:
 				enemy.turncoatTick = 0.8
-				var victims := enemies.filter(func(other): return other != enemy and not bool(other.get("dead", false)) and float(other.get("turncoatT", 0.0)) <= 0)
-				victims = victims.filter(func(other): return Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(other.x), float(other.y))) < 160.0 * 160.0)
-				if not victims.is_empty():
-					victims.sort_custom(func(a, b): return Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(a.x), float(a.y))) < Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(b.x), float(b.y))))
-					damage_enemy(victims[0], maxf(3.0, float(enemy.get("hp_max", 100.0)) * 0.08), "", "turncoat")
+				var victims := enemies.filter(func(other): return other != enemy and not bool(other.get("dead", false)) and float(other.get("turncoatT", 0.0)) <= 0 and Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(other.x), float(other.y))) < 160.0 * 160.0)
+				victims.sort_custom(func(a, b): return Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(a.x), float(a.y))) < Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(b.x), float(b.y))))
+				if not victims.is_empty(): damage_enemy(victims[0], maxf(3.0, float(enemy.get("hp_max", 100.0)) * 0.08), "", "turncoat")
 			continue
 		if float(enemy.get("fearT", 0.0)) > 0:
-			enemy.y = maxf(-30.0, float(enemy.y) - float(enemy.base_speed) * 0.8 * delta)
+			enemy.y = maxf(-30.0, float(enemy.y) - speed_now * 0.8 * delta)
 			continue
-		var flood_slow := enemy_in_flood(enemy)
-		var speed_now := float(enemy.base_speed) * (0.55 if slowed else 1.0) * (0.6 if flood_slow else 1.0)
-		if _apply_ultimate_blockers(enemy, delta):
-			continue
+		if _apply_ultimate_blockers(enemy, delta): continue
 		var blocker := _find_lane_blocker(enemy)
 		if not blocker.is_empty():
 			var target_x := GRID_X + int(blocker.col) * CELL + CELL / 2.0
-			if absf(target_x - float(enemy.x)) > 4.0:
-				enemy.x = move_toward(float(enemy.x), target_x, 130.0 * delta)
-			var stop_y := float(blocker.stop_y)
-			if float(enemy.y) >= stop_y:
-				enemy.y = stop_y
-				enemy.atkT = float(enemy.get("atkT", 0.0)) - delta
-				if float(enemy.atkT) <= 0:
-					enemy.atkT = 1.6 if bool(enemy.get("boss", false)) else 1.2
-					var base_damage := 30.0 if bool(enemy.get("boss", false)) else (16.0 if bool(enemy.get("big", false)) else 7.0)
-					var hit_damage := roundi(base_damage * (1.0 + wave * 0.06) * foe_damage_multiplier())
-					hurt_unit(blocker.unit, hit_damage, int(blocker.row), int(blocker.col))
-					if str(blocker.unit.hero.cls) == "shield" and not bool(enemy.get("dead", false)):
-						var reflect_multiplier := 2.0 if float(blocker.unit.get("reflectT", 0.0)) > 0 else 1.0
-						var reflect := roundi(float(blocker.unit.hp_max) * (0.04 + float(buffs.get("shieldReflect", 0.0))) * reflect_multiplier)
-						if reflect > 0:
-							damage_enemy(enemy, reflect)
-						if str(blocker.unit.hero.id) == "yanyan":
-							enemy.slowT = maxf(float(enemy.get("slowT", 0.0)), 1.5)
-						gain_xp(1.0)
-			else:
-				enemy.y = minf(stop_y, float(enemy.y) + speed_now * delta)
+			if absf(target_x - float(enemy.x)) > 4.0: enemy.x = move_toward(float(enemy.x), target_x, 130.0 * delta)
+		var special := str(enemy.get("special", ""))
+		if special == "assassin" and float(enemy.y) > GRID_Y - 170.0:
+			_update_assassin(enemy, delta)
+		elif special == "shooter" and float(enemy.get("silencedT", 0.0)) <= 0 and not enemy_in_flood(enemy) and not blocker.is_empty() and float(blocker.stop_y) - float(enemy.y) < 300.0 and float(enemy.y) < float(blocker.stop_y):
+			enemy.y = minf(float(blocker.stop_y), float(enemy.y) + speed_now * 0.4 * delta)
+			enemy.shootT = float(enemy.get("shootT", 0.9)) - delta
+			if float(enemy.shootT) <= 0:
+				enemy.shootT = 2.2
+				var shooter_hit := roundi(7.0 * (1.0 + wave * 0.06) * foe_damage_multiplier())
+				_shoot_enemy_arrow(enemy, blocker.unit, maxi(1, roundi(shooter_hit * 0.9)), 260.0)
+		elif special == "thrower" and float(enemy.get("silencedT", 0.0)) <= 0 and not enemy_in_flood(enemy) and not blocker.is_empty() and float(enemy.y) > GRID_Y - 340.0 and float(enemy.y) < float(blocker.stop_y):
+			enemy.y = minf(float(blocker.stop_y), float(enemy.y) + speed_now * 0.35 * delta)
+			enemy.throwT = float(enemy.get("throwT", 1.4)) - delta
+			if float(enemy.throwT) <= 0:
+				enemy.throwT = 4.0
+				_throw_enemy_lob(enemy, 0.8)
+		elif special == "cata" and float(enemy.y) > GRID_Y - 380.0:
+			if float(enemy.get("silencedT", 0.0)) <= 0 and not enemy_in_flood(enemy):
+				enemy.lobT = maxf(-0.5, float(enemy.get("lobT", 4.0)) - delta)
+				if float(enemy.lobT) <= 0 and cata_volley_time <= 0:
+					enemy.lobT = 6.0
+					cata_volley_time = 2.0
+					enemy_wall_lobs.append({"x0": float(enemy.x), "y0": float(enemy.y), "x1": clampf(float(enemy.x) + _randf(-24.0, 24.0), 20.0, 460.0), "y1": DEFENSE_LINE - 4.0, "t": 0.0, "dur": 1.4, "source": enemy, "dead": false})
+		elif not blocker.is_empty():
+			_update_enemy_melee(enemy, blocker, speed_now, delta)
 		else:
 			enemy.y = float(enemy.y) + speed_now * delta
 		if float(enemy.y) > DEFENSE_LINE - 6.0:
 			var wall_damage := int(enemy.dmg)
-			if relic_ids.has("lianhuan"):
-				wall_damage = maxi(1, wall_damage - 1)
+			if relic_ids.has("lianhuan"): wall_damage = maxi(1, wall_damage - 1)
 			wall = maxi(0, wall - wall_damage)
 			enemy.dead = true
-			if wall <= 0:
-				status = "over"
+			if wall <= 0: finish("over")
 	for index in range(enemies.size() - 1, -1, -1):
-		if bool(enemies[index].get("dead", false)):
-			enemies.remove_at(index)
+		if bool(enemies[index].get("dead", false)): enemies.remove_at(index)
+
+func _update_enemy_abilities(enemy: Dictionary, delta: float) -> void:
+	var silenced := float(enemy.get("silencedT", 0.0)) > 0
+	var special := str(enemy.get("special", ""))
+	if special == "healer" and not silenced:
+		enemy.auraT = float(enemy.get("auraT", 0.0)) - delta
+		if float(enemy.auraT) <= 0:
+			enemy.auraT = 1.5
+			for other in enemies:
+				if other == enemy or bool(other.get("dead", false)) or float(other.hp) >= float(other.hp_max): continue
+				if Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(other.x), float(other.y))) < 110.0 * 110.0:
+					other.hp = minf(float(other.hp_max), float(other.hp) + round(float(other.hp_max) * 0.06))
+	if special == "shaman" and float(enemy.y) > 60.0 and not silenced:
+		enemy.sealCastT = float(enemy.get("sealCastT", 0.0)) - delta
+		if float(enemy.sealCastT) <= 0:
+			enemy.sealCastT = 7.0
+			var targets := units().filter(func(unit): return float(unit.get("sealedT", 0.0)) <= 0)
+			if not targets.is_empty():
+				var target: Dictionary = _pick(targets)
+				target.sealedT = 3.0
+	if bool(enemy.get("summoner", false)) and not silenced:
+		enemy.summonT = float(enemy.get("summonT", 6.0)) - delta
+		if float(enemy.summonT) <= 0:
+			var fast := ["summon", "avatar"].has(str(enemy.get("kit", "")))
+			enemy.summonT = 3.5 if fast else 6.0
+			for index in (4 if fast else 3):
+				_spawn_child_enemy(enemy, {
+					"hp_ratio": 0.04, "speed_mul": 1.8, "r": 13, "big": false,
+					"xp": 1.0, "dmg": 1, "x_spread": 50.0, "behind": true,
+					"random_class": true, "inherit_tri": false,
+				})
+	if (str(enemy.get("affix", "")) == "regen" or str(enemy.get("kit", "")) == "affixlord") and float(enemy.hp) < float(enemy.hp_max):
+		enemy.regenTick = float(enemy.get("regenTick", 0.0)) - delta
+		if float(enemy.regenTick) <= 0:
+			enemy.regenTick = 1.0
+			enemy.hp = minf(float(enemy.hp_max), float(enemy.hp) + maxf(1.0, round(float(enemy.hp_max) * 0.02)))
+	if not bool(enemy.get("boss", false)) or silenced: return
+	if wave >= 10 and not enemy_in_flood(enemy):
+		enemy.bossThrowT = float(enemy.get("bossThrowT", 5.0)) - delta
+		if float(enemy.bossThrowT) <= 0 and not units().is_empty():
+			enemy.bossThrowT = 5.0
+			_throw_enemy_lob(enemy, 0.8)
+	var kit := str(enemy.get("kit", ""))
+	if kit == "firepot":
+		enemy.kitT = float(enemy.get("kitT", 5.0)) - delta
+		if float(enemy.kitT) <= 0 and not units().is_empty():
+			enemy.kitT = 4.5
+			_throw_enemy_lob(enemy, 1.25)
+			_throw_enemy_lob(enemy, 1.25)
+	elif kit == "volley":
+		enemy.kitT = float(enemy.get("kitT", 4.0)) - delta
+		if float(enemy.kitT) <= 0 and not units().is_empty():
+			enemy.kitT = 3.5
+			for index in 4:
+				_shoot_enemy_arrow(enemy, {}, roundi(9.0 * (1.0 + wave * 0.06)), 280.0, 12.0)
+	if kit == "sealwave" or kit == "avatar":
+		enemy.sealKitT = float(enemy.get("sealKitT", 8.0)) - delta
+		if float(enemy.sealKitT) <= 0:
+			enemy.sealKitT = 9.0
+			var seal_targets := units().filter(func(unit): return float(unit.get("sealedT", 0.0)) <= 0)
+			for index in mini(2, seal_targets.size()):
+				var chosen_index := int(floor(rng.next_float() * seal_targets.size()))
+				var sealed: Dictionary = seal_targets.pop_at(chosen_index)
+				sealed.sealedT = 2.5
+	if kit == "thunder" or kit == "avatar":
+		enemy.thunderKitT = float(enemy.get("thunderKitT", 7.0)) - delta
+		if float(enemy.thunderKitT) <= 0 and not units().is_empty():
+			enemy.thunderKitT = 7.0
+			var target: Dictionary = _pick(units())
+			var position := _find_unit_position(target)
+			if not position.is_empty(): hurt_unit(target, roundi(12.0 + wave), int(position.row), int(position.col))
+
+func _update_assassin(enemy: Dictionary, delta: float) -> void:
+	if not bool(enemy.get("leaped", false)):
+		var target: Dictionary = {}
+		for row in range(GRID_ROWS - 1, -1, -1):
+			var candidates := []
+			for col in GRID_COLS:
+				if grid[row][col] != null: candidates.append({"unit": grid[row][col], "row": row, "col": col})
+			if candidates.is_empty(): continue
+			var soft := candidates.filter(func(candidate): return ["archer", "support", "granary", "egg"].has(str(candidate.unit.hero.cls)))
+			target = _pick(soft if not soft.is_empty() else candidates)
+			break
+		if target.is_empty():
+			enemy.y = float(enemy.y) + float(enemy.base_speed) * delta
+			return
+		var center := slot_center(int(target.row), int(target.col))
+		enemy.x = center.x + _randf(-14.0, 14.0)
+		enemy.y = center.y - 30.0
+		enemy.leaped = true
+		enemy.assR = int(target.row)
+		enemy.assC = int(target.col)
+	var row := int(enemy.get("assR", -1))
+	var col := int(enemy.get("assC", -1))
+	var unit = grid[row][col] if row >= 0 and row < GRID_ROWS and col >= 0 and col < GRID_COLS else null
+	if unit == null or float(unit.hp) <= 0:
+		enemy.leaped = false
+		return
+	enemy.atkT = float(enemy.get("atkT", 0.5)) - delta
+	if float(enemy.atkT) <= 0:
+		enemy.atkT = 0.85
+		hurt_unit(unit, roundi(9.0 * (1.0 + wave * 0.06) * foe_damage_multiplier()), row, col)
+
+func _update_enemy_melee(enemy: Dictionary, blocker: Dictionary, speed_now: float, delta: float) -> void:
+	var stop_y := float(blocker.stop_y)
+	if float(enemy.y) < stop_y:
+		enemy.y = minf(stop_y, float(enemy.y) + speed_now * delta)
+		return
+	enemy.y = stop_y
+	enemy.atkT = float(enemy.get("atkT", 0.0)) - delta
+	if float(enemy.atkT) > 0: return
+	enemy.atkT = 1.6 if bool(enemy.get("boss", false)) else 1.2
+	var base_damage := 30.0 if bool(enemy.get("boss", false)) else (16.0 if bool(enemy.get("big", false)) else 7.0)
+	var hit_damage := roundi(base_damage * (1.0 + wave * 0.06) * foe_damage_multiplier())
+	hurt_unit(blocker.unit, hit_damage, int(blocker.row), int(blocker.col))
+	if str(blocker.unit.hero.cls) != "shield" or bool(enemy.get("dead", false)): return
+	var reflect_multiplier := 2.0 if float(blocker.unit.get("reflectT", 0.0)) > 0 else 1.0
+	var reflect := roundi(float(blocker.unit.hp_max) * (0.04 + float(buffs.get("shieldReflect", 0.0))) * reflect_multiplier)
+	if reflect > 0: damage_enemy(enemy, reflect)
+	if str(blocker.unit.hero.id) == "yanyan": enemy.slowT = maxf(float(enemy.get("slowT", 0.0)), 1.5)
+	gain_xp(1.0)
+
+func _shoot_enemy_arrow(enemy: Dictionary, default_target: Dictionary, damage: int, projectile_speed: float, x_spread := 0.0) -> void:
+	var attacker_position := Vector2(float(enemy.x), float(enemy.y))
+	var target := _enemy_taunt_target(attacker_position)
+	var shot_x := float(enemy.x) + (_randf(-x_spread, x_spread) if x_spread > 0 else 0.0)
+	if target.is_empty(): target = _pick(units()) if default_target.is_empty() else default_target
+	enemy_projectiles.append({"x": shot_x, "y": float(enemy.y) + float(enemy.r) * 0.5, "target": target, "speed": projectile_speed, "damage": damage, "dead": false})
+
+func _throw_enemy_lob(enemy: Dictionary, multiplier: float) -> void:
+	var occupied := units()
+	if occupied.is_empty(): return
+	var target: Dictionary = _enemy_taunt_target(Vector2(float(enemy.x), float(enemy.y)))
+	if target.is_empty(): target = _pick(occupied)
+	var position := _find_unit_position(target)
+	if position.is_empty(): return
+	var center := slot_center(int(position.row), int(position.col))
+	var base_damage := 30.0 if bool(enemy.get("boss", false)) else 16.0
+	var hit_damage := roundi(base_damage * (1.0 + wave * 0.06) * foe_damage_multiplier())
+	enemy_lobs.append({"x0": float(enemy.x), "y0": float(enemy.y), "x1": center.x + _randf(-14.0, 14.0), "y1": center.y + _randf(-8.0, 8.0), "t": 0.0, "dur": 1.1, "damage": maxi(1, roundi(hit_damage * multiplier)), "dead": false})
+
+func _enemy_taunt_target(attacker_position: Vector2) -> Dictionary:
+	if rng.next_float() >= 0.7: return {}
+	var shields := units().filter(func(unit): return str(unit.hero.cls) == "shield")
+	if shields.is_empty(): return {}
+	var nearest: Dictionary = shields[0]
+	var nearest_distance := INF
+	for shield in shields:
+		var position := _find_unit_position(shield)
+		if position.is_empty(): continue
+		var distance := attacker_position.distance_squared_to(slot_center(int(position.row), int(position.col)))
+		if distance < nearest_distance:
+			nearest = shield
+			nearest_distance = distance
+	return nearest
+
+func _update_enemy_attacks(delta: float) -> void:
+	for projectile in enemy_projectiles:
+		if bool(projectile.get("dead", false)): continue
+		var position := _find_unit_position(projectile.target)
+		if position.is_empty() or float(projectile.target.get("hp", 0.0)) <= 0:
+			projectile.dead = true
+			continue
+		var target_point := slot_center(int(position.row), int(position.col)) - Vector2(0, 10)
+		var current := Vector2(float(projectile.x), float(projectile.y))
+		var distance := current.distance_to(target_point)
+		if distance < 14.0:
+			projectile.dead = true
+			hurt_unit(projectile.target, int(projectile.damage), int(position.row), int(position.col))
+			continue
+		var next := current.move_toward(target_point, float(projectile.speed) * delta)
+		projectile.x = next.x
+		projectile.y = next.y
+	for index in range(enemy_projectiles.size() - 1, -1, -1):
+		if bool(enemy_projectiles[index].get("dead", false)): enemy_projectiles.remove_at(index)
+	for lob in enemy_lobs:
+		lob.t = float(lob.t) + delta
+		if float(lob.t) < float(lob.dur): continue
+		lob.dead = true
+		for row in GRID_ROWS:
+			for col in GRID_COLS:
+				var unit = grid[row][col]
+				if unit == null: continue
+				if slot_center(row, col).distance_squared_to(Vector2(float(lob.x1), float(lob.y1))) > 70.0 * 70.0: continue
+				var damage := int(lob.damage)
+				if str(unit.hero.cls) != "shield" and _shield_cover(row, col): damage = roundi(damage * (0.35 if relic_ids.has("hufu") else 0.5))
+				hurt_unit(unit, damage, row, col)
+	for index in range(enemy_lobs.size() - 1, -1, -1):
+		if bool(enemy_lobs[index].get("dead", false)): enemy_lobs.remove_at(index)
+	for lob in enemy_wall_lobs:
+		var source: Dictionary = lob.get("source", {})
+		if source.is_empty() or bool(source.get("dead", false)) or not enemies.has(source):
+			lob.dead = true
+			continue
+		lob.t = float(lob.t) + delta
+		if float(lob.t) < float(lob.dur): continue
+		lob.dead = true
+		wall = maxi(0, wall - 1)
+		if wall <= 0: finish("over")
+	for index in range(enemy_wall_lobs.size() - 1, -1, -1):
+		if bool(enemy_wall_lobs[index].get("dead", false)): enemy_wall_lobs.remove_at(index)
+
+func _find_unit_position(target: Dictionary) -> Dictionary:
+	for row in GRID_ROWS:
+		for col in GRID_COLS:
+			if grid[row][col] == target: return {"row": row, "col": col}
+	return {}
+
+func _on_enemy_death(enemy: Dictionary) -> void:
+	if int(enemy.get("kitSplit", 0)) > 0:
+		for index in 2:
+			_spawn_child_enemy(enemy, {"hp_ratio": 0.4, "speed_mul": 1.25, "r": maxi(22, int(enemy.r) - 12), "big": true, "xp": maxf(2.0, round(float(enemy.get("xp", 0.0)) * 0.25)), "dmg": 3, "kitSplit": int(enemy.kitSplit) - 1, "x_spread": 36.0, "y_spread": 10.0})
+	if str(enemy.get("special", "")) == "bomber":
+		var blast_damage := roundi(14.0 + wave)
+		for row in GRID_ROWS:
+			for col in GRID_COLS:
+				var unit = grid[row][col]
+				if unit == null or slot_center(row, col).distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) > 135.0 * 135.0: continue
+				var damage := blast_damage
+				if str(unit.hero.cls) != "shield" and _shield_cover(row, col): damage = roundi(damage * (0.35 if relic_ids.has("hufu") else 0.5))
+				hurt_unit(unit, damage, row, col)
+	if str(enemy.get("affix", "")) == "split":
+		for index in 2:
+			_spawn_child_enemy(enemy, {"hp_ratio": 0.2, "speed_mul": 1.5, "r": 13, "big": false, "xp": 1.0, "dmg": 1, "x_spread": 24.0, "y_spread": 10.0})
+
+func _spawn_child_enemy(parent: Dictionary, options: Dictionary) -> void:
+	var child_hp := maxf(1.0, round(float(parent.hp_max) * float(options.hp_ratio)))
+	var x_spread := float(options.get("x_spread", 24.0))
+	var child_x := clampf(float(parent.x) + _randf(-x_spread, x_spread), 16.0, 464.0)
+	var child_y := maxf(-20.0, float(parent.y) - _randf(10.0, 40.0)) if bool(options.get("behind", false)) else float(parent.y) + _randf(-float(options.get("y_spread", 10.0)), float(options.get("y_spread", 10.0)))
+	var child_class := str(_pick(ENEMY_CLASSES)) if bool(options.get("random_class", false)) else str(parent.get("cls", "spear"))
+	var child_tri := str(parent.get("tri", "")) if bool(options.get("inherit_tri", true)) else ""
+	_spawn_enemy({
+		"x": child_x,
+		"y": child_y,
+		"hp": child_hp,
+		"speed": float(parent.base_speed) * float(options.speed_mul),
+		"r": int(options.r),
+		"cls": child_class,
+		"big": bool(options.big),
+		"boss": false,
+		"affix": null,
+		"special": null,
+		"tri": child_tri,
+		"xp": float(options.xp),
+		"dmg": int(options.dmg),
+		"summoner": false,
+		"kit": null,
+		"kitSplit": int(options.get("kitSplit", 0)),
+		"apply_field": false,
+	})
 
 func hurt_unit(unit: Dictionary, amount: int, row: int, col: int) -> int:
 	if unit.is_empty() or float(unit.get("hp", 0.0)) <= 0:
@@ -645,7 +952,7 @@ func hurt_unit(unit: Dictionary, amount: int, row: int, col: int) -> int:
 	if str(traits.get(_cell_key(row, col), "")) == "guard":
 		damage = roundi(damage * 0.8)
 	if str(unit.hero.cls) != "shield" and _has_adjacent_shield(row, col):
-		damage = roundi(damage * 0.75)
+		damage = roundi(damage * (0.65 if relic_ids.has("hufu") else 0.75))
 	damage = maxi(1, damage)
 	unit.hp = float(unit.hp) - damage
 	if float(unit.hp) <= 0:
@@ -689,6 +996,12 @@ func _has_adjacent_shield(row: int, col: int) -> bool:
 			var unit = grid[other_row][other_col]
 			if unit != null and str(unit.hero.cls) == "shield":
 				return true
+	return false
+
+func _shield_cover(row: int, col: int) -> bool:
+	for other_row in row:
+		var unit = grid[other_row][col]
+		if unit != null and str(unit.hero.cls) == "shield": return true
 	return false
 
 func enemy_in_flood(enemy: Dictionary) -> bool:
@@ -818,7 +1131,8 @@ func _update_projectiles(delta: float) -> void:
 				if bool(projectile.get("burn", false)) and str(mutations.get(wave, "")) != "rainstorm":
 					enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 2.5)
 					enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), maxf(1.0, round(float(projectile.damage) * 0.12)) * (2.0 if str(mutations.get(wave, "")) == "eastwind" else 1.0))
-				_hit_enemy(enemy, float(projectile.damage), str(projectile.tri), float(projectile.crit), projectile.get("owner", {}))
+				var projectile_damage := float(projectile.damage) * (0.25 if str(enemy.get("special", "")) == "pavise" else 1.0)
+				_hit_enemy(enemy, projectile_damage, str(projectile.tri), float(projectile.crit), projectile.get("owner", {}))
 				if int(projectile.pierce) > 0:
 					projectile.pierce = int(projectile.pierce) - 1
 				elif int(projectile.get("bounces", 0)) > 0:
@@ -1013,11 +1327,25 @@ func prepare_next_wave() -> void:
 		return
 	next_queue = build_wave(wave + 1)
 	var counts := {"spear": 0, "cav": 0, "archer": 0}
+	var affixes := {}
+	var specials := {}
+	var boss := ""
 	for spec in next_queue:
 		counts[spec.cls] += 1
+		if spec.get("affix") != null:
+			var affix_id := str(spec.affix)
+			affixes[affix_id] = int(affixes.get(affix_id, 0)) + 1
+		if spec.get("special") != null:
+			var special_id := str(spec.special)
+			specials[special_id] = int(specials.get(special_id, 0)) + 1
+		if bool(spec.get("boss", false)):
+			boss = str(spec.get("bossName", ""))
 	var foe_tri := str(city.get("foes", {}).get("tri", ""))
 	next_wave_preview = {
 		"counts": counts,
+		"affixes": affixes,
+		"specials": specials,
+		"boss": boss,
 		"themeElems": [foe_tri] if foe_tri else [],
 		"weakElem": _counter_of(foe_tri),
 		"mutation": mutations.get(wave + 1),
@@ -1039,6 +1367,11 @@ func build_wave(number: int) -> Array:
 	var base_xp := float(2 + int(floor(number / 8.0))) * 0.65 * (2.0 if mutation == "fat" else 1.0)
 	for index in count:
 		var enemy_class: String = _pick(ENEMY_CLASSES)
+		var special = foe_behavior.roll_special(rng, number, city, mutation)
+		if special != null:
+			var special_delay := 0.0 if index == 0 else _randf(0.3, maxf(0.35, 1.0 - number * 0.03))
+			queue.append(foe_behavior.make_spec(str(special), hp, base_speed, base_xp, enemy_class, special_delay, _roll_tri(foe_tri)))
+			continue
 		var big: bool = rng.next_float() < clampf(0.06 + number * 0.011, 0.0, 0.3)
 		var affix = null
 		if big and number >= 3 and rng.next_float() < clampf(0.34 + number * 0.025 + float(city.affixAdd), 0.0, 0.9):
@@ -1078,6 +1411,9 @@ func build_wave(number: int) -> Array:
 			"tri": boss_tri,
 			"xp": base_xp * (25.0 if mega else 14.0),
 			"dmg": 10 if mega else 6,
+			"summoner": number >= 10 or ["summon", "avatar"].has(str(city.get("bossKit", ""))),
+			"kit": city.get("bossKit", null) if not str(city.get("bossKit", "")).is_empty() else null,
+			"kitSplit": 2 if str(city.get("bossKit", "")) == "split" else 0,
 		}
 		queue.append(boss_spec)
 		if bool(city.get("eliteWave", false)):

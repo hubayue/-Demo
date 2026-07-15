@@ -97,6 +97,38 @@ func _run() -> void:
 	await process_frame
 	if not _save_capture(output_directory.path_join("v7.19.2-hero-ultimate.png")):
 		return
+	run.ult_events = []
+	run.clear_formation()
+	run.obstacles.clear()
+	run.add_unit_at("caoren", 0, 0)
+	run.add_unit_at("huangzhong", 2, 2)
+	run.add_unit_at("huatuo", 2, 4)
+	run.enemies = []
+	run.enemy_projectiles = []
+	run.enemy_lobs = []
+	run.enemy_wall_lobs = []
+	run.lord_command_events = []
+	run.lord_effect_rings = []
+	run.wuxing_time = 0.0
+	run.foe_events = []
+	run.wave = 15
+	var special_rows := [
+		["healer", 58.0, 245.0], ["banner", 132.0, 280.0], ["warden", 206.0, 320.0],
+		["shooter", 240.0, 355.0], ["cata", 318.0, 230.0], ["pavise", 390.0, 365.0],
+	]
+	for row in special_rows:
+		run._spawn_enemy({"x": row[1], "y": row[2], "hp": 220.0, "speed": 0.0, "r": int(run.foe_behavior.SPECIALS[str(row[0])].r), "cls": "archer", "big": false, "boss": false, "affix": null, "special": row[0], "tri": "liangmou", "xp": 0.0, "dmg": 2})
+	run._spawn_enemy({"x": 420.0, "y": 205.0, "hp": 900.0, "speed": 0.0, "r": 40, "cls": "spear", "big": true, "boss": true, "bossName": "张角", "affix": "shield", "special": null, "tri": "badao", "xp": 0.0, "dmg": 6, "summoner": true, "kit": "avatar", "kitSplit": 0})
+	for enemy in run.enemies:
+		if str(enemy.get("special", "")) == "shooter": enemy.shootT = 0.0
+		if str(enemy.get("special", "")) == "cata": enemy.lobT = 0.0
+	run._update_enemies(0.01)
+	run._update_enemy_attacks(0.35)
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	if not _save_capture(output_directory.path_join("v7.19.2-special-foes.png")):
+		return
 	print("Godot battle screenshots: PASS")
 	quit(0)
 

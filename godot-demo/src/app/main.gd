@@ -6,6 +6,7 @@ const OpeningPickerSource = preload("res://src/progression/opening_picker.gd")
 const Mulberry32Source = preload("res://src/core/mulberry32.gd")
 const BattleRunSource = preload("res://src/battle/battle_run.gd")
 const BattleLordSource = preload("res://src/battle/battle_lord.gd")
+const BattleFoesSource = preload("res://src/battle/battle_foes.gd")
 
 const VIEW_SIZE := Vector2(480.0, 800.0)
 const CURRENT_WEEK := 2948
@@ -31,6 +32,8 @@ const TRI_DISPLAY := {
 	"liangmou": {"name": "良谋", "icon": "✌", "color": Color("4aa8ff"), "counter": "badao"},
 	"rende": {"name": "仁德", "icon": "✋", "color": Color("7ad86a"), "counter": "liangmou"},
 }
+const SPECIAL_GLYPHS := {"runner": "奔", "healer": "医", "shooter": "弓", "banner": "旗", "thrower": "投", "shaman": "妖", "rattan": "藤", "ram": "车", "cata": "砲", "warden": "督", "bomber": "爆", "assassin": "刺", "pavise": "楯"}
+const SPECIAL_COLORS := {"runner": Color("8ad2ff"), "healer": Color("8aff9a"), "shooter": Color("ffb06a"), "banner": Color("ffd24a"), "thrower": Color("c9b89a"), "shaman": Color("c96aff"), "rattan": Color("7fa34a"), "ram": Color("a48b70"), "cata": Color("c9b89a"), "warden": Color("ff6a5a"), "bomber": Color("ff7a3a"), "assassin": Color("ff9ad2"), "pavise": Color("8aa0b8")}
 const CITY_POSITIONS := [
 	Vector2(168, 650), Vector2(76, 578), Vector2(356, 630), Vector2(244, 568),
 	Vector2(66, 430), Vector2(396, 496), Vector2(282, 476), Vector2(348, 392),
@@ -461,7 +464,8 @@ func _draw_battle() -> void:
 	if battle_run.wave == 0 and battle_run.enemies.is_empty():
 		_text_center("黄巾来袭 %.1fs" % maxf(0.0, battle_run.wave_timer), 130 + foe_offset, 16, PALE_GOLD)
 	elif field_clear:
-		_text_center("下波压境 %.1fs" % maxf(0.0, battle_run.wave_timer), 130 + foe_offset, 15, PALE_GOLD)
+		var threat := _next_wave_threat_text()
+		_text_center(_short_text("下波 %.1fs%s" % [maxf(0.0, battle_run.wave_timer), " · " + threat if not threat.is_empty() else ""], 34), 130 + foe_offset, 14, PALE_GOLD)
 	else:
 		var pressure_left := maxf(0.0, battle_run.wave_budget - battle_run.wave_clock)
 		_text_center("第%d波 · 催战 %.1fs" % [battle_run.wave, pressure_left], 130 + foe_offset, 14, RED if pressure_left < 5.0 else MUTED)
@@ -536,15 +540,37 @@ func _draw_battle_entities() -> void:
 			draw_line(Vector2(float(members[index].x), float(members[index].y)), Vector2(float(members[index + 1].x), float(members[index + 1].y)), Color("c9a8ff"), 2.0)
 	for projectile in battle_run.projectiles:
 		draw_circle(Vector2(float(projectile.x), float(projectile.y)), 4.0, GOLD)
+	for projectile in battle_run.enemy_projectiles:
+		draw_circle(Vector2(float(projectile.x), float(projectile.y)), 4.5, RED)
+		draw_arc(Vector2(float(projectile.x), float(projectile.y)), 6.0, 0, TAU, 16, Color("ffcf9a"), 1.0)
+	for lob in battle_run.enemy_lobs:
+		var progress := clampf(float(lob.t) / maxf(0.01, float(lob.dur)), 0.0, 1.0)
+		var lob_position := Vector2(float(lob.x0), float(lob.y0)).lerp(Vector2(float(lob.x1), float(lob.y1)), progress) - Vector2(0, sin(progress * PI) * 70.0)
+		draw_arc(Vector2(float(lob.x1), float(lob.y1)), 70.0, 0, TAU, 40, Color("ff6a3a66"), 1.5)
+		draw_circle(lob_position, 7.0, Color("6f5b47"))
+	for lob in battle_run.enemy_wall_lobs:
+		var progress := clampf(float(lob.t) / maxf(0.01, float(lob.dur)), 0.0, 1.0)
+		var lob_position := Vector2(float(lob.x0), float(lob.y0)).lerp(Vector2(float(lob.x1), float(lob.y1)), progress) - Vector2(0, sin(progress * PI) * 90.0)
+		draw_arc(Vector2(float(lob.x1), float(lob.y1)), 22.0 - progress * 8.0, 0, TAU, 32, Color(1.0, 0.35, 0.35, 0.4 + progress * 0.5), 2.0)
+		draw_line(Vector2(float(lob.x1) - 10, float(lob.y1)), Vector2(float(lob.x1) + 10, float(lob.y1)), RED, 2.0)
+		draw_circle(lob_position, 8.0, Color("b8aa96"))
 	for charge in battle_run.charges:
 		draw_circle(Vector2(float(charge.x), float(charge.y)), 10.0, Color("ffe0a0"))
 	for enemy in battle_run.enemies:
 		var position := Vector2(float(enemy.x), float(enemy.y))
 		var radius := float(enemy.r)
 		var tri: Dictionary = TRI_DISPLAY.get(str(enemy.tri), TRI_DISPLAY.badao)
-		draw_circle(position, radius, Color("394632") if not bool(enemy.get("big", false)) else Color("5a3d29"))
+		var special_value = enemy.get("special", null)
+		var special := "" if special_value == null else str(special_value)
+		var body_color: Color = Color("394632") if not bool(enemy.get("big", false)) else Color("5a3d29")
+		if not special.is_empty(): body_color = SPECIAL_COLORS.get(special, body_color).darkened(0.45)
+		if bool(enemy.get("boss", false)): body_color = Color("642a24")
+		draw_circle(position, radius, body_color)
 		draw_arc(position, radius + 1.0, 0, TAU, 32, tri.color, 2.0)
 		var enemy_char: String = {"spear": "枪", "cav": "骑", "archer": "弓"}.get(str(enemy.cls), "兵")
+		if not special.is_empty(): enemy_char = str(SPECIAL_GLYPHS.get(special, "特"))
+		elif bool(enemy.get("boss", false)): enemy_char = str(enemy.get("bossName", "首")).left(1)
+		elif enemy.get("affix") != null: enemy_char = str(BattleFoesSource.AFFIXES.get(str(enemy.affix), {"name": "精"}).name).left(1)
 		_text_centered_in_rect(enemy_char, Rect2(position.x - radius, position.y - 9, radius * 2, 20), 13, Color.WHITE)
 		_text(str(tri.icon), position + Vector2(radius - 7, -radius + 9), 9, tri.color)
 		var hp_width := radius * 2.0
@@ -552,6 +578,16 @@ func _draw_battle_entities() -> void:
 		draw_rect(Rect2(position.x - radius, position.y - radius - 7, hp_width * maxf(0.0, float(enemy.hp) / maxf(1.0, float(enemy.hp_max))), 3), RED, true)
 		if float(enemy.get("shield", 0.0)) > 0:
 			draw_arc(position, radius + 4.0, 0, TAU, 30, Color("8ad2ff"), 2.5)
+		if bool(enemy.get("_guarded", false)):
+			draw_arc(position, radius + 7.0, 0, TAU, 30, Color("ff6a5a99"), 2.0)
+		if not special.is_empty() and float(enemy.get("silencedT", 0.0)) <= 0:
+			if special == "healer": draw_arc(position, 110.0, 0, TAU, 48, Color("8aff9a44"), 1.0)
+			elif special == "banner": draw_arc(position, 120.0, 0, TAU, 48, Color("ffd24a44"), 1.0)
+			elif special == "warden": draw_arc(position, 130.0, 0, TAU, 48, Color("ff6a5a44"), 1.0)
+		var kit_value = enemy.get("kit", null)
+		if bool(enemy.get("boss", false)) and kit_value != null and not str(kit_value).is_empty():
+			var kit_name := str(BattleFoesSource.KIT_NAMES.get(str(kit_value), str(kit_value)))
+			_text_centered_in_rect(kit_name, Rect2(position.x - 42, position.y + radius + 3, 84, 15), 9, Color("ffb84a"))
 		if float(enemy.get("stunT", 0.0)) > 0:
 			_text_centered_in_rect("晕", Rect2(position.x - 10, position.y - radius - 24, 20, 16), 10, Color("b9e8ff"))
 		elif float(enemy.get("burnT", 0.0)) > 0:
@@ -578,6 +614,19 @@ func _draw_battle_entities() -> void:
 	for event in battle_run.ult_events:
 		var event_color: Color = {"dmg": Color("ff9a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": GOLD}.get(str(event.type), GOLD)
 		_text_center("绝技【%s】" % str(event.name), 238, 20, event_color)
+
+func _next_wave_threat_text() -> String:
+	if battle_run == null or battle_run.next_wave_preview.is_empty(): return ""
+	var preview: Dictionary = battle_run.next_wave_preview
+	var parts := []
+	for special_id in preview.get("specials", {}).keys():
+		var special_def: Dictionary = BattleFoesSource.SPECIALS.get(str(special_id), {})
+		parts.append("%s×%d" % [special_def.get("name", special_id), int(preview.specials[special_id])])
+	for affix_id in preview.get("affixes", {}).keys():
+		var affix_def: Dictionary = BattleFoesSource.AFFIXES.get(str(affix_id), {})
+		parts.append("%s×%d" % [affix_def.get("name", affix_id), int(preview.affixes[affix_id])])
+	if not str(preview.get("boss", "")).is_empty(): parts.append("贼首%s" % str(preview.boss))
+	return " / ".join(parts)
 
 func _draw_battle_formation() -> void:
 	for row in BattleRunSource.GRID_ROWS:
