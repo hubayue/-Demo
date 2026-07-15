@@ -1521,20 +1521,73 @@ func _draw_battle_drag_preview() -> void:
 	draw_rect(source_rect, GOLD, false, 2.0)
 	if not battle_drag.is_dragging():
 		return
+	var unit = battle_run.grid[source.y][source.x]
+	if unit == null:
+		return
 	var hover: Vector2i = battle_drag.hover_cell
 	if hover != Vector2i(-1, -1):
+		_draw_drag_range_preview(unit, hover)
 		var hover_rect := BattleDragControllerSource.cell_rect(hover)
 		var blocked: bool = battle_run.obstacles.has("%d,%d" % [hover.y, hover.x])
 		draw_rect(hover_rect, Color("74d96826") if not blocked else Color("ff654026"), true)
 		draw_rect(hover_rect, GREEN if not blocked else RED, false, 3.0)
-	var unit = battle_run.grid[source.y][source.x]
-	if unit == null:
-		return
 	var pointer: Vector2 = battle_drag.pointer_position
 	if pointer.y < BattleRunSource.GRID_Y - 40.0:
 		var sell_text := "最后一个武将不能卖" if battle_run.units().size() <= 1 else "🗑 松手卖掉%s，腾出一格（不退经验）" % str(unit.hero.name)
 		_text_centered_in_rect(sell_text, Rect2(clampf(pointer.x - 150, 8, 172), pointer.y - 78, 300, 22), 13, RED)
 	_draw_battle_unit(unit, pointer - Vector2(0, 24), 1.15)
+
+func _drag_preview_spec(unit: Dictionary, target: Vector2i) -> Dictionary:
+	var hero: Dictionary = unit.hero
+	var anchor := BattleRunSource.slot_center(target.y, target.x)
+	var class_display: Dictionary = BATTLE_CLASS_DISPLAY.get(str(hero.cls), {"color": Color("cfd6dc")})
+	var result := {"kind": "global", "anchor": anchor, "radius": 0.0, "width": 0.0, "color": class_display.color}
+	match str(hero.cls):
+		"cav":
+			result.kind = "corridor"
+			result.width = (46.0 if float(hero.get("splash", 0.0)) > 0 else 34.0) + float(battle_run.buffs.get("cavWide", 0.0))
+		"support":
+			result.kind = "ripple"
+			result.radius = battle_run.team.ripple_max(battle_run, unit)
+		_:
+			var radius := float(hero.get("rng", 0.0))
+			if radius > 0:
+				result.kind = "range"
+				result.radius = radius
+	return result
+
+func _draw_drag_range_preview(unit: Dictionary, target: Vector2i) -> void:
+	if unit == null:
+		return
+	var spec := _drag_preview_spec(unit, target)
+	var anchor: Vector2 = spec.anchor
+	var color: Color = spec.color
+	match str(spec.kind):
+		"corridor":
+			var width := float(spec.width)
+			draw_rect(Rect2(anchor.x - width, 30, width * 2.0, anchor.y - 78.0), Color(color, 0.14), true)
+			draw_rect(Rect2(anchor.x - width, 30, width * 2.0, anchor.y - 78.0), Color(color, 0.65), false, 2.0)
+			_text_centered_in_rect("🐎 左中右挑贼多的道冲", Rect2(anchor.x - 110, anchor.y - 78, 220, 20), 11, color)
+		"ripple":
+			draw_circle(anchor - Vector2(0, 18), float(spec.radius), Color(color, 0.06))
+			draw_arc(anchor - Vector2(0, 18), float(spec.radius), 0, TAU, 64, Color(color, 0.65), 2.0)
+		"range":
+			draw_circle(anchor - Vector2(0, 18), float(spec.radius), Color(color, 0.06))
+			draw_arc(anchor - Vector2(0, 18), float(spec.radius), 0, TAU, 64, Color(color, 0.65), 2.0)
+		"global":
+			_text_centered_in_rect("🏹 全场都能射", Rect2(anchor.x - 80, anchor.y - 72, 160, 20), 12, color)
+	if str(unit.hero.cls) == "spear":
+		for row in range(maxi(0, target.y - 1), mini(BattleRunSource.GRID_ROWS - 1, target.y + 1) + 1):
+			for col in range(maxi(0, target.x - 1), mini(BattleRunSource.GRID_COLS - 1, target.x + 1) + 1):
+				if row == target.y and col == target.x:
+					continue
+				var ally = battle_run.grid[row][col]
+				if ally != null and ally != unit:
+					var rect := BattleDragControllerSource.cell_rect(Vector2i(col, row))
+					draw_rect(rect, Color("6fd44e38"), true)
+	var trait_id := str(battle_run.traits.get("%d,%d" % [target.y, target.x], ""))
+	if not trait_id.is_empty() and not battle_run.obstacles.has("%d,%d" % [target.y, target.x]):
+		_text_centered_in_rect("地利 %s" % trait_id, Rect2(anchor.x - 90, anchor.y - 58, 180, 18), 10, GOLD)
 
 func _unit_visual_spec(unit: Dictionary) -> Dictionary:
 	var hero: Dictionary = unit.hero
