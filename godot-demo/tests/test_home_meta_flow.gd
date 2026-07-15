@@ -43,10 +43,26 @@ func _run() -> void:
 	_click(main, main.HOME_LORD_RECT.get_center())
 	if not _expect(main.home_overlay == "lords" and main.lord_page_ruler_ids().size() == 4, "Lord House must open with four rulers per page"):
 		return
-	_click(main, main.HOME_NEXT_RECT.get_center())
+	if not _expect(main.lord_house_rect(0) == Rect2(12, 112, 456, 120) and main.lord_house_rect(3) == Rect2(12, 496, 456, 120), "Lord House cards must use the frozen Web v7.19.14 geometry"):
+		return
+	if not _expect(main.TECH_PAGE_RECT == Rect2(358, 26, 108, 32), "Lord House page control must match the frozen Web top-right button"):
+		return
+	if not _expect(main._lord_skill_desc("taoyuan", 1).contains("实伤的8%再换成经验"), "Lord House must preserve the complete dynamic command copy instead of a shortened summary"):
+		return
+	if not _expect(main._lord_name_color(1) == Color("ffe8b0") and main._lord_name_color(10) == main.GOLD, "Lord House names must only turn gold at level ten like Web drawNameDisc"):
+		return
+	var caocao: Dictionary = main.catalog.by_id("rulers", "caocao")
+	if not _expect(main._lord_special_line(caocao, 1) == "🌾屯田制：独家：粮仓卡——产粮喂旁边武将升星，产量+3%", "Lord House must preserve each ruler's complete special-mechanic line"):
+		return
+	_click(main, main.TECH_PAGE_RECT.get_center())
 	if not _expect(main.lord_page == 1 and main.lord_page_ruler_ids()[0] == "liubiao", "Lord House next page must expose the remaining four rulers"):
 		return
-	_click(main, main.HOME_CLOSE_RECT.get_center())
+	_click(main, main.TECH_PAGE_RECT.get_center())
+	if not _expect(main.lord_page == 0, "Lord House page button must cycle from page two back to page one"):
+		return
+	_click(main, Vector2(240, 750))
+	if not _expect(main.home_overlay.is_empty(), "Lord House bottom return area must close the overlay"):
+		return
 	main.profile.items.visitToken = 1
 	_click(main, main.HOME_VISIT_RECT.get_center())
 	if not _expect(main.home_overlay == "visit", "Visit button must open the offline 20-cell board"):
@@ -69,7 +85,7 @@ func _run() -> void:
 		return
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(main.profile_path))
-	print("Godot v7.19.2 home codex and lord house: PASS")
+	print("Godot v7.19.14 home codex and lord house: PASS")
 	quit(0)
 
 func _click(main: Control, position: Vector2) -> void:

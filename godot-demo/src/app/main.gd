@@ -80,6 +80,7 @@ const HOME_VISIT_RECT := Rect2(28, 658, 128, 40)
 const HOME_ACH_RECT := Rect2(176, 658, 128, 40)
 const HOME_BAG_RECT := Rect2(324, 658, 128, 40)
 const HOME_CLOSE_RECT := Rect2(402, 22, 54, 34)
+const TECH_PAGE_RECT := Rect2(358, 26, 108, 32)
 const HOME_BACK_RECT := Rect2(24, 22, 66, 34)
 const HOME_PREV_RECT := Rect2(28, 744, 116, 38)
 const HOME_NEXT_RECT := Rect2(336, 744, 116, 38)
@@ -433,6 +434,13 @@ func _handle_title_pointer(point: Vector2) -> void:
 			advance_from_title()
 		queue_redraw()
 		return
+	if home_overlay == "lords":
+		if TECH_PAGE_RECT.has_point(point):
+			lord_page = (lord_page + 1) % 2
+		elif point.y > 710.0:
+			home_overlay = ""
+		queue_redraw()
+		return
 	if HOME_CLOSE_RECT.has_point(point):
 		home_overlay = ""
 		home_message = ""
@@ -479,10 +487,7 @@ func _handle_title_pointer(point: Vector2) -> void:
 					reset_armed = true
 					home_message = "再次点击确认重置（全额返还）"
 		"lords":
-			if HOME_PREV_RECT.has_point(point):
-				lord_page = maxi(0, lord_page - 1)
-			elif HOME_NEXT_RECT.has_point(point):
-				lord_page = mini(1, lord_page + 1)
+			pass
 		"visit":
 			if VISIT_ROLL_RECT.has_point(point):
 				_perform_visit_roll()
@@ -541,6 +546,9 @@ func lord_page_ruler_ids() -> Array:
 	for index in range(start, mini(start + 4, RULER_IDS.size())):
 		result.append(RULER_IDS[index])
 	return result
+
+func lord_house_rect(index: int) -> Rect2:
+	return Rect2(12, 112 + index * 128, 456, 120)
 
 func achievement_page_definitions() -> Array:
 	var matching: Array = []
@@ -695,7 +703,7 @@ func _draw_home_controls() -> void:
 	_text_center("点击其余空白处出征", 719, 13, PALE_GOLD)
 
 func _draw_home_overlay() -> void:
-	draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), INK, true)
+	draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), Color("140e06f2") if home_overlay == "lords" else INK, true)
 	match home_overlay:
 		"codex": _draw_codex()
 		"hero": _draw_hero_detail()
@@ -703,8 +711,9 @@ func _draw_home_overlay() -> void:
 		"visit": _draw_visit()
 		"bag": _draw_bag()
 		"achievements": _draw_achievements()
-	_panel(HOME_CLOSE_RECT, Color("40271e"), RED, 1.5)
-	_text_centered_in_rect("关闭", HOME_CLOSE_RECT, 13, Color.WHITE)
+	if home_overlay != "lords":
+		_panel(HOME_CLOSE_RECT, Color("40271e"), RED, 1.5)
+		_text_centered_in_rect("关闭", HOME_CLOSE_RECT, 13, Color.WHITE)
 
 func _draw_codex() -> void:
 	_text_center("武将图鉴", 48, 27, GOLD)
@@ -768,39 +777,82 @@ func _draw_hero_detail() -> void:
 	if not home_message.is_empty(): _text_center(home_message, 785, 12, GREEN)
 
 func _draw_lord_house() -> void:
-	_text_center("主公府", 48, 27, GOLD)
-	_text_center("主公经验随出征成长 · 被动等级直接带入战斗", 75, 12, Color("d5c9a8"))
+	_text_center("👑 主公府 👑", 50, 26, GOLD)
+	_text_center("带谁出征谁涨经验——升级涨招牌技威力、解锁兵书被动", 78, 13, Color("d5c9a8"))
+	_text_center("各管一类题面，被动只在带他的局里生效——换着用别偏科", 98, 12, MUTED)
+	_rounded_panel(TECH_PAGE_RECT, Color("5a4a3a"), Color("8a7d66"), 1.0, 10.0)
+	_text_centered_in_rect("第%d/2页 →" % (lord_page + 1), TECH_PAGE_RECT, 13, Color.WHITE)
 	var visible_ids: Array = lord_page_ruler_ids()
 	for index in visible_ids.size():
 		var ruler_id := str(visible_ids[index])
 		var ruler: Dictionary = catalog.by_id("rulers", ruler_id)
 		var entry: Dictionary = profile.rulers[ruler_id]
-		var rect := Rect2(24, 104 + index * 144, 432, 124)
-		_panel(rect, Color("241c10"), PALE_GOLD, 1.5)
-		_text(str(ruler.name), Vector2(42, rect.position.y + 29), 21, GOLD)
-		var skill_tier := mini(3, 1 + int(floor((int(entry.lv) - 1) / 8.0)))
-		_text("Lv.%d / 20 · 经验 %d/%d · 号令%d阶" % [int(entry.lv), int(entry.xp), LocalProfileSource.lord_xp_need(int(entry.lv)), skill_tier], Vector2(158, rect.position.y + 27), 12, BLUE)
-		_text(_short_text(str(ruler.desc), 25), Vector2(42, rect.position.y + 56), 12, Color("d5c9a8"))
-		var labels := PackedStringArray()
+		var rect := lord_house_rect(index)
+		var level := int(entry.lv)
+		var is_max := level >= LocalProfileSource.LORD_LEVEL_MAX
+		_rounded_panel(rect, Color("ffffff0d"), GOLD if is_max else Color("5a4a2a"), 1.6, 12.0)
+		var name_center := Vector2(rect.position.x + 36, rect.position.y + 42)
+		var disc_name := str(ruler.name)
+		var disc_size := _name_disc_font_size(disc_name, 24.0)
+		draw_string(_font(), Vector2(name_center.x - 24.0, name_center.y + disc_size / 3.0), disc_name, HORIZONTAL_ALIGNMENT_CENTER, 48.0, disc_size, _lord_name_color(level))
+		_text("%s·%s" % [str(ruler.name), str(ruler.title)], Vector2(rect.position.x + 70, rect.position.y + 22), 15, GOLD)
+		_text("Lv.%d（满级）" % level if is_max else "Lv.%d" % level, Vector2(rect.position.x + 70, rect.position.y + 42), 13, GOLD if is_max else Color("9adf5a"))
+		if not is_max:
+			var need := LocalProfileSource.lord_xp_need(level)
+			var xp := int(entry.xp)
+			_rounded_panel(Rect2(rect.position.x + 140, rect.position.y + 33, 130, 9), Color("ffffff1f"), Color.TRANSPARENT, 0.0, 4.0)
+			var progress_width := maxf(3.0, 130.0 * minf(1.0, float(xp) / float(need)))
+			_rounded_panel(Rect2(rect.position.x + 140, rect.position.y + 33, progress_width, 9), Color("9adf5a"), Color.TRANSPARENT, 0.0, 4.0)
+			_text("%d/%d" % [xp, need], Vector2(rect.position.x + 276, rect.position.y + 41), 10, MUTED)
+		var skill_tier := mini(3, 1 + int(floor((level - 1) / 8.0)))
+		var skill_id := str(ruler.skill)
+		var command: Dictionary = BattleLordSource.COMMANDS.get(skill_id, {})
+		var skill_line := "%s%s（%d星）%s" % [LORD_COMMAND_ICONS.get(skill_id, ""), str(command.get("name", skill_id)), skill_tier, _lord_skill_desc(skill_id, skill_tier)]
+		_text(skill_line, Vector2(rect.position.x + 14, rect.position.y + 64), 12, Color("8ad2ff"))
+		var passive_x := rect.position.x + 14
 		for passive in ruler.get("passives", []):
 			var unlocked := 0
 			for at_level in passive.get("at", []):
-				if int(entry.lv) >= int(at_level): unlocked += 1
+				if level >= int(at_level): unlocked += 1
 			var tech: Dictionary = catalog.by_id("techs", str(passive.id))
-			labels.append("%s %d/%d" % [str(tech.get("name", passive.id)), unlocked, passive.get("at", []).size()])
-		var first_line := PackedStringArray()
-		var second_line := PackedStringArray()
-		for label_index in labels.size():
-			if label_index < 2: first_line.append(labels[label_index])
-			else: second_line.append(labels[label_index])
-		_text(" · ".join(first_line), Vector2(42, rect.position.y + 83), 11, GREEN)
-		_text(" · ".join(second_line), Vector2(42, rect.position.y + 104), 11, GREEN)
-		_text("出征结算获得主公经验", Vector2(298, rect.position.y + 116), 9, MUTED)
-	_panel(HOME_PREV_RECT, Color("302718"), PALE_GOLD if lord_page > 0 else MUTED, 1.5)
-	_text_centered_in_rect("上一页", HOME_PREV_RECT, 14, Color.WHITE if lord_page > 0 else MUTED)
-	_text_center("第 %d / 2 页" % (lord_page + 1), 770, 13, PALE_GOLD)
-	_panel(HOME_NEXT_RECT, Color("302718"), PALE_GOLD if lord_page < 1 else MUTED, 1.5)
-	_text_centered_in_rect("下一页", HOME_NEXT_RECT, 14, Color.WHITE if lord_page < 1 else MUTED)
+			var next_level := 0
+			for at_level in passive.get("at", []):
+				if level < int(at_level):
+					next_level = int(at_level)
+					break
+			var label := "%s%s%d%s" % [str(tech.get("icon", "")), str(tech.get("name", passive.id)).left(2), unlocked, "(%d级+1)" % next_level if next_level > 0 else ""]
+			_text(label, Vector2(passive_x, rect.position.y + 84), 12, PALE_GOLD if unlocked > 0 else Color("c8bea066"))
+			passive_x += _font().get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10.0
+		var special_line := _lord_special_line(ruler, level)
+		_text(special_line, Vector2(rect.position.x + 14, rect.position.y + 105), 11, GOLD if ruler.get("special") != null else Color("9a8f70"))
+	_text_center("👆 点击底部返回", 770, 15, Color.WHITE)
+
+func _lord_skill_desc(skill_id: String, level: int) -> String:
+	match skill_id:
+		"wuxing": return "%d秒内被克的亏全免，全军伤害再+15%%" % (6 + level * 2)
+		"taoyuan": return "全军金身%d秒刀枪不入（亲兵越多越久）；金身落幕，扛住的伤全额奉还成全场冲击（附1秒眩晕），实伤的8%%再换成经验" % (4 + level * 2)
+		"jiejiang": return "拦腰一道大江%d秒：江里的贼变慢40%%、挨打多%d%%，弓贼投石在江里放不了箭" % [5 + level * 2, 20 + level * 10]
+		"mensheng": return "接下来 %d 次升级选卡变五选一；手里正摊着牌就当场加宽" % level
+		"bingfeng": return "全场定住 %.1f秒" % (1.0 + level * 0.7)
+		"baima": return "主公亲自下场%d秒：无敌白马专砍特种兵和贼首（亲兵越多砍得越疼越久）" % (5 + level * 2)
+		"fenluo": return "烧掉自家2点城墙血，从主公喷出全场扇形巨焰（点燃；亲兵越多烧得越疼）；每烧1血全军攻击+4%%（本局永久）"
+		"jianhao": return "吃掉一个最弱的兵（星≤3、场上≥5人才动口）连升%d级，祭品每有1星再多升1级；每献祭一次，下道号令等得更久（45→57→69…）" % (3 if level >= 2 else 2)
+	return ""
+
+func _lord_name_color(level: int) -> Color:
+	return GOLD if level >= 10 else Color("ffe8b0")
+
+func _lord_special_line(ruler: Dictionary, level: int) -> String:
+	var special_id := str(ruler.get("special", ""))
+	match special_id:
+		"tuntian": return "🌾屯田制：独家：粮仓卡——产粮喂旁边武将升星，产量+%d%%" % (level * 3)
+		"shuijun": return "⚓水军都督：独家·江东通饷：杀敌经验+30%%（江中击杀×2）；每波自动起江%.1f秒（变慢40%%·挨打多%d%%·弓贼哑火）" % [4.5 + level * 0.15, 20 + roundi(level * 0.5)]
+		"yanglong": return "🐉养龙术：独家：三选一出龙蛋卡——干孵期间每秒吐纳经验（蛋阶越高越多，+%d%%），觉醒成应龙镇场；温养把握+%d%%" % [level * 2, level]
+		"qiangnu": return "🏹城头强弩：独家：城墙自动放箭射最贴近防线的贼（墙越满箭越狠，伤害+%d%%）；首级记功：白马/强弩亲手击杀经验×3" % (level * 3)
+		"luoyangchan": return "🪏洛阳铲：独家：开山凿石卡变洛阳铲——铲子存着，点铲子自己挑哪块障碍挖；挖开有三成陪葬金　🧧横征暴敛"
+	var desc := str(ruler.get("desc", ""))
+	var cut := desc.find("——")
+	return desc.left(cut) if cut > 0 else desc
 
 func _visit_cell_position(index: int) -> Vector2:
 	var top := 150.0
