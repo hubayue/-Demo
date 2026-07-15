@@ -1,0 +1,2976 @@
+{
+  "version": "7.19.14",
+  "heroes": [
+    {
+      "id": "zhangfei",
+      "name": "张飞",
+      "char": "飞",
+      "cls": "spear",
+      "elem": "badao",
+      "rng": 240,
+      "dmg": 21,
+      "rate": 1.1,
+      "speed": 300,
+      "splash": 58,
+      "desc": "一打一片"
+    },
+    {
+      "id": "zhaoyun",
+      "name": "赵云",
+      "char": "赵",
+      "cls": "spear",
+      "elem": "rende",
+      "rng": 270,
+      "dmg": 16,
+      "rate": 0.9,
+      "speed": 340,
+      "pierce": 2,
+      "desc": "一枪穿俩"
+    },
+    {
+      "id": "machao",
+      "name": "马超",
+      "char": "马",
+      "cls": "spear",
+      "elem": "badao",
+      "rng": 250,
+      "dmg": 12,
+      "rate": 0.4,
+      "speed": 430,
+      "desc": "出手飞快"
+    },
+    {
+      "id": "huangzhong",
+      "name": "黄忠",
+      "char": "黄",
+      "cls": "archer",
+      "elem": "rende",
+      "rng": 0,
+      "dmg": 24,
+      "rate": 1.5,
+      "speed": 520,
+      "desc": "全场都能射"
+    },
+    {
+      "id": "xiahouyuan",
+      "name": "夏侯渊",
+      "char": "夏",
+      "cls": "archer",
+      "elem": "badao",
+      "rng": 420,
+      "dmg": 4,
+      "rate": 0.2,
+      "speed": 500,
+      "bounce": 2,
+      "desc": "箭会弹着打"
+    },
+    {
+      "id": "luxun",
+      "name": "陆逊",
+      "char": "陆",
+      "cls": "archer",
+      "elem": "liangmou",
+      "rng": 400,
+      "dmg": 16,
+      "rate": 1,
+      "speed": 360,
+      "burn": true,
+      "firebrand": true,
+      "desc": "点火·着火的多挨他打"
+    },
+    {
+      "id": "guanyu",
+      "name": "关羽",
+      "char": "关",
+      "cls": "cav",
+      "elem": "rende",
+      "rng": 360,
+      "dmg": 46,
+      "rate": 5.5,
+      "speed": 380,
+      "desc": "冲锋伤害高"
+    },
+    {
+      "id": "lvbu",
+      "name": "吕布",
+      "char": "吕",
+      "cls": "cav",
+      "elem": "badao",
+      "rng": 340,
+      "dmg": 85,
+      "rate": 8,
+      "speed": 340,
+      "splash": 40,
+      "desc": "冲得宽又疼"
+    },
+    {
+      "id": "zhangliao",
+      "name": "张辽",
+      "char": "辽",
+      "cls": "cav",
+      "elem": "liangmou",
+      "rng": 380,
+      "dmg": 34,
+      "rate": 5,
+      "speed": 400,
+      "desc": "冲得勤快"
+    },
+    {
+      "id": "taishici",
+      "name": "太史慈",
+      "char": "太",
+      "cls": "archer",
+      "elem": "rende",
+      "rng": 450,
+      "dmg": 11,
+      "rate": 0.75,
+      "speed": 420,
+      "spread": 2,
+      "bounce": 1,
+      "desc": "两箭齐发"
+    },
+    {
+      "id": "dianwei",
+      "name": "典韦",
+      "char": "典",
+      "cls": "spear",
+      "elem": "badao",
+      "rng": 230,
+      "dmg": 22,
+      "rate": 1.5,
+      "speed": 300,
+      "splash": 65,
+      "desc": "一锤一大片·战死爆经验"
+    },
+    {
+      "id": "sunce",
+      "name": "孙策",
+      "char": "策",
+      "cls": "cav",
+      "elem": "badao",
+      "rng": 360,
+      "dmg": 40,
+      "rate": 6,
+      "speed": 400,
+      "desc": "冲得快又猛"
+    },
+    {
+      "id": "xuchu",
+      "name": "许褚",
+      "char": "许",
+      "cls": "spear",
+      "elem": "badao",
+      "rng": 240,
+      "cost": 300,
+      "dmg": 18,
+      "rate": 1.2,
+      "speed": 320,
+      "splash": 55,
+      "desc": "抡锤砸一片"
+    },
+    {
+      "id": "weiyan",
+      "name": "魏延",
+      "char": "魏",
+      "cls": "spear",
+      "elem": "liangmou",
+      "rng": 260,
+      "cost": 400,
+      "dmg": 16,
+      "rate": 1,
+      "speed": 360,
+      "pierce": 1,
+      "desc": "毒枪捅穿"
+    },
+    {
+      "id": "ganning",
+      "name": "甘宁",
+      "char": "甘",
+      "cls": "cav",
+      "elem": "badao",
+      "rng": 380,
+      "cost": 500,
+      "dmg": 30,
+      "rate": 5,
+      "speed": 430,
+      "desc": "冲得最快"
+    },
+    {
+      "id": "diaochan",
+      "name": "貂蝉",
+      "char": "蝉",
+      "cls": "archer",
+      "elem": "liangmou",
+      "rng": 380,
+      "cost": 600,
+      "dmg": 9,
+      "rate": 0.85,
+      "speed": 380,
+      "slowShot": true,
+      "desc": "射中变慢"
+    },
+    {
+      "id": "zhouyu",
+      "name": "周瑜",
+      "char": "瑜",
+      "cls": "archer",
+      "elem": "liangmou",
+      "rng": 440,
+      "cost": 800,
+      "dmg": 18,
+      "rate": 0.9,
+      "speed": 380,
+      "burn": true,
+      "desc": "火烧得更疼"
+    },
+    {
+      "id": "jiangwei",
+      "name": "姜维",
+      "char": "姜",
+      "cls": "cav",
+      "elem": "liangmou",
+      "rng": 370,
+      "cost": 1000,
+      "dmg": 45,
+      "rate": 6.5,
+      "speed": 400,
+      "burn": true,
+      "desc": "边冲边点火"
+    },
+    {
+      "id": "zhugeliang",
+      "name": "诸葛亮",
+      "char": "亮",
+      "cls": "archer",
+      "elem": "liangmou",
+      "rng": 0,
+      "cost": 1200,
+      "dmg": 22,
+      "rate": 1.1,
+      "speed": 400,
+      "slowShot": true,
+      "desc": "全场射，中箭变慢"
+    },
+    {
+      "id": "caoren",
+      "name": "曹仁",
+      "char": "仁",
+      "cls": "shield",
+      "elem": "rende",
+      "rng": 150,
+      "dmg": 0,
+      "rate": 99,
+      "speed": 0,
+      "desc": "挡刀还反伤"
+    },
+    {
+      "id": "zhoutai",
+      "name": "周泰",
+      "char": "泰",
+      "cls": "shield",
+      "elem": "rende",
+      "rng": 150,
+      "dmg": 0,
+      "rate": 99,
+      "speed": 0,
+      "desc": "扛揍还反伤·免死一次"
+    },
+    {
+      "id": "huatuo",
+      "name": "华佗",
+      "char": "佗",
+      "cls": "support",
+      "elem": "rende",
+      "rng": 0,
+      "dmg": 0,
+      "rate": 6,
+      "speed": 0,
+      "ripple": "heal",
+      "desc": "一圈奶12%还持续回"
+    },
+    {
+      "id": "xiaoqiao",
+      "name": "小乔",
+      "char": "乔",
+      "cls": "support",
+      "elem": "rende",
+      "rng": 0,
+      "dmg": 0,
+      "rate": 7,
+      "speed": 0,
+      "ripple": "haste",
+      "desc": "一圈提速+22%"
+    },
+    {
+      "id": "lusu",
+      "name": "鲁肃",
+      "char": "肃",
+      "cls": "support",
+      "elem": "rende",
+      "rng": 0,
+      "dmg": 0,
+      "rate": 7.5,
+      "speed": 0,
+      "ripple": "dmg",
+      "desc": "一圈加攻+25%；粮仓龙蛋吃了更起劲；孙权亲兵：江+1.5秒"
+    },
+    {
+      "id": "huanggai",
+      "name": "黄盖",
+      "char": "盖",
+      "cls": "shield",
+      "elem": "badao",
+      "rng": 150,
+      "dmg": 0,
+      "rate": 99,
+      "speed": 0,
+      "desc": "挡刀反伤·会苦肉计"
+    },
+    {
+      "id": "xuhuang",
+      "name": "徐晃",
+      "char": "晃",
+      "cls": "shield",
+      "elem": "liangmou",
+      "rng": 150,
+      "cost": 400,
+      "dmg": 0,
+      "rate": 99,
+      "speed": 0,
+      "desc": "挡刀反伤·钉拒马挡路"
+    },
+    {
+      "id": "daqiao",
+      "name": "大乔",
+      "char": "大",
+      "cls": "support",
+      "elem": "rende",
+      "rng": 0,
+      "dmg": 0,
+      "rate": 6.5,
+      "speed": 0,
+      "ripple": "slow",
+      "desc": "一圈冻慢敌人"
+    },
+    {
+      "id": "huangyueying",
+      "name": "黄月英",
+      "char": "月",
+      "cls": "support",
+      "elem": "liangmou",
+      "rng": 0,
+      "cost": 800,
+      "dmg": 0,
+      "rate": 7,
+      "speed": 0,
+      "ripple": "crit",
+      "desc": "一圈多15%机会双倍暴击"
+    },
+    {
+      "id": "caiwenji",
+      "name": "蔡文姬",
+      "char": "姬",
+      "cls": "support",
+      "elem": "rende",
+      "rng": 0,
+      "dmg": 0,
+      "rate": 6.5,
+      "speed": 0,
+      "ripple": "soothe",
+      "desc": "一圈解封还回血"
+    },
+    {
+      "id": "gaoshun",
+      "name": "高顺",
+      "char": "顺",
+      "cls": "spear",
+      "elem": "liangmou",
+      "rng": 250,
+      "cost": 300,
+      "dmg": 14,
+      "rate": 1,
+      "speed": 340,
+      "pierce": 1,
+      "desc": "扎得又稳又穿"
+    },
+    {
+      "id": "zhanghe",
+      "name": "张郃",
+      "char": "郃",
+      "cls": "cav",
+      "elem": "liangmou",
+      "rng": 380,
+      "cost": 400,
+      "dmg": 30,
+      "rate": 6,
+      "speed": 400,
+      "desc": "不限左中右，全场哪列人多冲哪列"
+    },
+    {
+      "id": "zhurong",
+      "name": "祝融夫人",
+      "char": "祝",
+      "cls": "archer",
+      "elem": "badao",
+      "rng": 400,
+      "cost": 500,
+      "dmg": 20,
+      "rate": 1.6,
+      "speed": 380,
+      "boomerang": true,
+      "desc": "飞刀打出去还会飞回来"
+    },
+    {
+      "id": "wutugu",
+      "name": "兀突骨",
+      "char": "兀",
+      "cls": "shield",
+      "elem": "badao",
+      "rng": 150,
+      "cost": 600,
+      "hp": 420,
+      "dmg": 0,
+      "rate": 99,
+      "speed": 0,
+      "desc": "挡刀反伤·身边一圈冒毒"
+    },
+    {
+      "id": "simayi",
+      "name": "司马懿",
+      "char": "懿",
+      "cls": "support",
+      "elem": "liangmou",
+      "rng": 0,
+      "cost": 800,
+      "dmg": 0,
+      "rate": 7,
+      "speed": 0,
+      "ripple": "cdr",
+      "desc": "一圈大招转更快"
+    },
+    {
+      "id": "pangde",
+      "name": "庞德",
+      "char": "德",
+      "cls": "spear",
+      "elem": "rende",
+      "rng": 250,
+      "cost": 500,
+      "dmg": 16,
+      "rate": 1.05,
+      "speed": 340,
+      "pierce": 1,
+      "desc": "血越少扎得越狠"
+    },
+    {
+      "id": "yanliang",
+      "name": "颜良",
+      "char": "颜",
+      "cls": "cav",
+      "elem": "badao",
+      "rng": 380,
+      "cost": 600,
+      "dmg": 34,
+      "rate": 5.5,
+      "speed": 420,
+      "desc": "专斩贼里的头目"
+    },
+    {
+      "id": "sunshangxiang",
+      "name": "孙尚香",
+      "char": "香",
+      "cls": "archer",
+      "elem": "badao",
+      "rng": 400,
+      "cost": 400,
+      "dmg": 13,
+      "rate": 1.5,
+      "speed": 480,
+      "desc": "箭带火还推人"
+    },
+    {
+      "id": "yanyan",
+      "name": "严颜",
+      "char": "严",
+      "cls": "shield",
+      "elem": "rende",
+      "rng": 150,
+      "cost": 400,
+      "hp": 360,
+      "dmg": 0,
+      "rate": 99,
+      "speed": 0,
+      "desc": "挡刀反伤·打他的会被冻慢"
+    },
+    {
+      "id": "caohong",
+      "name": "曹洪",
+      "char": "洪",
+      "cls": "shield",
+      "elem": "rende",
+      "rng": 150,
+      "cost": 300,
+      "hp": 330,
+      "dmg": 0,
+      "rate": 99,
+      "speed": 0,
+      "desc": "替旁边兄弟挨四分之一的刀"
+    },
+    {
+      "id": "xushu",
+      "name": "徐庶",
+      "char": "庶",
+      "cls": "support",
+      "elem": "liangmou",
+      "rng": 0,
+      "cost": 600,
+      "dmg": 0,
+      "rate": 6.5,
+      "speed": 0,
+      "ripple": "sunder",
+      "desc": "一圈卸劲：被克的减免失效"
+    },
+    {
+      "id": "jiaxu",
+      "name": "贾诩",
+      "char": "诩",
+      "cls": "archer",
+      "elem": "liangmou",
+      "rng": 400,
+      "cost": 700,
+      "dmg": 17,
+      "rate": 1.1,
+      "speed": 380,
+      "desc": "毒士百搭：谁当主公都算亲兵"
+    },
+    {
+      "id": "zuoci",
+      "name": "左慈",
+      "char": "慈",
+      "cls": "archer",
+      "elem": "rende",
+      "rng": 380,
+      "cost": 500,
+      "dmg": 10,
+      "rate": 1.2,
+      "speed": 360,
+      "desc": "幻变符箭：打谁都算克制"
+    },
+    {
+      "id": "dengai",
+      "name": "邓艾",
+      "char": "艾",
+      "cls": "spear",
+      "elem": "liangmou",
+      "rng": 260,
+      "cost": 800,
+      "dmg": 15,
+      "rate": 1,
+      "speed": 340,
+      "pierce": 1,
+      "desc": "唯一能站石头上·居高临下更疼"
+    },
+    {
+      "id": "menghuo",
+      "name": "孟获",
+      "char": "获",
+      "cls": "shield",
+      "elem": "badao",
+      "rng": 150,
+      "cost": 600,
+      "hp": 380,
+      "dmg": 0,
+      "rate": 99,
+      "speed": 0,
+      "desc": "挡刀反伤·被打死原地站起来（最多6次）"
+    },
+    {
+      "id": "wenchou",
+      "name": "文丑",
+      "char": "丑",
+      "cls": "cav",
+      "elem": "badao",
+      "rng": 380,
+      "cost": 400,
+      "dmg": 28,
+      "rate": 5.8,
+      "speed": 410,
+      "desc": "点名最肥的贼单挑：它只打我，我打它更疼"
+    }
+  ],
+  "hero_tiers": {
+    "lvbu": "epic",
+    "jiangwei": "epic",
+    "zhugeliang": "epic",
+    "zhouyu": "epic",
+    "simayi": "epic",
+    "guanyu": "epic",
+    "zhaoyun": "epic",
+    "huanggai": "rare",
+    "huangyueying": "rare",
+    "wutugu": "rare",
+    "sunce": "rare",
+    "weiyan": "rare",
+    "ganning": "rare",
+    "huangzhong": "rare",
+    "taishici": "rare",
+    "dianwei": "rare",
+    "zhangfei": "rare",
+    "machao": "rare",
+    "zhangliao": "rare",
+    "luxun": "rare",
+    "zhurong": "uncommon",
+    "zhanghe": "uncommon",
+    "caoren": "uncommon",
+    "xiahouyuan": "uncommon",
+    "xuhuang": "uncommon",
+    "xuchu": "uncommon",
+    "gaoshun": "uncommon",
+    "zhoutai": "uncommon",
+    "pangde": "rare",
+    "yanliang": "rare",
+    "xushu": "rare",
+    "sunshangxiang": "uncommon",
+    "yanyan": "uncommon",
+    "caohong": "uncommon",
+    "jiaxu": "rare",
+    "dengai": "rare",
+    "menghuo": "rare",
+    "zuoci": "uncommon",
+    "wenchou": "uncommon"
+  },
+  "rarities": {
+    "common": {
+      "name": "白卡",
+      "color": "#cfd6dc",
+      "w": 40,
+      "costMul": 0.8
+    },
+    "uncommon": {
+      "name": "绿卡",
+      "color": "#7ad86a",
+      "w": 30,
+      "costMul": 1
+    },
+    "rare": {
+      "name": "蓝卡",
+      "color": "#4aa8ff",
+      "w": 20,
+      "costMul": 1.3
+    },
+    "epic": {
+      "name": "金卡",
+      "color": "#ffd24a",
+      "w": 10,
+      "costMul": 1.7
+    }
+  },
+  "milestones": [
+    {
+      "lv": 4,
+      "txt": "登场自带1星"
+    },
+    {
+      "lv": 7,
+      "txt": "大招转快15%"
+    },
+    {
+      "lv": 10,
+      "txt": "再自带1星·金色名"
+    },
+    {
+      "lv": 15,
+      "txt": "开局大招就转好大半"
+    },
+    {
+      "lv": 20,
+      "txt": "登场自带4星·头像镶银边"
+    },
+    {
+      "lv": 25,
+      "txt": "开局大招直接就绪"
+    },
+    {
+      "lv": 30,
+      "txt": "满级·登场自带5星·完全体金边"
+    }
+  ],
+  "base_scores": {
+    "zhangfei": 62,
+    "zhaoyun": 85,
+    "machao": 78,
+    "huangzhong": 60,
+    "xiahouyuan": 45,
+    "luxun": 58,
+    "guanyu": 90,
+    "lvbu": 164,
+    "zhangliao": 64,
+    "taishici": 58,
+    "dianwei": 58,
+    "sunce": 75,
+    "xuchu": 45,
+    "weiyan": 69,
+    "ganning": 63,
+    "diaochan": 32,
+    "zhouyu": 72,
+    "jiangwei": 119,
+    "zhugeliang": 86,
+    "caoren": 49,
+    "zhoutai": 44,
+    "huatuo": 25,
+    "xiaoqiao": 34,
+    "lusu": 37,
+    "huanggai": 78,
+    "xuhuang": 45,
+    "daqiao": 28,
+    "huangyueying": 57,
+    "caiwenji": 29,
+    "gaoshun": 45,
+    "zhanghe": 50,
+    "zhurong": 51,
+    "wutugu": 70,
+    "simayi": 65,
+    "pangde": 66,
+    "yanliang": 64,
+    "sunshangxiang": 50,
+    "yanyan": 47,
+    "caohong": 44,
+    "xushu": 58,
+    "jiaxu": 56,
+    "zuoci": 52,
+    "dengai": 62,
+    "menghuo": 55,
+    "wenchou": 54
+  },
+  "bonds": [
+    {
+      "id": "erqiao",
+      "name": "江东二乔",
+      "icon": "🌸",
+      "need": 5,
+      "members": [
+        "daqiao",
+        "xiaoqiao"
+      ],
+      "fx": {
+        "rate": 1.45,
+        "rippleRad": 60
+      },
+      "desc": "两人的水波大一大圈、放得勤快多了"
+    },
+    {
+      "id": "shenyi",
+      "name": "杏林妙音",
+      "icon": "🌿",
+      "need": 5,
+      "members": [
+        "huatuo",
+        "caiwenji"
+      ],
+      "fx": {
+        "rate": 1.5,
+        "hp": 1.35
+      },
+      "desc": "两人的水波放得勤、人也耐打得多"
+    },
+    {
+      "id": "laojiang",
+      "name": "老当益壮",
+      "icon": "🏔️",
+      "need": 5,
+      "members": [
+        "huangzhong",
+        "yanyan"
+      ],
+      "fx": {
+        "dmg": 1.45,
+        "hp": 1.45
+      },
+      "desc": "两位老将疼硬各+45%"
+    },
+    {
+      "id": "caoshi",
+      "name": "曹家兄弟",
+      "icon": "🤝",
+      "need": 5,
+      "members": [
+        "caoren",
+        "caohong"
+      ],
+      "fx": {
+        "dmg": 1.35,
+        "hp": 1.4
+      },
+      "desc": "兄弟同心，疼+35%耐打+40%"
+    },
+    {
+      "id": "juma",
+      "name": "拒马双璧",
+      "icon": "🚧",
+      "need": 5,
+      "members": [
+        "xuhuang",
+        "xuchu"
+      ],
+      "fx": {
+        "palisade": 2
+      },
+      "desc": "两人的拒马耐久和时长翻倍"
+    },
+    {
+      "id": "xiliang",
+      "name": "西凉铁骑",
+      "icon": "🐎",
+      "need": 9,
+      "members": [
+        "machao",
+        "pangde"
+      ],
+      "fx": {
+        "dmg": 1.45
+      },
+      "desc": "两人伤害+45%"
+    },
+    {
+      "id": "shuijing",
+      "name": "水镜高徒",
+      "icon": "📜",
+      "need": 9,
+      "members": [
+        "xushu",
+        "zhugeliang"
+      ],
+      "fx": {
+        "dmg": 1.35,
+        "sunder": true
+      },
+      "desc": "徐庶卸劲更狠(+20%)，两人更疼"
+    },
+    {
+      "id": "fengyi",
+      "name": "凤仪亭",
+      "icon": "💘",
+      "need": 9,
+      "members": [
+        "lvbu",
+        "diaochan"
+      ],
+      "fx": {
+        "dmg": 1.35,
+        "rate": 1.35
+      },
+      "desc": "两人疼和出手各+35%"
+    },
+    {
+      "id": "jiangdong",
+      "name": "江东双督",
+      "icon": "⛵",
+      "need": 9,
+      "members": [
+        "zhouyu",
+        "lusu"
+      ],
+      "fx": {
+        "dmg": 1.35,
+        "rate": 1.4
+      },
+      "desc": "两人更疼、水波勤快得多"
+    },
+    {
+      "id": "shensu",
+      "name": "神速奇袭",
+      "icon": "💨",
+      "need": 9,
+      "members": [
+        "xiahouyuan",
+        "zhanghe"
+      ],
+      "fx": {
+        "rate": 1.35,
+        "dmg": 1.25
+      },
+      "desc": "两人出手快35%还更疼"
+    },
+    {
+      "id": "sanfen",
+      "name": "三分谋主",
+      "icon": "☯️",
+      "need": 13,
+      "members": [
+        "zhugeliang",
+        "zhouyu",
+        "simayi"
+      ],
+      "fx": {
+        "ultHaste": 0.2
+      },
+      "desc": "全军大招转快20%"
+    },
+    {
+      "id": "wuhu",
+      "name": "五虎上将",
+      "icon": "🐯",
+      "need": 13,
+      "members": [
+        "guanyu",
+        "zhangfei",
+        "zhaoyun",
+        "machao",
+        "huangzhong"
+      ],
+      "fx": {
+        "dmg": 1.4
+      },
+      "desc": "五虎同场，各伤害+40%"
+    },
+    {
+      "id": "hebei",
+      "name": "河北双璧",
+      "icon": "⚔️",
+      "need": 9,
+      "members": [
+        "yanliang",
+        "wenchou"
+      ],
+      "fx": {
+        "dmg": 1.45
+      },
+      "desc": "颜良文丑同场，各伤害+45%"
+    },
+    {
+      "id": "manwang",
+      "name": "蛮王夫妇",
+      "icon": "🌺",
+      "need": 5,
+      "members": [
+        "menghuo",
+        "zhurong"
+      ],
+      "fx": {
+        "dmg": 1.35,
+        "hp": 1.35
+      },
+      "desc": "夫妇同场，疼硬各+35%"
+    },
+    {
+      "id": "nanman",
+      "name": "南蛮同盟",
+      "icon": "🐘",
+      "need": 13,
+      "members": [
+        "menghuo",
+        "zhurong",
+        "wutugu"
+      ],
+      "fx": {
+        "dmg": 1.2,
+        "hp": 1.3
+      },
+      "desc": "南中三雄齐聚，更疼更耐打"
+    },
+    {
+      "id": "fangwai",
+      "name": "方外之人",
+      "icon": "🀄",
+      "need": 5,
+      "members": [
+        "zuoci",
+        "huatuo"
+      ],
+      "fx": {
+        "rate": 1.5,
+        "hp": 1.3
+      },
+      "desc": "方士医仙，出手勤人耐打"
+    },
+    {
+      "id": "yingshi",
+      "name": "鹰视狼顾",
+      "icon": "🦅",
+      "need": 13,
+      "members": [
+        "jiaxu",
+        "simayi"
+      ],
+      "fx": {
+        "dmg": 1.3,
+        "rate": 1.3
+      },
+      "desc": "两只老狐狸，又疼又勤"
+    },
+    {
+      "id": "qifeng",
+      "name": "棋逢对手",
+      "icon": "♟️",
+      "need": 13,
+      "members": [
+        "dengai",
+        "jiangwei"
+      ],
+      "fx": {
+        "dmg": 1.4
+      },
+      "desc": "宿敌同场较劲，各伤害+40%"
+    }
+  ],
+  "affixes": {
+    "shield": {
+      "icon": "🛡️",
+      "name": "铁盾"
+    },
+    "split": {
+      "icon": "🧬",
+      "name": "分裂"
+    },
+    "frenzy": {
+      "icon": "😤",
+      "name": "狂暴"
+    },
+    "regen": {
+      "icon": "💚",
+      "name": "回春"
+    }
+  },
+  "relics": [
+    {
+      "id": "qinggang",
+      "icon": "🗡️",
+      "name": "青釭剑",
+      "desc": "双倍暴击变三倍暴击"
+    },
+    {
+      "id": "longxian",
+      "icon": "🐲",
+      "name": "龙涎香",
+      "desc": "孵化成功率+20%"
+    },
+    {
+      "id": "dilu",
+      "icon": "🐴",
+      "name": "的卢马",
+      "desc": "骑兵伤害+30%"
+    },
+    {
+      "id": "shemao",
+      "icon": "🐍",
+      "name": "铁脊蛇矛",
+      "desc": "枪兵20%几率推开敌人"
+    },
+    {
+      "id": "lianhuan",
+      "icon": "⛓️",
+      "name": "连环铠",
+      "desc": "城墙每次少扣1血"
+    },
+    {
+      "id": "jiuhu",
+      "icon": "🍶",
+      "name": "酒葫芦",
+      "desc": "武将大招伤害+50%"
+    },
+    {
+      "id": "yuxi",
+      "icon": "💎",
+      "name": "传国玉玺",
+      "desc": "金币翻倍"
+    },
+    {
+      "id": "mengde",
+      "icon": "📕",
+      "name": "孟德新书",
+      "desc": "武将大招转快28%"
+    },
+    {
+      "id": "qixing",
+      "icon": "🕯️",
+      "name": "七星灯",
+      "desc": "城墙每30秒回1血"
+    },
+    {
+      "id": "sunzi",
+      "icon": "📘",
+      "name": "孙子兵法",
+      "desc": "主公号令转快25%"
+    },
+    {
+      "id": "yiji",
+      "icon": "🎁",
+      "name": "遗计锦囊",
+      "desc": "选牌三张变四张"
+    },
+    {
+      "id": "bagua",
+      "icon": "☯️",
+      "name": "八卦阵图",
+      "desc": "全军出手快+10%"
+    },
+    {
+      "id": "yushan",
+      "icon": "🪶",
+      "name": "白羽扇",
+      "desc": "羽扇轻摇：主公号令冷却-15%，亲射出手快25%"
+    },
+    {
+      "id": "guding",
+      "icon": "⚔️",
+      "name": "古锭刀",
+      "desc": "打大怪更疼+25%"
+    },
+    {
+      "id": "hanshu",
+      "icon": "📗",
+      "name": "汉书残卷",
+      "desc": "升级更快12%"
+    },
+    {
+      "id": "tongque",
+      "icon": "🏛️",
+      "name": "铜雀香炉",
+      "desc": "凶险突变提前两波预警，那一波金币+50%"
+    },
+    {
+      "id": "liannu",
+      "icon": "🏹",
+      "name": "元戎连弩",
+      "desc": "攻击多穿一个人"
+    },
+    {
+      "id": "baihu",
+      "icon": "🐯",
+      "name": "白虎兵符",
+      "desc": "每波第一下必双倍暴击"
+    },
+    {
+      "id": "jiguan",
+      "icon": "⚙️",
+      "name": "机关图谱",
+      "who": "魏延/月英",
+      "desc": "魏延多埋2雷，炮台多撑3秒"
+    },
+    {
+      "id": "huoyou",
+      "icon": "🛢️",
+      "name": "火油车",
+      "who": "带点火的武将",
+      "desc": "烧着的贼掉血更快(+50%)，火堆多烧2秒"
+    },
+    {
+      "id": "xuantie",
+      "icon": "🔗",
+      "name": "玄铁锁链",
+      "who": "诸葛亮",
+      "desc": "诸葛亮多锁2只，掉血更狠"
+    },
+    {
+      "id": "chensha",
+      "icon": "⚓",
+      "name": "沉沙折戟",
+      "who": "貂蝉",
+      "desc": "贼技封更久，被封的多挨打"
+    },
+    {
+      "id": "madeng",
+      "icon": "🏇",
+      "name": "马镫",
+      "who": "骑兵",
+      "desc": "骑兵撞人飞更远，多顶一会"
+    },
+    {
+      "id": "jili",
+      "icon": "🌵",
+      "name": "蒺藜骨朵",
+      "who": "许褚/徐晃",
+      "desc": "拒马撑更久，挡住的人掉血"
+    },
+    {
+      "id": "dujing",
+      "icon": "☠️",
+      "name": "毒经",
+      "who": "兀突骨",
+      "desc": "兀突骨的毒雾更毒一半"
+    },
+    {
+      "id": "jiaowei",
+      "icon": "🎵",
+      "name": "焦尾琴",
+      "who": "蔡文姬/大乔",
+      "desc": "催眠和冻慢多撑30%"
+    },
+    {
+      "id": "shuijingshu",
+      "icon": "📜",
+      "name": "水镜遗书",
+      "who": "徐庶",
+      "desc": "徐庶卸抗多撑近一倍时间"
+    },
+    {
+      "id": "jinlan",
+      "icon": "🤝",
+      "name": "金兰谱",
+      "who": "羁绊流",
+      "desc": "生效中的羁绊效果多五成"
+    },
+    {
+      "id": "fenghuang",
+      "icon": "🦚",
+      "name": "凤凰翎",
+      "who": "高星将",
+      "desc": "升华星更猛：一阶1.4→1.5倍、二阶1.3→1.4倍"
+    },
+    {
+      "id": "hufu",
+      "icon": "🛡️",
+      "name": "护主盾符",
+      "who": "盾兵",
+      "desc": "盾护更厚，盾墙挡得更多"
+    }
+  ],
+  "fields": [
+    {
+      "id": "hulao",
+      "icon": "🏔️",
+      "name": "虎牢雄关",
+      "narrow": true,
+      "wallAdd": 5,
+      "desc": "城墙+5｜敌人挤中路 好群伤"
+    },
+    {
+      "id": "chibi",
+      "icon": "🌊",
+      "name": "赤壁水岸",
+      "burnMul": 1.5,
+      "band": {
+        "y1": 360,
+        "y2": 425,
+        "type": "water",
+        "slow": 0.6
+      },
+      "desc": "敌人过江慢40%｜火烧+50%"
+    },
+    {
+      "id": "guandu",
+      "icon": "🌾",
+      "name": "官渡粮道",
+      "xpMul": 1.15,
+      "goldMul": 1.5,
+      "desc": "杀敌经验+15%｜金币+50%"
+    },
+    {
+      "id": "changban",
+      "icon": "🐎",
+      "name": "长坂坡",
+      "spdMul": 1.12,
+      "xpMul": 1.35,
+      "desc": "敌人跑快12%｜杀敌经验+35%"
+    },
+    {
+      "id": "nizhao",
+      "icon": "🥾",
+      "name": "泥沼洼地",
+      "hpMul": 1.1,
+      "band": {
+        "y1": 395,
+        "y2": 470,
+        "type": "mud",
+        "slow": 0.55
+      },
+      "desc": "敌人陷泥慢45%｜敌人血+10%"
+    },
+    {
+      "id": "fengsui",
+      "icon": "🗼",
+      "name": "烽燧高地",
+      "tower": true,
+      "desc": "烽火台自动放箭帮你守城"
+    },
+    {
+      "id": "gaodi",
+      "icon": "🏹",
+      "name": "高地平原",
+      "archerRng": 1.1,
+      "archerMul": 1.4,
+      "tip": "多带弓",
+      "desc": "站得高看得远｜弓伤+40% 射程+10%"
+    },
+    {
+      "id": "zhulin",
+      "icon": "🎋",
+      "name": "竹林小道",
+      "cavMul": 1.5,
+      "tip": "多带骑",
+      "desc": "林间道好冲锋｜骑兵伤害+50%"
+    },
+    {
+      "id": "huoshan",
+      "icon": "🌋",
+      "name": "火山口",
+      "volcano": 20,
+      "desc": "每20秒喷一回火｜烧一片还点燃"
+    },
+    {
+      "id": "xueyuan",
+      "icon": "❄️",
+      "name": "冰封雪原",
+      "spdMul": 0.88,
+      "desc": "天寒地冻｜敌人全程跑慢12%"
+    },
+    {
+      "id": "gunshi",
+      "icon": "🪨",
+      "name": "滚石坡",
+      "boulder": 18,
+      "desc": "每18秒滚下巨石｜碾穿人最多的一列"
+    }
+  ],
+  "chapters": [
+    {
+      "name": "蛾贼初起",
+      "icon": "🌾",
+      "color": "#6fd44e",
+      "boss": "程远志"
+    },
+    {
+      "name": "颍川烽火",
+      "icon": "🔥",
+      "color": "#e8a84a",
+      "boss": "波才"
+    },
+    {
+      "name": "汝南剿匪",
+      "icon": "🏹",
+      "color": "#e8c86a",
+      "boss": "何仪"
+    },
+    {
+      "name": "广宗鏖兵",
+      "icon": "⚔️",
+      "color": "#ff8a5a",
+      "boss": "张梁"
+    },
+    {
+      "name": "曲阳血战",
+      "icon": "🌀",
+      "color": "#c96aff",
+      "boss": "张宝"
+    },
+    {
+      "name": "冀州决战",
+      "icon": "⚡",
+      "color": "#ff5a3a",
+      "boss": "张角"
+    },
+    {
+      "name": "余孽复燃",
+      "icon": "💀",
+      "color": "#8fb8e8",
+      "boss": "郭太"
+    },
+    {
+      "name": "修罗炼狱",
+      "icon": "🔮",
+      "color": "#ff4a8a",
+      "boss": "张角·天公化神"
+    }
+  ],
+  "level_names": [
+    [
+      "村口小患",
+      "烧粮草的",
+      "官道劫匪",
+      "夜袭粮仓",
+      "流寇聚啸",
+      "围堵驿站",
+      "贼势渐成",
+      "决战·程远志"
+    ],
+    [
+      "火起颍川",
+      "风助火势",
+      "焦土行军",
+      "断桥阻敌",
+      "火海余生",
+      "烈焰围城",
+      "火烧连营",
+      "决战·波才"
+    ],
+    [
+      "山道伏兵",
+      "弓贼四起",
+      "飞石如雨",
+      "巫医作祟",
+      "旗手督战",
+      "泥沼设伏",
+      "群匪会盟",
+      "决战·何仪"
+    ],
+    [
+      "人海初现",
+      "前仆后继",
+      "尸山血海",
+      "越杀越多",
+      "精锐压阵",
+      "车轮鏖战",
+      "十面埋伏",
+      "决战·张梁"
+    ],
+    [
+      "妖风骤起",
+      "封印之阵",
+      "咒术连绵",
+      "雪夜苦战",
+      "妖法护体",
+      "巫祝倾巢",
+      "血染曲阳",
+      "决战·张宝"
+    ],
+    [
+      "大军压境",
+      "精锐尽出",
+      "雷声隐隐",
+      "黑云压城",
+      "死战不退",
+      "背水一战",
+      "兵临城下",
+      "决战·张角"
+    ],
+    [
+      "死灰复燃",
+      "铁盾成墙",
+      "狂暴之血",
+      "裂而再生",
+      "回春妖体",
+      "词缀成灾",
+      "白波再起",
+      "决战·郭太"
+    ],
+    [
+      "修罗入门",
+      "无间行军",
+      "炼狱火海",
+      "万军丛中",
+      "天崩地裂",
+      "有去无回",
+      "最后一搏",
+      "天公化神"
+    ]
+  ],
+  "state_names": [
+    "交州",
+    "益州",
+    "扬州",
+    "荆州",
+    "凉州",
+    "徐州",
+    "豫州",
+    "兖州",
+    "青州",
+    "司隶",
+    "雍州",
+    "并州",
+    "幽州",
+    "常山",
+    "巨鹿",
+    "广宗",
+    "陈留",
+    "颍川",
+    "南阳",
+    "汝南",
+    "官渡",
+    "白马",
+    "延津",
+    "邺城",
+    "晋阳",
+    "上党",
+    "河东",
+    "函谷",
+    "潼关",
+    "华阴",
+    "长安",
+    "洛阳",
+    "陈仓",
+    "街亭",
+    "天水",
+    "冀城",
+    "祁山",
+    "武都",
+    "阳平关",
+    "定军山",
+    "汉中",
+    "葭萌",
+    "剑阁",
+    "涪城",
+    "绵竹",
+    "雒城",
+    "成都",
+    "江州",
+    "黎阳",
+    "邯郸",
+    "信都",
+    "南皮",
+    "平原",
+    "易京",
+    "涿郡",
+    "蓟县",
+    "渔阳",
+    "右北平",
+    "卢龙塞",
+    "柳城",
+    "白狼山",
+    "襄平",
+    "乐浪",
+    "单于庭"
+  ],
+  "boss_kits": [
+    "summon",
+    "firepot",
+    "volley",
+    "split",
+    "sealwave",
+    "thunder",
+    "affixlord",
+    "avatar"
+  ],
+  "level_rules": {
+    "twinBoss": {
+      "short": "双贼首",
+      "tip": "贼首带着影子一起上"
+    },
+    "rush": {
+      "short": "急行军",
+      "tip": "敌人跑得更快"
+    },
+    "ruin": {
+      "short": "城防失修",
+      "tip": "城墙比平时矮"
+    },
+    "rich": {
+      "short": "缴获丰厚",
+      "tip": "金币掉得多"
+    },
+    "rocks": {
+      "short": "乱石密布",
+      "tip": "石头障碍更多"
+    },
+    "elite": {
+      "short": "精锐云集",
+      "tip": "精锐词缀更多"
+    },
+    "smoke": {
+      "short": "烟瘴弥漫",
+      "tip": "烟大看不远，弓兵射程-35%"
+    },
+    "mud": {
+      "short": "泥沼遍地",
+      "tip": "泥深马难行，骑兵冲锋只有一半远"
+    },
+    "crossbow": {
+      "short": "连弩贼",
+      "tip": "弓贼投石兵成倍地来，护住武将"
+    }
+  },
+  "week_themes": [
+    {
+      "id": "tuanjie",
+      "icon": "🎐",
+      "name": "众志成城",
+      "short": "羁绊效果多三成",
+      "desc": "羁绊效果多三成——多凑几对搭子",
+      "fav": "羁绊流"
+    },
+    {
+      "id": "liaoyuan",
+      "icon": "🔥",
+      "name": "燎原之势",
+      "short": "贼快·带火烧他",
+      "desc": "着火烧得凶、贼也跑得快——带火/点燃抢在到城前烧死",
+      "fav": "火/点燃流"
+    },
+    {
+      "id": "jiancheng",
+      "icon": "🛡️",
+      "name": "坚城拒守",
+      "short": "贼厚·拼持久输出",
+      "desc": "贼血厚得多、走得慢——没持久输出磨不穿",
+      "fav": "持久AOE"
+    },
+    {
+      "id": "jifeng",
+      "icon": "⚡",
+      "name": "疾风迅雷",
+      "short": "贼飞快·靠控场拦",
+      "desc": "贼跑得飞快但血薄——没控场/近战墙就漏怪压城",
+      "fav": "控制/近战"
+    },
+    {
+      "id": "yunchou",
+      "icon": "📜",
+      "name": "运筹帷幄",
+      "short": "特种多·勤放主公技",
+      "desc": "主公技转更快，但贼里特种更多",
+      "fav": "主公流"
+    }
+  ],
+  "rulers": [
+    {
+      "id": "caocao",
+      "name": "曹操",
+      "title": "乱世奸雄",
+      "skill": "wuxing",
+      "special": "tuntian",
+      "passives": [
+        {
+          "id": "bounty",
+          "at": [
+            1,
+            5,
+            9,
+            13,
+            17
+          ]
+        },
+        {
+          "id": "farm",
+          "at": [
+            3,
+            7,
+            11,
+            15,
+            19
+          ]
+        },
+        {
+          "id": "supply",
+          "at": [
+            4,
+            8,
+            12,
+            16,
+            20
+          ]
+        }
+      ],
+      "desc": "屯田养兵：三才破敌免掉被克的亏，独家粮仓喂人升星——家底厚，答题还是要自己答"
+    },
+    {
+      "id": "liubei",
+      "name": "刘备",
+      "title": "仁德载世",
+      "skill": "taoyuan",
+      "special": null,
+      "passives": [
+        {
+          "id": "wall",
+          "at": [
+            1,
+            5,
+            9,
+            13,
+            17
+          ]
+        },
+        {
+          "id": "mend",
+          "at": [
+            2,
+            6,
+            10,
+            14,
+            18
+          ]
+        },
+        {
+          "id": "d_spear",
+          "at": [
+            3,
+            7,
+            11,
+            15,
+            19
+          ]
+        },
+        {
+          "id": "d_supp",
+          "at": [
+            4,
+            8,
+            12,
+            16,
+            20
+          ]
+        }
+      ],
+      "desc": "守护续航：兄弟危难全军金身，落幕把扛的伤全数奉还还换经验——扛得越狠，反击越疼粮饷越足"
+    },
+    {
+      "id": "sunquan",
+      "name": "孙权",
+      "title": "坐断东南",
+      "skill": "jiejiang",
+      "special": "shuijun",
+      "passives": [
+        {
+          "id": "d_cav",
+          "at": [
+            1,
+            5,
+            9,
+            13,
+            17
+          ]
+        },
+        {
+          "id": "d_archer",
+          "at": [
+            2,
+            6,
+            10,
+            14,
+            18
+          ]
+        },
+        {
+          "id": "bounty",
+          "at": [
+            3,
+            7,
+            11,
+            15,
+            19
+          ]
+        },
+        {
+          "id": "pick",
+          "at": [
+            4,
+            8,
+            12,
+            16,
+            20
+          ]
+        }
+      ],
+      "desc": "江东通饷：杀敌经验+30%直通抽卡雪球，江中击杀经验×2——每波自动起江，按住贼收粮"
+    },
+    {
+      "id": "yuanshao",
+      "name": "袁绍",
+      "title": "四世三公",
+      "skill": "mensheng",
+      "special": null,
+      "passives": [
+        {
+          "id": "vet",
+          "at": [
+            1,
+            5,
+            9,
+            13,
+            17
+          ]
+        },
+        {
+          "id": "farm",
+          "at": [
+            2,
+            6,
+            10,
+            14,
+            18
+          ]
+        },
+        {
+          "id": "supply",
+          "at": [
+            3,
+            7,
+            11,
+            15,
+            19
+          ]
+        },
+        {
+          "id": "wall",
+          "at": [
+            4,
+            8,
+            12,
+            16,
+            20
+          ]
+        }
+      ],
+      "desc": "门路宽广：门生故吏把升级选卡变五选一、牌好有得挑，开局还自带老兵——雪球滚得稳"
+    },
+    {
+      "id": "liubiao",
+      "name": "刘表",
+      "title": "坐保江汉",
+      "skill": "bingfeng",
+      "special": "yanglong",
+      "passives": [
+        {
+          "id": "d_shield",
+          "at": [
+            1,
+            5,
+            9,
+            13,
+            17
+          ]
+        },
+        {
+          "id": "wall",
+          "at": [
+            2,
+            6,
+            10,
+            14,
+            18
+          ]
+        },
+        {
+          "id": "pick",
+          "at": [
+            3,
+            7,
+            11,
+            15,
+            19
+          ]
+        }
+      ],
+      "desc": "深沟高垒：龙蛋孵着吐经验、觉醒成应龙镇场；讨伐每多撑1波全军攻击+5%——从容养蛋，越守越强"
+    },
+    {
+      "id": "gongsunzan",
+      "name": "公孙瓒",
+      "title": "白马将军",
+      "skill": "baima",
+      "special": "qiangnu",
+      "passives": [
+        {
+          "id": "wall",
+          "at": [
+            1,
+            5,
+            9,
+            13,
+            17
+          ]
+        },
+        {
+          "id": "mend",
+          "at": [
+            2,
+            6,
+            10,
+            14,
+            18
+          ]
+        },
+        {
+          "id": "d_archer",
+          "at": [
+            3,
+            7,
+            11,
+            15,
+            19
+          ]
+        },
+        {
+          "id": "pick",
+          "at": [
+            4,
+            8,
+            12,
+            16,
+            20
+          ]
+        }
+      ],
+      "desc": "亲冒矢石：白马下场砍关键怪、强弩看家——主公亲手击杀经验×3，将军的首级换全军的粮饷"
+    },
+    {
+      "id": "dongzhuo",
+      "name": "董卓",
+      "title": "相国",
+      "skill": "fenluo",
+      "special": "luoyangchan",
+      "passives": [
+        {
+          "id": "bounty",
+          "at": [
+            1,
+            5,
+            9,
+            13,
+            17
+          ]
+        },
+        {
+          "id": "vet",
+          "at": [
+            2,
+            6,
+            10,
+            14,
+            18
+          ]
+        },
+        {
+          "id": "d_cav",
+          "at": [
+            3,
+            7,
+            11,
+            15,
+            19
+          ]
+        },
+        {
+          "id": "supply",
+          "at": [
+            4,
+            8,
+            12,
+            16,
+            20
+          ]
+        }
+      ],
+      "desc": "焚掘无度：烧城血换巨焰+4%永久攻，着火烧死的贼经验×2——火葬收魂，烧得越旺学得越快",
+      "special2": "henzheng"
+    },
+    {
+      "id": "yuanshu",
+      "name": "袁术",
+      "title": "仲家皇帝",
+      "skill": "jianhao",
+      "special": null,
+      "passives": [
+        {
+          "id": "farm",
+          "at": [
+            1,
+            5,
+            9,
+            13,
+            17
+          ]
+        },
+        {
+          "id": "supply",
+          "at": [
+            2,
+            6,
+            10,
+            14,
+            18
+          ]
+        },
+        {
+          "id": "pick",
+          "at": [
+            3,
+            7,
+            11,
+            15,
+            19
+          ]
+        },
+        {
+          "id": "bounty",
+          "at": [
+            4,
+            8,
+            12,
+            16,
+            20
+          ]
+        }
+      ],
+      "desc": "帝业吃人：定期吃掉最弱的兵换大把经验连抽卡——留个便宜祭品位，帝业才滚得快"
+    }
+  ],
+  "lord_kin": {
+    "caocao": [
+      "caoren",
+      "caohong",
+      "xuchu",
+      "dianwei"
+    ],
+    "liubei": [
+      "yanyan",
+      "huangyueying",
+      "xushu",
+      "zhangfei"
+    ],
+    "sunquan": [
+      "daqiao",
+      "xiaoqiao",
+      "lusu",
+      "zhoutai"
+    ],
+    "yuanshao": [
+      "yanliang",
+      "zhanghe",
+      "xuhuang",
+      "wenchou"
+    ],
+    "liubiao": [
+      "huangzhong",
+      "weiyan",
+      "caiwenji",
+      "ganning"
+    ],
+    "gongsunzan": [
+      "zhaoyun",
+      "sunshangxiang",
+      "xiahouyuan",
+      "taishici"
+    ],
+    "dongzhuo": [
+      "lvbu",
+      "diaochan",
+      "gaoshun",
+      "jiaxu"
+    ],
+    "yuanshu": [
+      "sunce",
+      "huanggai",
+      "huatuo"
+    ]
+  },
+  "foe_cards": {
+    "rage": {
+      "name": "贼胆",
+      "tip": "贼的刀+30%（12秒）"
+    },
+    "shieldup": {
+      "name": "披甲",
+      "tip": "现存贼人人套一层盾"
+    },
+    "heal": {
+      "name": "黄天庇佑",
+      "tip": "全场贼回血25%"
+    },
+    "curse": {
+      "name": "咒缚",
+      "tip": "全军攻击-25%（10秒）"
+    },
+    "sealone": {
+      "name": "摄魂",
+      "tip": "封印你最能打的武将6秒"
+    },
+    "sealrow": {
+      "name": "锁阵",
+      "tip": "封印一整排武将3.5秒"
+    },
+    "firerain": {
+      "name": "火雨",
+      "tip": "三名武将挨烧（掉当前血30%，烧不死）"
+    },
+    "snipe": {
+      "name": "冷箭",
+      "tip": "点名你最能打的（掉当前血45%，打不死）"
+    },
+    "ramwall": {
+      "name": "撞门",
+      "tip": "城墙-3"
+    },
+    "dispel": {
+      "name": "拆台",
+      "tip": "扫掉你的临时增益"
+    },
+    "drop": {
+      "name": "空投死士",
+      "tip": "中场空降2名刺客"
+    },
+    "reinforce": {
+      "name": "增员",
+      "tip": "一小队快腿压上"
+    },
+    "ramcall": {
+      "name": "破城槌",
+      "tip": "召2辆锤车（只有盾兵拦得住）"
+    },
+    "shaman2": {
+      "name": "妖人助阵",
+      "tip": "召2个妖术师"
+    },
+    "taunt": {
+      "name": "口嗨",
+      "tip": "光说不练"
+    }
+  },
+  "foe_lords": [
+    {
+      "id": "zhangjiao",
+      "name": "张角",
+      "title": "天公将军",
+      "icon": "🧙",
+      "taunts": [
+        "苍天已死，黄天当立！",
+        "岁在甲子，天下大吉！",
+        "尔等官军，也配挡我黄天？"
+      ],
+      "deck": [
+        "heal",
+        "shaman2",
+        "curse",
+        "sealone",
+        "rage",
+        "dispel",
+        "firerain",
+        "taunt",
+        "shieldup",
+        "heal"
+      ]
+    },
+    {
+      "id": "zhangbao",
+      "name": "张宝",
+      "title": "地公将军",
+      "icon": "🌀",
+      "taunts": [
+        "呼风唤雨，撒豆成兵！",
+        "我兄长的道法，你们学不来。"
+      ],
+      "deck": [
+        "sealrow",
+        "sealone",
+        "curse",
+        "dispel",
+        "shieldup",
+        "taunt",
+        "firerain",
+        "drop",
+        "heal",
+        "sealrow"
+      ]
+    },
+    {
+      "id": "zhangliang",
+      "name": "张梁",
+      "title": "人公将军",
+      "icon": "⚔️",
+      "taunts": [
+        "跟他们讲什么道法！抄家伙！",
+        "二位兄长看着，某先登！"
+      ],
+      "deck": [
+        "rage",
+        "rage",
+        "ramcall",
+        "shieldup",
+        "firerain",
+        "snipe",
+        "reinforce",
+        "taunt",
+        "drop",
+        "heal"
+      ]
+    },
+    {
+      "id": "guanhai",
+      "name": "管亥",
+      "title": "青州渠帅",
+      "icon": "🪓",
+      "taunts": [
+        "城里的米，借了！",
+        "北海孔融都挡不住我，你算什么？"
+      ],
+      "deck": [
+        "snipe",
+        "snipe",
+        "ramwall",
+        "ramwall",
+        "rage",
+        "firerain",
+        "drop",
+        "shieldup",
+        "taunt",
+        "reinforce"
+      ]
+    },
+    {
+      "id": "heyi",
+      "name": "何仪",
+      "title": "汝南黄巾",
+      "icon": "🍗",
+      "taunts": [
+        "兄弟们，看我干嘛？上啊！",
+        "那个……容我想想下一步。",
+        "别打脸！说了别打脸！",
+        "等我大哥来了你们就完了！"
+      ],
+      "deck": [
+        "taunt",
+        "taunt",
+        "taunt",
+        "taunt",
+        "reinforce",
+        "reinforce",
+        "dispel",
+        "shieldup",
+        "drop",
+        "heal"
+      ]
+    },
+    {
+      "id": "zhangyan",
+      "name": "张燕",
+      "title": "黑山飞燕",
+      "icon": "🦅",
+      "taunts": [
+        "黑山百万众，来去如飞燕！",
+        "你守你的城，我抄我的道。"
+      ],
+      "deck": [
+        "reinforce",
+        "reinforce",
+        "drop",
+        "drop",
+        "snipe",
+        "sealone",
+        "taunt",
+        "rage",
+        "shieldup",
+        "firerain"
+      ]
+    },
+    {
+      "id": "yudu",
+      "name": "于毒",
+      "title": "黑山渠帅",
+      "icon": "☠️",
+      "taunts": [
+        "名字就叫于毒，你说我玩什么路数？",
+        "慢慢烂掉吧。"
+      ],
+      "deck": [
+        "curse",
+        "curse",
+        "dispel",
+        "dispel",
+        "firerain",
+        "sealone",
+        "taunt",
+        "heal",
+        "snipe",
+        "drop"
+      ]
+    },
+    {
+      "id": "bocai",
+      "name": "波才",
+      "title": "颍川渠帅",
+      "icon": "🔥",
+      "taunts": [
+        "长社的火我记着呢——今天烧回来！",
+        "风助火势，火助我威！"
+      ],
+      "deck": [
+        "firerain",
+        "firerain",
+        "firerain",
+        "rage",
+        "drop",
+        "snipe",
+        "taunt",
+        "shieldup",
+        "ramwall",
+        "sealone"
+      ]
+    }
+  ],
+  "specials": {
+    "runner": {
+      "icon": "💨",
+      "name": "奔袭",
+      "minWave": 3
+    },
+    "healer": {
+      "icon": "🧙",
+      "name": "巫医",
+      "minWave": 6
+    },
+    "shooter": {
+      "icon": "🏹",
+      "name": "弓贼",
+      "minWave": 7
+    },
+    "banner": {
+      "icon": "🚩",
+      "name": "旗手",
+      "minWave": 8
+    },
+    "thrower": {
+      "icon": "💣",
+      "name": "投石兵",
+      "minWave": 9
+    },
+    "shaman": {
+      "icon": "🌀",
+      "name": "妖术师",
+      "minWave": 10
+    },
+    "rattan": {
+      "icon": "🎋",
+      "name": "藤甲兵",
+      "minWave": 4,
+      "lvMin": 16
+    },
+    "ram": {
+      "icon": "🛞",
+      "name": "锤车",
+      "minWave": 5,
+      "lvMin": 24
+    },
+    "cata": {
+      "icon": "🏗️",
+      "name": "投石车",
+      "minWave": 10,
+      "lvMin": 24
+    },
+    "warden": {
+      "icon": "👺",
+      "name": "督军",
+      "minWave": 6,
+      "lvMin": 32
+    },
+    "bomber": {
+      "icon": "💥",
+      "name": "爆竹兵",
+      "minWave": 5,
+      "lvMin": 20
+    },
+    "assassin": {
+      "icon": "🗡️",
+      "name": "刺客",
+      "minWave": 7,
+      "lvMin": 28
+    },
+    "pavise": {
+      "icon": "🐢",
+      "name": "橹楯车",
+      "minWave": 6,
+      "lvMin": 36
+    }
+  },
+  "special_tips": {
+    "runner": "跑得飞快，小心漏进来",
+    "healer": "给周围的怪回血，先杀他",
+    "shooter": "远远放冷箭，会慢慢逼近",
+    "banner": "给周围的怪加速，先杀他",
+    "thrower": "扔石头砸一片，看红圈躲",
+    "shaman": "会封住武将不能动，赶紧杀",
+    "rattan": "藤甲厚皮血多，点燃烧他照样疼",
+    "ram": "死物免控：吓不倒迷不住锤只顿半拍——只有盾兵顶得住车，没盾就半路磨死它",
+    "cata": "半场架炮慢慢磨墙（10秒一发）——不拆它就一直磨，城墙血和缮城就是防它的；集火/龙镇/拖江都能拆",
+    "warden": "红圈里的怪都少挨打，先杀他",
+    "bomber": "死了原地炸一圈，别让近战贴着杀——弓兵远远点掉",
+    "assassin": "飞进阵里专捅后排，盾兵奶妈护着点",
+    "pavise": "大盾车：箭射不动，近战拆它最快"
+  },
+  "mutations": {
+    "frenzy": {
+      "icon": "😤",
+      "name": "狂暴之潮",
+      "desc": "这波个个狂奔，跑快35%"
+    },
+    "horde": {
+      "icon": "🐜",
+      "name": "人海之潮",
+      "desc": "小怪多七成，但个个只有七成血"
+    },
+    "volley": {
+      "icon": "🏹",
+      "name": "冷箭之潮",
+      "desc": "弓贼投石兵扎堆来，护住武将"
+    },
+    "ironhide": {
+      "icon": "🔄",
+      "name": "变性之潮",
+      "desc": "这波贼集体换了属性，看清再打"
+    },
+    "fat": {
+      "icon": "🐑",
+      "name": "肥羊之潮",
+      "desc": "这波经验翻倍，别放跑了",
+      "good": true
+    },
+    "eastwind": {
+      "icon": "🌬️",
+      "name": "东风之潮",
+      "desc": "这波火烧翻倍、火伤+60%",
+      "good": true
+    },
+    "rainstorm": {
+      "icon": "🌧️",
+      "name": "大雨之潮",
+      "desc": "这波浇灭了火，带火/点燃流抓瞎"
+    }
+  },
+  "endless_rules": [
+    {
+      "key": "smoke",
+      "name": "烟瘴弥漫",
+      "tip": "弓兵射程-35%",
+      "mod": {
+        "archerRngMul": 0.65
+      }
+    },
+    {
+      "key": "mud",
+      "name": "泥沼遍地",
+      "tip": "骑兵冲锋只有一半远",
+      "mod": {
+        "cavChargeMul": 0.55
+      }
+    },
+    {
+      "key": "crossbow",
+      "name": "连弩贼",
+      "tip": "弓贼投石兵成倍地来",
+      "mod": {
+        "rangedMul": 2.2
+      }
+    },
+    {
+      "key": "rush",
+      "name": "急行军",
+      "tip": "敌人跑快15%",
+      "mod": {
+        "spdMul": 1.15
+      }
+    },
+    {
+      "key": "shift",
+      "name": "换皮妖法",
+      "tip": "贼换了怕的属性，看预告",
+      "mod": {}
+    }
+  ],
+  "techs": [
+    {
+      "id": "d_spear",
+      "icon": "🔱",
+      "grp": "操练",
+      "name": "枪术操练",
+      "max": 5,
+      "per": "枪兵伤害+3%"
+    },
+    {
+      "id": "d_archer",
+      "icon": "🏹",
+      "grp": "操练",
+      "name": "箭术操练",
+      "max": 5,
+      "per": "弓兵伤害+3%"
+    },
+    {
+      "id": "d_cav",
+      "icon": "🐎",
+      "grp": "操练",
+      "name": "马术操练",
+      "max": 5,
+      "per": "骑兵伤害+3%"
+    },
+    {
+      "id": "d_shield",
+      "icon": "🛡️",
+      "grp": "操练",
+      "name": "坚盾操练",
+      "max": 5,
+      "per": "盾兵血量+4%"
+    },
+    {
+      "id": "d_supp",
+      "icon": "🎐",
+      "grp": "操练",
+      "name": "医术操练",
+      "max": 5,
+      "per": "辅兵水波转快+3%"
+    },
+    {
+      "id": "wall",
+      "icon": "🏯",
+      "grp": "通用",
+      "name": "城防加固",
+      "max": 5,
+      "per": "城墙上限+1"
+    },
+    {
+      "id": "farm",
+      "icon": "🌾",
+      "grp": "通用",
+      "name": "军屯广积",
+      "max": 5,
+      "per": "杀敌经验+4%"
+    },
+    {
+      "id": "bounty",
+      "icon": "💰",
+      "grp": "通用",
+      "name": "犒赏有方",
+      "max": 5,
+      "per": "金币+4%"
+    },
+    {
+      "id": "supply",
+      "icon": "👑",
+      "grp": "通用",
+      "name": "帅印传家",
+      "max": 5,
+      "per": "主公技转快4%"
+    },
+    {
+      "id": "pick",
+      "icon": "🛡️",
+      "grp": "战备",
+      "name": "固守金汤",
+      "max": 5,
+      "per": "开局城墙护盾+2"
+    },
+    {
+      "id": "vet",
+      "icon": "🎖️",
+      "grp": "战备",
+      "name": "老兵传承",
+      "max": 5,
+      "per": "开局自带10经验"
+    },
+    {
+      "id": "mend",
+      "icon": "🧱",
+      "grp": "战备",
+      "name": "缮城营造",
+      "max": 5,
+      "per": "每5波城墙回1"
+    }
+  ],
+  "achievements": [
+    {
+      "id": "first100",
+      "grp": "战功",
+      "name": "初阵告捷",
+      "desc": "一局杀 100 个黄巾",
+      "gold": 100
+    },
+    {
+      "id": "slay800",
+      "grp": "战功",
+      "name": "一骑当千",
+      "desc": "一局杀 800 个",
+      "gold": 300
+    },
+    {
+      "id": "kills1k",
+      "grp": "战功",
+      "name": "小有战功",
+      "desc": "累计杀 1000 个",
+      "gold": 150
+    },
+    {
+      "id": "kills5000",
+      "grp": "战功",
+      "name": "万人之敌",
+      "desc": "累计杀 5000 个",
+      "gold": 500
+    },
+    {
+      "id": "kills20k",
+      "grp": "战功",
+      "name": "尸山血海",
+      "desc": "累计杀 2 万个",
+      "gold": 800
+    },
+    {
+      "id": "kills60k",
+      "grp": "战功",
+      "name": "杀神降世",
+      "desc": "累计杀 6 万个",
+      "gold": 1500
+    },
+    {
+      "id": "win",
+      "grp": "战功",
+      "name": "克敌制胜",
+      "desc": "打赢头一仗",
+      "gold": 150
+    },
+    {
+      "id": "wins10",
+      "grp": "战功",
+      "name": "连战连捷",
+      "desc": "打赢 10 仗",
+      "gold": 300
+    },
+    {
+      "id": "wins30",
+      "grp": "战功",
+      "name": "百战老兵",
+      "desc": "打赢 30 仗",
+      "gold": 600
+    },
+    {
+      "id": "wins100",
+      "grp": "战功",
+      "name": "常胜将军",
+      "desc": "打赢 100 仗",
+      "gold": 1200
+    },
+    {
+      "id": "boss10",
+      "grp": "战功",
+      "name": "猎首者",
+      "desc": "斩 10 个贼首",
+      "gold": 300
+    },
+    {
+      "id": "boss50",
+      "grp": "战功",
+      "name": "贼首克星",
+      "desc": "斩 50 个贼首",
+      "gold": 800
+    },
+    {
+      "id": "zhangjiao",
+      "grp": "战功",
+      "name": "斩首行动",
+      "desc": "干掉贼首张角",
+      "gold": 400
+    },
+    {
+      "id": "weekclear1",
+      "grp": "讨伐",
+      "name": "出师告捷",
+      "desc": "拿下头一个州郡",
+      "gold": 100
+    },
+    {
+      "id": "weekclear8",
+      "grp": "讨伐",
+      "name": "半壁江山",
+      "desc": "一周内拿下 8 个州郡",
+      "gold": 400
+    },
+    {
+      "id": "weekclear16",
+      "grp": "讨伐",
+      "name": "东境已定",
+      "desc": "一周内拿下东部 16 城",
+      "gold": 1000
+    },
+    {
+      "id": "weekclear32",
+      "grp": "讨伐",
+      "name": "问鼎洛阳",
+      "desc": "一周内拿下东部+南部 32 城（打进洛阳）",
+      "gold": 3000
+    },
+    {
+      "id": "weekclear48",
+      "grp": "讨伐",
+      "name": "西定巴蜀",
+      "desc": "一周内拿下 48 城（西征入成都）",
+      "gold": 5000
+    },
+    {
+      "id": "weekclear64",
+      "grp": "讨伐",
+      "name": "混一天下",
+      "desc": "一周内 64 城全拿下（北境打穿）",
+      "gold": 8000
+    },
+    {
+      "id": "hellwin",
+      "grp": "讨伐",
+      "name": "北伐先锋",
+      "desc": "拿下幽州以北的硬茬州郡",
+      "gold": 800
+    },
+    {
+      "id": "shurawin",
+      "grp": "讨伐",
+      "name": "直捣广宗",
+      "desc": "拿下广宗，端了黄巾老巢",
+      "gold": 2000
+    },
+    {
+      "id": "star3first",
+      "grp": "讨伐",
+      "name": "旗开得胜",
+      "desc": "头一次三星通关",
+      "gold": 200
+    },
+    {
+      "id": "perfect10",
+      "grp": "讨伐",
+      "name": "常胜之师",
+      "desc": "三星通关累计 10 次",
+      "gold": 600
+    },
+    {
+      "id": "wscore5k",
+      "grp": "讨伐",
+      "name": "崭露头角",
+      "desc": "势力值单周打到 4000",
+      "gold": 300
+    },
+    {
+      "id": "wscore20k",
+      "grp": "讨伐",
+      "name": "名震一方",
+      "desc": "势力值单周打到 1 万 2",
+      "gold": 800
+    },
+    {
+      "id": "wscore45k",
+      "grp": "讨伐",
+      "name": "天下无双",
+      "desc": "势力值单周打到 2 万 5",
+      "gold": 2000
+    },
+    {
+      "id": "wave20",
+      "grp": "讨伐",
+      "name": "坚壁清野",
+      "desc": "一局撑到第 20 波",
+      "gold": 300
+    },
+    {
+      "id": "wave35",
+      "grp": "讨伐",
+      "name": "中流砥柱",
+      "desc": "无尽撑到第 35 波",
+      "gold": 800
+    },
+    {
+      "id": "lordwin",
+      "grp": "讨伐",
+      "name": "割据一方",
+      "desc": "当上一城的先锋（讨伐全服最深）",
+      "gold": 500
+    },
+    {
+      "id": "hero5",
+      "grp": "养成",
+      "name": "初露锋芒",
+      "desc": "把一个英雄升到 5 级",
+      "gold": 150
+    },
+    {
+      "id": "hero10",
+      "grp": "养成",
+      "name": "精兵强将",
+      "desc": "把一个英雄升到 10 级",
+      "gold": 300
+    },
+    {
+      "id": "hero20",
+      "grp": "养成",
+      "name": "千锤百炼",
+      "desc": "把一个英雄升到 20 级",
+      "gold": 800
+    },
+    {
+      "id": "hero30",
+      "grp": "养成",
+      "name": "登峰造极",
+      "desc": "把一个英雄升到满级 30",
+      "gold": 2000
+    },
+    {
+      "id": "pins5lv5",
+      "grp": "养成",
+      "name": "五虎齐心",
+      "desc": "让五虎上将羁绊在一局里生效",
+      "gold": 400
+    },
+    {
+      "id": "gold10k",
+      "grp": "养成",
+      "name": "第一桶金",
+      "desc": "累计赚 1 万金币",
+      "gold": 200
+    },
+    {
+      "id": "gold50k",
+      "grp": "养成",
+      "name": "家底殷实",
+      "desc": "累计赚 5 万金币",
+      "gold": 500
+    },
+    {
+      "id": "gold200k",
+      "grp": "养成",
+      "name": "富可敌国",
+      "desc": "累计赚 20 万金币",
+      "gold": 1200
+    },
+    {
+      "id": "tech5",
+      "grp": "养成",
+      "name": "深谙韬略",
+      "desc": "主公升到共 12 级",
+      "gold": 300
+    },
+    {
+      "id": "tech20",
+      "grp": "养成",
+      "name": "熟读兵书",
+      "desc": "主公升到共 40 级",
+      "gold": 800
+    },
+    {
+      "id": "tech60",
+      "grp": "养成",
+      "name": "韬略大成",
+      "desc": "主公总等级练到 100",
+      "gold": 2500
+    },
+    {
+      "id": "ad10",
+      "grp": "养成",
+      "name": "军情灵通",
+      "desc": "看广告累计 10 次",
+      "gold": 150
+    },
+    {
+      "id": "ad100",
+      "grp": "养成",
+      "name": "广告金主",
+      "desc": "看广告累计 100 次",
+      "gold": 800
+    },
+    {
+      "id": "star5",
+      "grp": "奇趣",
+      "name": "五星上将",
+      "desc": "把一个武将练到 5★",
+      "gold": 200
+    },
+    {
+      "id": "fullhouse",
+      "grp": "奇趣",
+      "name": "满编出击",
+      "desc": "同时11人在场（要先炸石头）",
+      "gold": 250
+    },
+    {
+      "id": "tactic10",
+      "grp": "奇趣",
+      "name": "运筹帷幄",
+      "desc": "一局放 10 次主公技",
+      "gold": 200
+    },
+    {
+      "id": "ult15",
+      "grp": "奇趣",
+      "name": "怒不可遏",
+      "desc": "一局放 15 次大招",
+      "gold": 200
+    },
+    {
+      "id": "relic5",
+      "grp": "奇趣",
+      "name": "藏宝将军",
+      "desc": "一局攒齐 5 件宝贝",
+      "gold": 250
+    },
+    {
+      "id": "ironwall",
+      "grp": "奇趣",
+      "name": "固若金汤",
+      "desc": "第 10 波打完城墙满血",
+      "gold": 300
+    },
+    {
+      "id": "seal",
+      "grp": "奇趣",
+      "name": "破除妖法",
+      "desc": "杀 1 个妖术师",
+      "gold": 150
+    },
+    {
+      "id": "dragon1",
+      "grp": "奇趣",
+      "name": "真龙天子",
+      "desc": "孵出头一条应龙",
+      "gold": 500
+    },
+    {
+      "id": "dragon2",
+      "grp": "奇趣",
+      "name": "双龙戏珠",
+      "desc": "一局孵出两条应龙",
+      "gold": 1000
+    },
+    {
+      "id": "granary40",
+      "grp": "奇趣",
+      "name": "屯田大户",
+      "desc": "一局里屯田喂出五颗星",
+      "gold": 400
+    },
+    {
+      "id": "swap10",
+      "grp": "奇趣",
+      "name": "如鱼得水",
+      "desc": "头一次在局内触发羁绊",
+      "gold": 200
+    },
+    {
+      "id": "rebirth1",
+      "grp": "奇趣",
+      "name": "浴火重生",
+      "desc": "头一次让五星武将转生",
+      "gold": 300
+    },
+    {
+      "id": "maxhit5k",
+      "grp": "奇趣",
+      "name": "力拔山兮",
+      "desc": "一击打出 5000 伤害",
+      "gold": 400
+    },
+    {
+      "id": "goldrun2k",
+      "grp": "奇趣",
+      "name": "盆满钵满",
+      "desc": "一局赚 2000 金币",
+      "gold": 300
+    },
+    {
+      "id": "seppuku3",
+      "grp": "奇趣",
+      "name": "无颜见江东",
+      "desc": "自刎归天 3 次",
+      "gold": 2000
+    },
+    {
+      "id": "dance5",
+      "grp": "奇趣",
+      "name": "此间乐",
+      "desc": "乐不思蜀 5 次",
+      "gold": 2000
+    }
+  ],
+  "items": [
+    {
+      "id": "visitToken",
+      "icon": "🧭",
+      "name": "寻访令牌",
+      "desc": "寻访掷骰用。通关战斗攒（每天30场满额），讨伐撑得深另有讨伐赏（每天最多再+30）"
+    },
+    {
+      "id": "tupo",
+      "icon": "🪨",
+      "name": "突破石",
+      "desc": "过坎和转生都用它：10级1颗、20级2颗，转生5/8/12颗——寻访里拿"
+    }
+  ]
+}
