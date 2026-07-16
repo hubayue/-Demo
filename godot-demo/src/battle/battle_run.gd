@@ -311,29 +311,18 @@ func advance_real(delta: float) -> void:
 		return
 	if awaiting_card_choice:
 		game_time += delta
-		dance_time = maxf(0.0, dance_time - delta)
-		if bool(permanent_tactics.get("gewu", false)) and dance_time <= 0.0:
-			if gewu_auto_index < 0 and not card_choices.is_empty():
-				var safe_indices := []
-				for index in card_choices.size():
-					if not ["seppuku", "dance"].has(str(card_choices[index].kind)):
-						safe_indices.append(index)
-				gewu_auto_index = 0
-				if not safe_indices.is_empty():
-					gewu_auto_index = int(safe_indices[int(floor(rng.next_float() * safe_indices.size()))])
-			gewu_auto_timer += delta
-			if gewu_auto_timer >= 1.5 and not card_choices.is_empty():
-				choose_card(gewu_auto_index)
+		_advance_paused_card_visuals(delta)
 		return
 	for step in speed:
 		_update_step(delta)
 
 func advance_visual_only(delta: float) -> void:
 	game_time += delta
-	dance_time = maxf(0.0, dance_time - delta)
+	_advance_paused_card_visuals(delta)
 	_decay_visual_events(field_events, delta)
 	_decay_visual_events(skill_lines, delta)
 	_decay_visual_events(ult_events, delta)
+	_decay_visual_events(lord_command_events, delta)
 	_update_ripples(delta)
 	_update_lord_visuals(delta)
 	for lob in friendly_lobs:
@@ -345,6 +334,22 @@ func advance_visual_only(delta: float) -> void:
 	for index in range(friendly_lobs.size() - 1, -1, -1):
 		if bool(friendly_lobs[index].get("dead", false)):
 			friendly_lobs.remove_at(index)
+
+func _advance_paused_card_visuals(delta: float) -> void:
+	dance_time = maxf(0.0, dance_time - delta)
+	if not awaiting_card_choice or not bool(permanent_tactics.get("gewu", false)) or dance_time > 0.0:
+		return
+	if gewu_auto_index < 0 and not card_choices.is_empty():
+		var safe_indices := []
+		for index in card_choices.size():
+			if not ["seppuku", "dance"].has(str(card_choices[index].kind)):
+				safe_indices.append(index)
+		gewu_auto_index = 0
+		if not safe_indices.is_empty():
+			gewu_auto_index = int(safe_indices[int(floor(rng.next_float() * safe_indices.size()))])
+	gewu_auto_timer += delta
+	if gewu_auto_timer >= 1.5 and not card_choices.is_empty():
+		choose_card(gewu_auto_index)
 
 func _decay_visual_events(events: Array, delta: float) -> void:
 	for event in events:

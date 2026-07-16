@@ -9,7 +9,7 @@ func _init() -> void:
 
 func _run() -> void:
 	var catalog = ContentCatalog.new()
-	if not _expect(catalog.load_from("res://data/content-v7.19.2.json") == OK, "content must load"):
+	if not _expect(catalog.load_from("res://data/content-v7.19.14.json") == OK, "v7.19.14 content must load"):
 		return
 	if not _test_single_target_formula(catalog):
 		return
@@ -33,7 +33,7 @@ func _run() -> void:
 		return
 	if not _test_gewu_lockout(catalog):
 		return
-	print("Godot v7.19.2 ruler auto attacks: PASS")
+	print("Godot v7.19.14 ruler auto attacks: PASS")
 	quit(0)
 
 func _test_single_target_formula(catalog) -> bool:
@@ -212,7 +212,11 @@ func _test_taoyuan_and_jiejiang(catalog) -> bool:
 		return false
 	if not _expect(is_equal_approx(float(sunquan.flood.t), 7.0) and is_equal_approx(float(sunquan.flood.amp), 0.3), "level-one Jiejiang must create a seven-second, +30% damage river"):
 		return false
-	return _expect(sunquan.damage_enemy(river_enemy, 10.0) == 13, "an enemy inside Jiejiang must take 30% extra damage")
+	if not _expect(sunquan.damage_enemy(river_enemy, 10.0) == 13, "an enemy inside Jiejiang must take 30% extra damage"):
+		return false
+	var empty_river = _make_run(catalog, "sunquan")
+	empty_river.lord_command_cd = 0.0
+	return _expect(empty_river.cast_lord_command() and not empty_river.flood.is_empty(), "manual Jiejiang must follow Web and allow laying the river before enemies enter")
 
 func _test_mensheng_and_baima(catalog) -> bool:
 	var yuanshao = _make_run(catalog, "yuanshao")
@@ -312,7 +316,14 @@ func _test_gewu_lockout(catalog) -> bool:
 	run._update_lord_auto_attack(0.1)
 	if not _expect(float(run.enemies[0].hp) == hp_before, "Gewu must stop the seven ordinary ruler auto attacks"):
 		return false
-	return _expect(is_equal_approx(float(run.team.unit_mods(run, unit).dmgMul), base_damage * 1.3), "Gewu must multiply real army damage by 1.3")
+	if not _expect(is_equal_approx(float(run.team.unit_mods(run, unit).dmgMul), base_damage * 1.3), "Gewu must multiply real army damage by 1.3"):
+		return false
+	var yuanshu = _make_run(catalog, "yuanshu")
+	for index in 5:
+		yuanshu.add_unit_at(["zhangfei", "zhaoyun", "machao", "huangzhong", "xiahouyuan"][index], index / 5, index % 5)
+	yuanshu.permanent_tactics.gewu = true
+	yuanshu.lord_command_cd = 0.0
+	return _expect(yuanshu.cast_lord_command(), "Web v7.19.12 must keep Jianhao available during Gewu so its auto-draft economy still has fuel")
 
 func _make_run(catalog, ruler_id: String):
 	var run = BattleRun.new(catalog, Mulberry32.new(7192))

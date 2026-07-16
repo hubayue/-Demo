@@ -143,6 +143,8 @@ const MAP_TAB_RECTS := [
 ]
 const STATE_GO_RECT := Rect2(150, 648, 180, 44)
 const LORD_COMMAND_RECT := Rect2(414, 208, 56, 58)
+const LORD_NAME_RECT := Rect2(410, 178, 64, 24)
+const PLAYER_LORD_POPUP_RECT := Rect2(65, 150, 350, 288)
 const FOE_LORD_RECT := Rect2(208, 108, 64, 43)
 const RULER_BACK_RECT := Rect2(14, 22, 90, 34)
 const BATTLE_MUTE_RECT := Rect2(402, 102, 64, 32)
@@ -165,6 +167,11 @@ const HERO_REBIRTH_RECT := Rect2(248, 620, 198, 46)
 const HERO_RESET_RECT := Rect2(141, 690, 198, 40)
 const VISIT_ROLL_RECT := Rect2(156, 306, 168, 54)
 const LORD_COMMAND_ICONS := {"wuxing": "☯", "taoyuan": "🍑", "jiejiang": "🌊", "mensheng": "📜", "bingfeng": "🧊", "baima": "🐎", "fenluo": "🔥", "jianhao": "🪙"}
+const LORD_AUTO_TIPS := {
+	"wuxing": "场上贼≥8个", "bingfeng": "场上贼≥6个", "taoyuan": "有兄弟掉到半血，或贼冲到城墙跟前（金身期间不叠）",
+	"jiejiang": "江区里贼≥4个", "mensheng": "CD一转好就铺门路", "baima": "有特种/贼首上场，或贼≥8个",
+	"fenluo": "贼≥6个且城血≥5（残血不烧）", "jianhao": "场上≥5人且有星≤3的祭品",
+}
 const LORD_SPECIAL_LABELS := {
 	"tuntian": "🌾屯田", "yanglong": "🐉养龙", "qiangnu": "🏹强弩", "lijian": "💔离间",
 	"henzheng": "🧧横征", "luoyangchan": "🪏洛阳铲", "qinwang": "🐎勤王", "yishe": "🍚义舍", "shuijun": "⚓水军",
@@ -185,6 +192,7 @@ var week_clears: Dictionary = {}
 var map_message := ""
 var battle_run
 var foe_lord_popup := false
+var player_lord_popup := false
 var battle_drag = BattleDragControllerSource.new()
 var unit_info_popup: Dictionary = {}
 var battle_interaction_notice: Dictionary = {}
@@ -291,6 +299,7 @@ func select_opening_hero(hero_id: String) -> void:
 	battle_run.start(city, selected_ruler, selected_hero, LocalProfileSource.ruler_level(profile, selected_ruler), LocalProfileSource.hero_levels(profile), shen_period, shen_ids)
 	battle_field_banner_time = 9.0
 	foe_lord_popup = false
+	player_lord_popup = false
 	settlement_summary = {}
 	suppression_summary = {}
 	queue_redraw()
@@ -320,9 +329,9 @@ func _process(delta: float) -> void:
 		battle_interaction_notice.time = maxf(0.0, float(battle_interaction_notice.get("time", 0.0)) - delta)
 		if float(battle_interaction_notice.time) <= 0.0:
 			battle_interaction_notice = {}
-	if battle_run.status == "play" and not battle_run.awaiting_card_choice and not foe_lord_popup and not unit_info_popup_is_visible():
+	if battle_run.status == "play" and not battle_run.awaiting_card_choice and not foe_lord_popup and not player_lord_popup_is_visible() and not unit_info_popup_is_visible():
 		battle_field_banner_time = maxf(0.0, battle_field_banner_time - delta * 2.0)
-	if unit_info_popup_is_visible():
+	if unit_info_popup_is_visible() or player_lord_popup_is_visible():
 		battle_run.advance_visual_only(delta)
 	else:
 		battle_run.advance_real(delta)
@@ -391,7 +400,7 @@ func _gui_input(event: InputEvent) -> void:
 func _try_begin_battle_drag(point: Vector2) -> bool:
 	if phase != "battle" or battle_run == null or battle_run.status != "play":
 		return false
-	if foe_lord_popup or battle_run.awaiting_card_choice or (bool(battle_run.permanent_tactics.get("gewu", false)) and battle_run.dance_time <= 0.0):
+	if foe_lord_popup or player_lord_popup_is_visible() or battle_run.awaiting_card_choice or (bool(battle_run.permanent_tactics.get("gewu", false)) and battle_run.dance_time <= 0.0):
 		return false
 	var cell := BattleDragControllerSource.cell_at(point)
 	if cell == Vector2i(-1, -1):
@@ -511,6 +520,19 @@ func _handle_pointer(point: Vector2) -> void:
 				foe_lord_popup = true
 				queue_redraw()
 				return
+			if player_lord_popup_is_visible():
+				var cast_rect: Rect2 = player_lord_popup_spec().get("cast_rect", Rect2())
+				player_lord_popup = false
+				if cast_rect.has_point(point):
+					var blocked_notice := _manual_lord_command_block_notice()
+					if not battle_run.cast_lord_command() and not blocked_notice.is_empty():
+						_set_battle_interaction_notice(blocked_notice, Vector2(240, 300), PALE_GOLD)
+				queue_redraw()
+				return
+			if LORD_NAME_RECT.has_point(point):
+				player_lord_popup = true
+				queue_redraw()
+				return
 			if unit_info_popup_is_visible():
 				unit_info_popup = {}
 			if battle_run.awaiting_card_choice:
@@ -541,7 +563,7 @@ func _handle_pointer(point: Vector2) -> void:
 				queue_redraw()
 				return
 			if LORD_COMMAND_RECT.has_point(point):
-				battle_run.cast_lord_command()
+				player_lord_popup = true
 				queue_redraw()
 				return
 			var clicked_enemy: Dictionary = _enemy_at_point(point)
@@ -765,6 +787,7 @@ func _return_to_map() -> void:
 	state_popup = -1
 	battle_run = null
 	foe_lord_popup = false
+	player_lord_popup = false
 	battle_drag.cancel()
 	damage_panel_visible = false
 	quit_armed = false
@@ -1456,6 +1479,7 @@ func _draw_battle() -> void:
 			"growth": _draw_growth_cards()
 			"unit_info": _draw_unit_info_popup()
 			"foe_lord": _draw_foe_lord_popup()
+			"player_lord": _draw_player_lord_popup()
 			"result": _draw_result()
 	_draw_battle_interaction_notice()
 	if battle_field_banner_is_visible():
@@ -1473,7 +1497,90 @@ func _battle_overlay_layers() -> Array:
 		layers.append("foe_lord")
 	elif battle_run.status != "play":
 		layers.append("result")
+	if player_lord_popup_is_visible():
+		layers.append("player_lord")
 	return layers
+
+func player_lord_popup_is_visible() -> bool:
+	return player_lord_popup and battle_run != null and battle_run.status == "play"
+
+func player_lord_popup_spec() -> Dictionary:
+	if not player_lord_popup_is_visible():
+		return {}
+	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
+	var command: Dictionary = BattleLordSource.COMMANDS.get(battle_run.lord_skill_id, {})
+	var attack_estimate := _lord_attack_estimate()
+	var attack: Dictionary = attack_estimate.get("attack", {})
+	var attack_buff := "（含卡+%d%%）" % roundi(float(battle_run.lord_atk_buff) * 100.0) if float(battle_run.lord_atk_buff) > 0 else ""
+	var power: float = battle_run.lord_kin_power()
+	var cooldown_line := "冷却 %d 秒" % roundi(battle_run.lord_command_cooldown_max())
+	if battle_run.lord_skill_id != "mensheng":
+		cooldown_line += "　🤝亲兵助威 ×%.1f" % power if power > 1.0 else "　🤝亲兵上阵可加威力（最多×1.8）"
+	var ready: bool = battle_run.lord_command_cd <= 0.0
+	return {
+		"rect": PLAYER_LORD_POPUP_RECT,
+		"cast_rect": Rect2(297, 374, 100, 30) if ready else Rect2(),
+		"title": "👑 %s · %s" % [ruler.get("name", "主公"), ruler.get("title", "")],
+		"subtitle": "大招自动释放：CD转好、时机一到主公自己放，不用盯",
+		"attack_line": "%s 普攻「%s」每%.1f秒：约%d伤%s+3%%目标血" % [attack.get("icon", ""), attack.get("name", "亲射"), float(attack_estimate.get("itv", 0.0)), roundi(float(attack_estimate.get("per", 0.0))), attack_buff],
+		"attack_detail": "%s——选卡遇到🎯御驾亲征/⚙️神机连弩可以养他" % attack.get("how", ""),
+		"command_icon": LORD_COMMAND_ICONS.get(battle_run.lord_skill_id, "令"),
+		"command_name": command.get("name", "号令"),
+		"command_level": battle_run.lord_skill_level,
+		"command_desc": _lord_command_description(battle_run.lord_skill_id, battle_run.lord_skill_level),
+		"auto_tip": LORD_AUTO_TIPS.get(battle_run.lord_skill_id, "CD一转好就放"),
+		"cooldown_line": cooldown_line,
+	}
+
+func lord_command_visual_spec() -> Dictionary:
+	if battle_run == null:
+		return {}
+	var command: Dictionary = BattleLordSource.COMMANDS.get(battle_run.lord_skill_id, {})
+	if command.is_empty():
+		return {}
+	var ready: bool = battle_run.lord_command_cd <= 0.0
+	var level: int = clampi(int(battle_run.lord_skill_level), 1, 3)
+	return {
+		"rect": LORD_COMMAND_RECT,
+		"center": LORD_COMMAND_RECT.get_center(),
+		"ready": ready,
+		"auto_ready": ready and battle_run.lord_command_auto_ready(),
+		"cooldown_fraction": 0.0 if ready else clampf(float(battle_run.lord_command_cd) / maxf(0.1, float(battle_run.lord_command_cd_total)), 0.0, 1.0),
+		"cooldown_label": "" if ready else str(ceili(float(battle_run.lord_command_cd))),
+		"icon": LORD_COMMAND_ICONS.get(battle_run.lord_skill_id, "令"),
+		"name": command.get("name", "号令"),
+		"stars": "●".repeat(level) + "○".repeat(3 - level),
+	}
+
+func _lord_command_description(skill_id: String, level: int) -> String:
+	match skill_id:
+		"wuxing": return "%d秒内被克的亏全免，全军伤害再+15%%" % (6 + level * 2)
+		"bingfeng": return "全场定住 %.1f秒" % (1.0 + level * 0.7)
+		"taoyuan": return "全军金身%d秒刀枪不入（亲兵越多越久）；金身落幕，扛住的伤全额奉还成全场冲击（附1秒眩晕），实伤的8%%再换成经验" % (4 + level * 2)
+		"jiejiang": return "拦腰一道大江%d秒：江里的贼变慢40%%、挨打多%d%%，弓贼投石在江里放不了箭" % [5 + level * 2, 20 + level * 10]
+		"mensheng": return "接下来 %d 次升级选卡变五选一；手里正摊着牌就当场加宽" % level
+		"baima": return "主公亲自下场%d秒：无敌白马专砍特种兵和贼首（亲兵越多砍得越疼越久）" % (5 + level * 2)
+		"fenluo": return "烧掉自家2点城墙血，从主公喷出全场扇形巨焰（点燃；亲兵越多烧得越疼）；每烧1血全军攻击+4%（本局永久）"
+		"jianhao": return "吃掉一个最弱的兵（星≤3、场上≥5人才动口）连升%d级，祭品每有1星再多升1级；每献祭一次，下道号令等得更久（45→57→69…）" % (3 if level >= 2 else 2)
+		_: return ""
+
+func _manual_lord_command_block_notice() -> String:
+	var skill_id := str(battle_run.lord_skill_id)
+	var command: Dictionary = BattleLordSource.COMMANDS.get(skill_id, {})
+	if bool(battle_run.permanent_tactics.get("gewu", false)) and skill_id != "jianhao":
+		return "🍷 乐不思蜀，号令没人接"
+	var live: Array = battle_run.enemies.filter(func(enemy): return not bool(enemy.get("dead", false)) and float(enemy.get("y", -999.0)) > -10.0)
+	if ["wuxing", "bingfeng", "taoyuan", "baima", "fenluo"].has(skill_id) and live.is_empty():
+		return "%s%s：场上没贼，时机一到自动放" % [LORD_COMMAND_ICONS.get(skill_id, ""), command.get("name", "号令")]
+	if skill_id == "taoyuan" and battle_run.taoyuan_time > 0.0:
+		return "🍑 金身还护着呢，不用叠"
+	if skill_id == "mensheng" and battle_run.wide_picks > 0 and not (battle_run.awaiting_card_choice and not battle_run.picking_relic and battle_run.card_choices.size() < 5):
+		return "📜 门路还没用完：还有%d次五选一，升级选卡就见" % battle_run.wide_picks
+	if skill_id == "fenluo" and battle_run.wall < 3:
+		return "🔥 城墙都快塌了，烧不得（城血≥3才能点火）"
+	if skill_id == "jianhao" and battle_run.lord_system.jianhao_target(battle_run).is_empty():
+		return "🪙 玉玺无处下口：场上不足5人，或没有星≤3的祭品"
+	return ""
 
 func unit_info_popup_is_visible() -> bool:
 	if battle_run == null or unit_info_popup.is_empty() or battle_run.status != "play":
@@ -1780,8 +1887,33 @@ func _draw_battle_side_controls() -> void:
 	_rounded_panel(BATTLE_DMG_RECT, Color("5a7a3a") if damage_panel_visible else Color("3a4a5a"), Color("ffffff4d"), 1.5, 10.0)
 	_text_centered_in_rect("📊输出", BATTLE_DMG_RECT, 11, Color.WHITE)
 	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
-	_rounded_panel(Rect2(410, 178, 64, 24), Color("140e06d9"), Color("ffd74a99"), 1.2, 8.0)
-	_text_centered_in_rect("👑%s" % ruler.get("name", ""), Rect2(410, 178, 64, 24), 11, GOLD)
+	_rounded_panel(LORD_NAME_RECT, Color("140e06d9"), Color("ffd74a99"), 1.2, 8.0)
+	_text_centered_in_rect("👑%s" % ruler.get("name", ""), LORD_NAME_RECT, 12, GOLD)
+
+func _draw_player_lord_popup() -> void:
+	var spec := player_lord_popup_spec()
+	if spec.is_empty():
+		return
+	var rect: Rect2 = spec.rect
+	draw_rect(Rect2(0, 0, 480, 800), Color("00000099"), true)
+	_rounded_panel(rect, Color("1e180cf7"), GOLD, 2.0, 14.0)
+	_text_centered_in_rect(str(spec.title), Rect2(rect.position.x, rect.position.y + 12, rect.size.x, 28), 22, GOLD)
+	_text_centered_in_rect(str(spec.subtitle), Rect2(rect.position.x, rect.position.y + 43, rect.size.x, 20), 13, Color("8a7d5a"))
+	_text(str(spec.attack_line), rect.position + Vector2(22, 82), 13, Color("ffb84a"))
+	_text(str(spec.attack_detail), rect.position + Vector2(22, 100), 12, Color("c9b69a"))
+	var command_y := rect.position.y + 126.0
+	var command_rect := Rect2(rect.position.x + 10, command_y - 6, rect.size.x - 20, 140)
+	_rounded_panel(command_rect, Color("ffffff0d"), Color.TRANSPARENT, 0.0, 10.0)
+	_text("%s %s" % [spec.command_icon, spec.command_name], Vector2(rect.position.x + 22, command_y + 14), 16, GOLD)
+	_text("%d星（主公 Lv.%d，局外练主公涨威力）" % [int(spec.command_level), int(battle_run.ruler_level)], Vector2(rect.position.x + 22, command_y + 34), 13, Color("c9a8ff"))
+	_draw_wrapped_left(str(spec.command_desc), Vector2(rect.position.x + 22, command_y + 54), rect.size.x - 44, 14, Color("e8dcc0"), 18.0, 2)
+	_text("⚙️ 自动时机：%s" % spec.auto_tip, Vector2(rect.position.x + 22, command_y + 92), 12, GREEN)
+	_text(str(spec.cooldown_line), Vector2(rect.position.x + 22, command_y + 110), 13, Color("8ad2ff"))
+	var cast_rect: Rect2 = spec.cast_rect
+	if cast_rect.size != Vector2.ZERO:
+		_rounded_panel(cast_rect, Color("6a4a2a"), GOLD, 2.0, 8.0)
+		_text_centered_in_rect("⚡立刻施放", cast_rect, 14, Color("ffe8b0"))
+	_text_centered_in_rect("点别处关闭（已暂停）", Rect2(rect.position.x, rect.end.y + 5, rect.size.x, 20), 13, Color("ffffff8c"))
 
 func _draw_cata_warning_bar() -> void:
 	var rect := _cata_warning_rect()
@@ -2251,17 +2383,30 @@ func _draw_battle_formation() -> void:
 	if battle_run.wall_shield > 0:
 		wall_text += " +🛡️%d" % battle_run.wall_shield
 	draw_string(_font(), Vector2(316, BattleRunSource.DEFENSE_LINE + 24), wall_text, HORIZONTAL_ALIGNMENT_CENTER, 104, 15, RED if battle_run.wall <= 4 else Color("ffd8a0"))
-	var command: Dictionary = BattleLordSource.COMMANDS.get(battle_run.lord_skill_id, {})
-	if not command.is_empty():
-		var command_ready: bool = battle_run.lord_command_cd <= 0 and not bool(battle_run.permanent_tactics.get("gewu", false))
-		var auto_ready: bool = command_ready and battle_run.lord_command_auto_ready()
-		var command_center := LORD_COMMAND_RECT.get_center()
-		draw_circle(command_center, 27, Color("25311f") if command_ready else Color("352e26"))
-		draw_arc(command_center, 28, 0, TAU, 36, GREEN if command_ready else MUTED, 2.0)
-		_text_centered_in_rect(str(LORD_COMMAND_ICONS.get(battle_run.lord_skill_id, "令")), Rect2(LORD_COMMAND_RECT.position.x, LORD_COMMAND_RECT.position.y + 8, LORD_COMMAND_RECT.size.x, 20), 16, GOLD if command_ready else PALE_GOLD)
-		_text_centered_in_rect(_short_text(str(command.name), 4), Rect2(LORD_COMMAND_RECT.position.x, LORD_COMMAND_RECT.position.y + 30, LORD_COMMAND_RECT.size.x, 16), 9, Color.WHITE)
-		var cooldown_text := "自动待发" if auto_ready else ("点击施放" if command_ready else ("CD %.1fs" % battle_run.lord_command_cd if battle_run.lord_command_cd > 0 else "号令罢工"))
-		_text_centered_in_rect(_short_text(cooldown_text, 6), Rect2(LORD_COMMAND_RECT.position.x, LORD_COMMAND_RECT.position.y + 44, LORD_COMMAND_RECT.size.x, 12), 7, GREEN if command_ready else MUTED)
+	var command_visual := lord_command_visual_spec()
+	if not command_visual.is_empty():
+		var command_center: Vector2 = command_visual.center
+		var command_ready: bool = command_visual.ready
+		var auto_ready: bool = command_visual.auto_ready
+		draw_circle(command_center, 27, Color("6a4a2a") if command_ready else Color("3a3630"))
+		var cooldown_fraction := float(command_visual.cooldown_fraction)
+		if cooldown_fraction > 0.0:
+			var sector_points := PackedVector2Array([command_center])
+			var sector_steps := maxi(2, ceili(32.0 * cooldown_fraction))
+			for step in range(sector_steps + 1):
+				var angle := -PI / 2.0 + TAU * cooldown_fraction * float(step) / float(sector_steps)
+				sector_points.append(command_center + Vector2.RIGHT.rotated(angle) * 27.0)
+			draw_colored_polygon(sector_points, Color("0000008c"))
+		var outline_color := GREEN if auto_ready else (Color("ffd24a") if command_ready else Color("ffffff4d"))
+		if command_ready:
+			var pulse := 0.55 + 0.25 * sin(float(battle_run.game_time) * 6.0)
+			draw_arc(command_center, 30, 0, TAU, 36, Color(outline_color, pulse), 2.0)
+		draw_arc(command_center, 27, 0, TAU, 36, outline_color, 3.0 if command_ready else 1.5)
+		_text_centered_in_rect(str(command_visual.icon), Rect2(command_center.x - 24, command_center.y - 18, 48, 20), 19, Color.WHITE if command_ready else Color("ffffffa6"))
+		_text_centered_in_rect(str(command_visual.name), Rect2(command_center.x - 28, command_center.y + 1, 56, 16), 9, Color("ffe8b0"))
+		_text_centered_in_rect(str(command_visual.stars), Rect2(command_center.x - 28, command_center.y + 13, 56, 13), 7, GOLD)
+		if not command_ready:
+			_text_centered_in_rect(str(command_visual.cooldown_label), Rect2(command_center.x - 20, command_center.y - 10, 40, 20), 12, Color.WHITE)
 
 func _battle_wall_color_at(y: float) -> Color:
 	var wall_y := BattleRunSource.DEFENSE_LINE - 2.0
@@ -2712,3 +2857,20 @@ func _draw_wrapped_centered(text: String, center_x: float, first_baseline: float
 		lines.append(current)
 	for index in lines.size():
 		_card_text_center(lines[index], center_x, first_baseline + index * line_height, size, color, max_width)
+
+func _draw_wrapped_left(text: String, first_baseline: Vector2, max_width: float, size: int, color: Color, line_height: float, max_lines: int) -> void:
+	var lines: Array[String] = []
+	var current := ""
+	for character in text:
+		var candidate := current + character
+		if not current.is_empty() and _font().get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_width:
+			lines.append(current)
+			current = character
+			if lines.size() >= max_lines:
+				break
+		else:
+			current = candidate
+	if lines.size() < max_lines and not current.is_empty():
+		lines.append(current)
+	for index in lines.size():
+		_text(lines[index], first_baseline + Vector2(0, index * line_height), size, color)

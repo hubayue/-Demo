@@ -5,7 +5,8 @@ import { dirname, extname, isAbsolute, join, normalize } from "node:path";
 
 const root = process.cwd();
 const outputDirectory = join(root, "output", "playwright");
-const output = join(outputDirectory, "v7.19.14-web-battle-shell.png");
+const battleOutput = join(outputDirectory, "v7.19.14-web-battle-shell.png");
+const lordOutput = join(outputDirectory, "v7.19.14-web-player-lord-popup.png");
 const session = `battle-shell-parity-${process.pid}`;
 const npxCli = join(dirname(process.execPath), "node_modules", "npm", "bin", "npx-cli.js");
 
@@ -43,6 +44,15 @@ const cli = (...args) => new Promise((resolve, reject) => {
     else resolve(stdout);
   });
 });
+
+const capture = async (output) => {
+  const screenshot = await cli("screenshot");
+  const match = screenshot.match(/\(([^)\r\n]+\.png)\)/) || screenshot.match(/([^\r\n]+\.png)/);
+  if (!match) throw new Error(`Unable to locate Playwright screenshot path: ${screenshot}`);
+  const source = isAbsolute(match[1]) ? match[1] : join(root, match[1]);
+  await copyFile(source, output);
+  process.stdout.write(`Captured ${output}\n`);
+};
 
 try {
   await mkdir(outputDirectory, { recursive: true });
@@ -88,12 +98,12 @@ try {
   if (!stateResult.includes('"version": "7.19.14"') || !stateResult.includes('"phase": "play"') || !stateResult.includes('"units": 2')) {
     throw new Error(`Unexpected battle shell state: ${stateResult}`);
   }
-  const screenshot = await cli("screenshot");
-  const match = screenshot.match(/\(([^)\r\n]+\.png)\)/) || screenshot.match(/([^\r\n]+\.png)/);
-  if (!match) throw new Error(`Unable to locate Playwright screenshot path: ${screenshot}`);
-  const source = isAbsolute(match[1]) ? match[1] : join(root, match[1]);
-  await copyFile(source, output);
-  process.stdout.write(`Captured ${output}\n`);
+  await capture(battleOutput);
+  const lordState = await cli("eval", "() => { state.fieldBanner = 0; state.lordCd = 0; state.lordCdTotal = lordCdMax(state.lord[0]); lordPop = true; return { lordPop, cd: state.lordCd, total: state.lordCdTotal }; }");
+  if (!lordState.includes('"lordPop": true') || !lordState.includes('"cd": 0')) {
+    throw new Error(`Unexpected player lord popup state: ${lordState}`);
+  }
+  await capture(lordOutput);
 } finally {
   try { await cli("close"); } catch {}
   await closeServer();

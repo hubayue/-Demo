@@ -4,14 +4,14 @@ extends RefCounted
 const OpeningPicker = preload("res://src/progression/opening_picker.gd")
 
 const ATTACKS := {
-	"caocao": {"name": "掷戟", "mul": 1.0, "color": "ffd24a"},
-	"yuanshao": {"name": "门客暗箭", "mul": 1.0, "color": "c9a8ff"},
-	"yuanshu": {"name": "玉玺砸人", "mul": 1.0, "color": "ffd24a"},
-	"sunquan": {"name": "楼船连弩", "mul": 1.6, "color": "4ab0ff"},
-	"liubiao": {"name": "寒江霜箭", "mul": 1.6, "color": "8ad2ff"},
-	"liubei": {"name": "双股剑气", "mul": 1.5, "color": "ffe8c0"},
-	"dongzhuo": {"name": "火油瓶", "mul": 1.5, "color": "ff8a3a"},
-	"gongsunzan": {"name": "城头强弩", "mul": 1.4, "color": "e8dcc0"},
+	"caocao": {"icon": "🗡️", "name": "掷戟", "how": "单体：投戟点最贴墙的贼", "mul": 1.0, "color": "ffd24a"},
+	"yuanshao": {"icon": "🏹", "name": "门客暗箭", "how": "单体：紫电冷箭点最深的贼", "mul": 1.0, "color": "c9a8ff"},
+	"yuanshu": {"icon": "🪙", "name": "玉玺砸人", "how": "单体：金光一道砸最深的贼", "mul": 1.0, "color": "ffd24a"},
+	"sunquan": {"icon": "🌊", "name": "楼船连弩", "how": "群体：三连水箭射最贴墙的3个贼", "mul": 1.6, "color": "4ab0ff"},
+	"liubiao": {"icon": "❄️", "name": "寒江霜箭", "how": "群体：命中炸寒雾，附近的贼挨打还减速", "mul": 1.6, "color": "8ad2ff"},
+	"liubei": {"icon": "⚔️", "name": "双股剑气", "how": "群体：横扫剑光，连坐左右最多4贼", "mul": 1.5, "color": "ffe8c0"},
+	"dongzhuo": {"icon": "🔥", "name": "火油瓶", "how": "群体：小片火再点燃", "mul": 1.5, "color": "ff8a3a"},
+	"gongsunzan": {"icon": "🏹", "name": "城头强弩", "how": "单体：城墙自动放箭，墙越满箭越狠", "mul": 1.4, "color": "e8dcc0"},
 }
 
 const COMMANDS := {
@@ -71,10 +71,10 @@ func auto_ready(run) -> bool:
 		_: return not live.is_empty()
 
 func cast_command(run) -> bool:
-	if bool(run.permanent_tactics.get("gewu", false)) or run.lord_command_cd > 0 or run.lord_skill_id.is_empty():
+	if (bool(run.permanent_tactics.get("gewu", false)) and run.lord_skill_id != "jianhao") or run.lord_command_cd > 0 or run.lord_skill_id.is_empty():
 		return false
 	var live := _live_enemies(run)
-	if ["wuxing", "taoyuan", "jiejiang", "bingfeng", "baima", "fenluo"].has(run.lord_skill_id) and live.is_empty():
+	if ["wuxing", "taoyuan", "bingfeng", "baima", "fenluo"].has(run.lord_skill_id) and live.is_empty():
 		return false
 	if run.lord_skill_id == "taoyuan" and run.taoyuan_time > 0:
 		return false

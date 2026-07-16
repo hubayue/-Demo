@@ -52,5 +52,23 @@ func _run() -> void:
 		push_error("Unable to save %s: %s" % [path, error_string(error)])
 		quit(1)
 		return
+	main.battle_field_banner_time = 0.0
+	run.lord_command_cd = 0.0
+	run.lord_command_cd_total = run.lord_command_cooldown_max()
+	main.player_lord_popup = true
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	image = root.get_viewport().get_texture().get_image()
+	if image == null or image.is_empty() or image.get_size() != Vector2i(480, 800):
+		push_error("Player lord popup capture requires a non-empty 480x800 rendered window")
+		quit(1)
+		return
+	path = output_directory.path_join("v7.19.14-player-lord-popup.png")
+	error = image.save_png(path)
+	if error != OK:
+		push_error("Unable to save %s: %s" % [path, error_string(error)])
+		quit(1)
+		return
 	print("Godot v7.19.14 battle shell screenshot: PASS")
 	quit(0)

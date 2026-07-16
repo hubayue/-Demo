@@ -159,7 +159,10 @@ func _run() -> void:
     battle_run.spawn_queue = []
     battle_run.lord_command_cd = 0.0
     _click(main, main.LORD_COMMAND_RECT.get_center())
-    if not _expect(battle_run.lord_command_used == 1 and battle_run.wuxing_time > 0, "Clicking the ready lord-command panel must cast it manually"):
+    if not _expect(main.player_lord_popup_is_visible() and battle_run.lord_command_used == 0, "Clicking the ready lord-command circle must open the Web inspection panel without casting"):
+        return
+    _click(main, main.player_lord_popup_spec().cast_rect.get_center())
+    if not _expect(not main.player_lord_popup_is_visible() and battle_run.lord_command_used == 1 and battle_run.wuxing_time > 0, "Only the lord panel's ready button may cast the command manually"):
         return
     battle_run.permanent_tactics.gewu = true
     _click(main, Vector2(20, 260))
