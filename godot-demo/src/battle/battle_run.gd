@@ -27,6 +27,15 @@ const GRANARY_G1 := 0.12
 const GRANARY_STAR_MULTIPLIER := 1.6
 const GRANARY_WAVE_CAP := 30
 const GRANARY_STAR_COST := 1.8
+const DAMAGE_CATEGORIES := {
+	"lord": {"key": "@lord", "icon": "👑", "name": "主公"},
+	"fan": {"key": "@fan", "icon": "🛡️", "name": "盾反"},
+	"fire": {"key": "@fire", "icon": "🔥", "name": "火燎"},
+	"rock": {"key": "@rock", "icon": "🪨", "name": "乱石"},
+	"relic": {"key": "@relic", "icon": "🧿", "name": "遗宝"},
+	"field": {"key": "@field", "icon": "🌋", "name": "地形"},
+	"misc": {"key": "@misc", "icon": "🎲", "name": "其他"},
+}
 const ENDLESS_RULES := [
 	{"key": "smoke", "name": "烟瘴弥漫", "tip": "弓兵射程-35%", "mod": {"archerRngMul": 0.65}},
 	{"key": "mud", "name": "泥沼遍地", "tip": "骑兵冲锋只有一半远", "mod": {"cavChargeMul": 0.55}},
@@ -119,6 +128,7 @@ var score_revision := 0
 var total_damage := 0.0
 var counter_damage := 0.0
 var max_hit := 0
+var damage_book: Dictionary = {}
 var bond_ever := false
 var run_gold := 0.0
 var band_gold := 0
@@ -271,6 +281,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	total_damage = 0.0
 	counter_damage = 0.0
 	max_hit = 0
+	damage_book = {}
 	bond_ever = false
 	run_gold = 0.0
 	band_gold = 0
@@ -384,7 +395,7 @@ static func triangle_multiplier(attacker_tri: String, enemy_tri: String) -> floa
 		return 0.6
 	return 1.0
 
-func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source := "") -> int:
+func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source = "") -> int:
 	if bool(enemy.get("dead", false)):
 		return 0
 	if bool(enemy.get("_guarded", false)):
@@ -413,6 +424,8 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 		amount *= 1.3
 	var damage := maxi(1, int(round(amount * triangle)))
 	max_hit = maxi(max_hit, damage)
+	var actual_damage := minf(damage, maxf(0.0, float(enemy.get("shield", 0.0))) + maxf(0.0, float(enemy.get("hp", 0.0))))
+	record_damage(source, actual_damage)
 	total_damage += damage
 	if is_equal_approx(triangle, 1.5): counter_damage += damage
 	var hp_damage := damage
@@ -443,7 +456,7 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 		var xp_multiplier := 1.0
 		if ruler_id == "sunquan":
 			xp_multiplier = 2.0 if drowned else 1.3
-		elif ruler_id == "gongsunzan" and source == "lord":
+		elif ruler_id == "gongsunzan" and damage_source_key(source) == "@lord":
 			xp_multiplier = 3.0
 		elif ruler_id == "dongzhuo" and float(enemy.get("burnT", 0.0)) > 0:
 			xp_multiplier = 2.0
@@ -457,6 +470,38 @@ func damage_enemy(enemy: Dictionary, amount: float, attacker_tri := "", source :
 		if index >= 0:
 			enemies.remove_at(index)
 	return damage
+
+func damage_source_key(source) -> String:
+	if source is Dictionary and source.has("hero"):
+		return str(source.hero.get("id", "@misc"))
+	var alias := str(source).trim_prefix("@")
+	return str(DAMAGE_CATEGORIES.get(alias, DAMAGE_CATEGORIES.misc).key)
+
+func record_damage(source, amount: float) -> void:
+	if amount <= 0.0:
+		return
+	var key := damage_source_key(source)
+	var icon := ""
+	var name := ""
+	if source is Dictionary and source.has("hero"):
+		name = str(source.hero.get("name", "其他"))
+		source.damage_dealt = float(source.get("damage_dealt", 0.0)) + amount
+	else:
+		var category: Dictionary = DAMAGE_CATEGORIES.get(key.trim_prefix("@"), DAMAGE_CATEGORIES.misc)
+		icon = str(category.icon)
+		name = str(category.name)
+	var entry: Dictionary = damage_book.get(key, {"icon": icon, "name": name, "total": 0.0, "log": []})
+	entry.total = float(entry.total) + amount
+	var second := floori(game_time)
+	var log: Array = entry.log
+	if not log.is_empty() and int(log[-1][0]) == second:
+		log[-1][1] = float(log[-1][1]) + amount
+	else:
+		log.append([second, amount])
+	while not log.is_empty() and int(log[0][0]) < second - 10:
+		log.pop_front()
+	entry.log = log
+	damage_book[key] = entry
 
 func finish(result: String) -> void:
 	if status != "play": return
@@ -823,7 +868,7 @@ func _update_enemies(delta: float) -> void:
 			enemy.burnTick = float(enemy.get("burnTick", 0.0)) - delta
 			if float(enemy.burnTick) <= 0:
 				enemy.burnTick = 0.5
-				damage_enemy(enemy, float(enemy.get("burnDmg", 0.0)) * environment.burn_multiplier(self), "", str(enemy.get("burnSrc", "fire")))
+				damage_enemy(enemy, float(enemy.get("burnDmg", 0.0)) * environment.burn_multiplier(self), "", enemy.get("burnSrc", "fire"))
 				if bool(enemy.get("dead", false)): continue
 		var slowed := float(enemy.get("slowT", 0.0)) > 0
 		if slowed: enemy.slowT = maxf(0.0, float(enemy.slowT) - control_delta)
@@ -869,7 +914,7 @@ func _update_enemies(delta: float) -> void:
 				enemy.turncoatTick = 0.8
 				var victims := enemies.filter(func(other): return other != enemy and not bool(other.get("dead", false)) and float(other.get("turncoatT", 0.0)) <= 0 and Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(other.x), float(other.y))) < 160.0 * 160.0)
 				victims.sort_custom(func(a, b): return Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(a.x), float(a.y))) < Vector2(float(enemy.x), float(enemy.y)).distance_squared_to(Vector2(float(b.x), float(b.y))))
-				if not victims.is_empty(): damage_enemy(victims[0], maxf(3.0, float(enemy.get("hp_max", 100.0)) * 0.08), "", "turncoat")
+				if not victims.is_empty(): damage_enemy(victims[0], maxf(3.0, float(enemy.get("hp_max", 100.0)) * 0.08), "", enemy.get("turncoatOwner", ""))
 			continue
 		if float(enemy.get("fearT", 0.0)) > 0:
 			enemy.y = maxf(-30.0, float(enemy.y) - speed_now * 0.8 * delta)
@@ -1045,7 +1090,7 @@ func _update_enemy_melee(enemy: Dictionary, blocker: Dictionary, speed_now: floa
 	if str(blocker.unit.hero.cls) != "shield" or bool(enemy.get("dead", false)): return
 	var reflect_multiplier := 2.0 if float(blocker.unit.get("reflectT", 0.0)) > 0 else 1.0
 	var reflect := roundi(float(blocker.unit.hp_max) * (0.04 + float(buffs.get("shieldReflect", 0.0))) * reflect_multiplier)
-	if reflect > 0: damage_enemy(enemy, reflect)
+	if reflect > 0: damage_enemy(enemy, reflect, "", "fan")
 	if str(blocker.unit.hero.id) == "yanyan": enemy.slowT = maxf(float(enemy.get("slowT", 0.0)), 1.5)
 	gain_xp(1.0)
 
@@ -1466,6 +1511,7 @@ func _update_projectiles(delta: float) -> void:
 				if bool(projectile.get("burn", false)) and str(mutations.get(wave, "")) != "rainstorm":
 					enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 2.5)
 					enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), maxf(1.0, round(float(projectile.damage) * 0.12)) * (2.0 if str(mutations.get(wave, "")) == "eastwind" else 1.0))
+					enemy.burnSrc = projectile.get("owner", enemy.get("burnSrc", "fire"))
 				var projectile_damage := float(projectile.damage) * (0.25 if str(enemy.get("special", "")) == "pavise" else 1.0)
 				_hit_enemy(enemy, projectile_damage, str(projectile.tri), float(projectile.crit), projectile.get("owner", {}))
 				if int(projectile.pierce) > 0:
@@ -1681,20 +1727,10 @@ func _hit_enemy(enemy: Dictionary, amount: float, attacker_tri: String, critical
 		final_amount *= 1.25
 	if not source_unit.is_empty() and str(source_unit.get("hero", {}).get("cls", "")) == "spear" and relic_ids.has("shemao") and not bool(enemy.get("boss", false)) and rng.next_float() < 0.2:
 		enemy.kb = minf(130.0, float(enemy.get("kb", 0.0)) + 72.0)
-	var hp_before := float(enemy.get("hp", 0.0)) + float(enemy.get("shield", 0.0))
-	var dealt := damage_enemy(enemy, final_amount, attacker_tri)
-	if not source_unit.is_empty():
-		var hp_after := maxf(0.0, float(enemy.get("hp", 0.0))) + float(enemy.get("shield", 0.0))
-		source_unit.damage_dealt = float(source_unit.get("damage_dealt", 0.0)) + maxf(0.0, hp_before - hp_after)
-	return dealt
+	return damage_enemy(enemy, final_amount, attacker_tri, source_unit)
 
 func damage_enemy_from_unit(enemy: Dictionary, amount: float, attacker_tri: String, source_unit: Dictionary = {}) -> int:
-	var hp_before := float(enemy.get("hp", 0.0)) + float(enemy.get("shield", 0.0))
-	var dealt := damage_enemy(enemy, amount, attacker_tri)
-	if not source_unit.is_empty():
-		var hp_after := maxf(0.0, float(enemy.get("hp", 0.0))) + float(enemy.get("shield", 0.0))
-		source_unit.damage_dealt = float(source_unit.get("damage_dealt", 0.0)) + maxf(0.0, hp_before - hp_after)
-	return dealt
+	return damage_enemy(enemy, amount, attacker_tri, source_unit)
 
 func egg_hatch_bonus() -> float:
 	return 0.2 if relic_ids.has("longxian") else 0.0
@@ -1791,7 +1827,7 @@ func _update_dragon(unit: Dictionary) -> void:
 		if enemy != target and center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) > pow(130.0 + float(enemy.r), 2): continue
 		enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 2.5)
 		enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), maxf(2.0, round(damage * 0.12)))
-		enemy.burnSrc = "dragon"
+		enemy.burnSrc = unit
 	ult_events.append({"name": "应龙吐息", "type": "dmg", "t": 0.5})
 
 func _cast_ripple(unit: Dictionary) -> void:

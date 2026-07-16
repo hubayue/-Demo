@@ -125,9 +125,10 @@ func cast_command(run) -> bool:
 				var dy: float = lord_y - float(enemy.y)
 				if dy <= 0 or absf(dx) > dy * 1.25:
 					continue
-				run.damage_enemy(enemy, damage)
+				run.damage_enemy(enemy, damage, "", "lord")
 				enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 3.0)
 				enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), 6.0 + run.wave)
+				enemy.burnSrc = "lord"
 		"jianhao":
 			_cast_jianhao(run, level)
 	run.lord_command_events.append({"id": run.lord_skill_id, "t": 0.8})
@@ -154,7 +155,7 @@ func update_effects(run, delta: float) -> void:
 		var dealt_total := 0.0
 		for enemy in _live_enemies(run).duplicate():
 			var hp_before := float(enemy.hp)
-			run.damage_enemy(enemy, counter_damage)
+			run.damage_enemy(enemy, counter_damage, "", "lord")
 			dealt_total += maxf(0.0, hp_before - maxf(0.0, float(enemy.hp)))
 			if not bool(enemy.get("dead", false)):
 				enemy.stunT = maxf(float(enemy.get("stunT", 0.0)), 0.5 if bool(enemy.get("boss", false)) else 1.0)
@@ -305,6 +306,7 @@ func update_auto_attack(run, delta: float) -> void:
 				_hit(run, enemy, 0.9 if enemy == target else 0.55, attack)
 				enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 2.0)
 				enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), 2.0 + run.wave * 0.4)
+				enemy.burnSrc = "lord"
 			_append_ring(run, target, 65.0, "ff8a3a")
 		_:
 			_hit(run, target, 1.0, attack)

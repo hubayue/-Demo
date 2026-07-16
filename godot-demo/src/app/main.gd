@@ -2031,15 +2031,101 @@ static func _alpha_multiplied(color: Color, multiplier: float) -> Color:
 	return Color(color.r, color.g, color.b, color.a * multiplier)
 
 func _draw_damage_panel() -> void:
-	var rect := Rect2(85, 244, 310, 122)
-	draw_rect(rect, Color("0c0904e8"), true)
-	draw_rect(rect, Color("8a7d5a"), false, 1.2)
-	_text_centered_in_rect("📊 实时输出", Rect2(85, 252, 310, 22), 13, GOLD)
-	var rows: Array = battle_run.units().duplicate()
-	rows.sort_custom(func(a, b): return float(a.get("damage_dealt", 0.0)) > float(b.get("damage_dealt", 0.0)))
-	for index in mini(4, rows.size()):
-		var unit: Dictionary = rows[index]
-		_text("%s　累计 %.0f" % [unit.hero.name, float(unit.get("damage_dealt", 0.0))], Vector2(102, 290 + index * 18), 10, Color("c9b69a"))
+	var spec := damage_panel_spec()
+	var rect: Rect2 = spec.rect
+	_rounded_panel(rect, Color("0c0904d6"), Color("ffd24a59"), 1.0, 10.0)
+	_text("📊 本局输出 共%s" % str(spec.total_text), rect.position + Vector2(12, 18), 12, GOLD)
+	draw_string(_font(), rect.position + Vector2(rect.size.x - 142, 18), "近10秒/秒 · 累计", HORIZONTAL_ALIGNMENT_RIGHT, 130, 10, Color("8a7d5a"))
+	if spec.rows.is_empty():
+		_text_centered_in_rect("还没开张——打起来就有账", Rect2(rect.position + Vector2(0, 23), Vector2(rect.size.x, 17)), 11, Color("8a7d5a"))
+		return
+	for index in spec.rows.size():
+		var row: Dictionary = spec.rows[index]
+		var y: float = rect.position.y + 28.0 + index * 17.0
+		_text("%s%s" % [str(row.icon), str(row.name)], Vector2(rect.position.x + 12, y + 11), 11, GOLD if index == 0 else Color("e8dcc0"))
+		draw_rect(Rect2(rect.position.x + 72, y + 2, maxf(2.0, 88.0 * float(row.share)), 11), Color("7a965a52"), true)
+		_text("%d%%" % int(row.share_percent), Vector2(rect.position.x + 75, y + 11), 10, GREEN)
+		draw_string(_font(), Vector2(rect.end.x - 162, y + 11), str(row.right_text), HORIZONTAL_ALIGNMENT_RIGHT, 150, 10, Color("ff9a7a") if bool(row.idle) else Color("c9b69a"))
+	if int(spec.overflow) > 0:
+		_text_centered_in_rect("…还有%d路（占比更小）" % int(spec.overflow), Rect2(rect.position + Vector2(0, rect.size.y - 14), Vector2(rect.size.x, 12)), 10, Color("8a7d5a"))
+
+func format_big_damage(value: float) -> String:
+	if value >= 1.0e16: return "%.1f亿亿" % (value / 1.0e16)
+	if value >= 1.0e12: return "%.1f万亿" % (value / 1.0e12)
+	if value >= 1.0e8: return "%.1f亿" % (value / 1.0e8)
+	if value >= 1.0e5: return "%.1f万" % (value / 1.0e4)
+	return str(roundi(value))
+
+func damage_top_text(limit := 3) -> String:
+	if battle_run == null:
+		return ""
+	var entries := _damage_panel_entries(false)
+	var total: float = entries.reduce(func(sum, entry): return sum + float(entry.total), 0.0)
+	if total <= 0.0:
+		return ""
+	var parts := PackedStringArray()
+	for index in mini(limit, entries.size()):
+		var entry: Dictionary = entries[index]
+		parts.append("%s%s%d%%" % [str(entry.icon), str(entry.name), roundi(float(entry.total) / total * 100.0)])
+	return " · ".join(parts)
+
+func damage_panel_spec() -> Dictionary:
+	var entries := _damage_panel_entries(true)
+	var total: float = entries.reduce(func(sum, entry): return sum + float(entry.total), 0.0)
+	var visible_count := mini(10, entries.size())
+	var rows := []
+	var second := floori(battle_run.game_time) if battle_run != null else 0
+	var dps_window := minf(10.0, maxf(1.0, battle_run.game_time if battle_run != null else 1.0))
+	for index in visible_count:
+		var entry: Dictionary = entries[index]
+		var recent := 0.0
+		for sample in entry.log:
+			if int(sample[0]) >= second - 10: recent += float(sample[1])
+		var dps := recent / dps_window
+		var share := float(entry.total) / total if total > 0.0 else 0.0
+		var idle := dps <= 0.0 and _damage_source_is_idle(str(entry.key))
+		rows.append({
+			"key": entry.key, "icon": entry.icon, "name": entry.name, "total": entry.total,
+			"dps": roundi(dps), "share": share, "share_percent": roundi(share * 100.0), "idle": idle,
+			"right_text": "够不着 · %s" % format_big_damage(float(entry.total)) if idle else "%s/秒 · %s" % [format_big_damage(round(dps)), format_big_damage(float(entry.total))],
+		})
+	var overflow := maxi(0, entries.size() - visible_count)
+	return {"rect": Rect2(85, 244, 310, 40 + visible_count * 17 + (13 if overflow > 0 else 0)), "rows": rows, "overflow": overflow, "total": total, "total_text": format_big_damage(total)}
+
+func _damage_panel_entries(include_zero_units: bool) -> Array:
+	if battle_run == null:
+		return []
+	var entries := []
+	for key in battle_run.damage_book:
+		var source: Dictionary = battle_run.damage_book[key]
+		if float(source.get("total", 0.0)) <= 0.0: continue
+		entries.append({"key": str(key), "icon": str(source.get("icon", "")), "name": str(source.get("name", "")), "total": float(source.total), "log": source.get("log", []).duplicate(true)})
+	entries.sort_custom(func(a, b): return float(a.total) > float(b.total))
+	if include_zero_units:
+		for unit in battle_run.units():
+			var hero: Dictionary = unit.hero
+			var key := str(hero.id)
+			if ["shield", "egg", "granary", "support"].has(str(hero.cls)) or entries.any(func(entry): return str(entry.key) == key): continue
+			entries.append({"key": key, "icon": "", "name": str(hero.name), "total": 0.0, "log": []})
+	return entries
+
+func _damage_source_is_idle(source_key: String) -> bool:
+	if source_key.begins_with("@") or battle_run == null:
+		return false
+	var live_enemies: Array = battle_run.enemies.filter(func(enemy): return not bool(enemy.get("dead", false)) and float(enemy.get("y", -20.0)) > -10.0)
+	if live_enemies.is_empty():
+		return false
+	var copies: Array = battle_run.units().filter(func(unit): return str(unit.hero.id) == source_key and str(unit.hero.cls) != "dragon")
+	if copies.is_empty():
+		return false
+	for unit in copies:
+		var attack_range: float = battle_run.effective_archer_range(unit.hero)
+		if attack_range <= 0.0:
+			return false
+		var center := BattleRunSource.slot_center(int(unit.row), int(unit.col))
+		if live_enemies.any(func(enemy): return center.distance_squared_to(Vector2(float(enemy.x), float(enemy.y))) <= attack_range * attack_range):
+			return false
+	return true
 
 func _draw_result() -> void:
 	draw_rect(Rect2(0, 0, 480, 800), Color("140e06ed"), true)
@@ -2073,7 +2159,7 @@ func _draw_result() -> void:
 	_panel(Rect2(26, 330, 428, 174), Color("211a10"), Color("6c5835"), 1.5)
 	_text_center("—— 战报 ——", 355, 13, MUTED)
 	var report_rows := battle_report_rows()
-	var report_gap := 20.0 if report_rows.size() > 4 else 29.0
+	var report_gap := 18.0 if report_rows.size() > 6 else (20.0 if report_rows.size() > 4 else 29.0)
 	for index in report_rows.size():
 		var report_row: Dictionary = report_rows[index]
 		var report_y := 389.0 + index * report_gap
@@ -2111,6 +2197,9 @@ func battle_report_rows() -> Array:
 		{"label": "💥 绝技施放", "value": "%d 次" % battle_run.ults_used, "color": GREEN},
 		{"label": "☱ 克制伤害占比", "value": "%d%%" % counter_pct, "color": GREEN if counter_pct >= 35 else PALE_GOLD},
 	]
+	var damage_top := damage_top_text(3)
+	if not damage_top.is_empty():
+		rows.append({"label": "📊 输出前三", "value": damage_top, "color": BLUE})
 	if battle_run.farm_stars > 0:
 		rows.append({"label": "🌾 屯田喂星", "value": "%d 颗" % battle_run.farm_stars, "color": Color("e8c86a")})
 	if battle_run.dragon_count > 0:

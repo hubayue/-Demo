@@ -483,6 +483,7 @@ func _huanggai(run, unit: Dictionary) -> void:
 		count += 1
 		enemy.burnT = maxf(float(enemy.get("burnT", 0.0)), 4.0)
 		enemy.burnDmg = maxf(float(enemy.get("burnDmg", 0.0)), maxf(2.0, round((1.0 + run.wave * 0.5) * (1.0 + int(unit.level) * 0.2))))
+		enemy.burnSrc = unit
 	run.gain_xp(maxi(4, roundi(count * 0.8)))
 
 func _xuhuang(run) -> void:

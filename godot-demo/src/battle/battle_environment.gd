@@ -51,11 +51,11 @@ func on_enemy_death(run, enemy: Dictionary) -> void:
 		for other in run.enemies.duplicate():
 			if other == enemy or bool(other.get("dead", false)) or center.distance_squared_to(Vector2(float(other.x), float(other.y))) > 90.0 * 90.0:
 				continue
-			run.damage_enemy(other, float(enemy.burnDmg) * 3.0, "", str(enemy.get("burnSrc", "fire")))
+			run.damage_enemy(other, float(enemy.burnDmg) * 3.0, "", enemy.get("burnSrc", "fire"))
 			if not bool(other.get("dead", false)) and str(run.mutations.get(run.wave, "")) != "rainstorm":
 				other.burnT = maxf(float(other.get("burnT", 0.0)), 2.0)
 				other.burnDmg = maxf(float(other.get("burnDmg", 0.0)), round(float(enemy.burnDmg) * 0.8))
-				other.burnSrc = str(enemy.get("burnSrc", other.get("burnSrc", "fire")))
+				other.burnSrc = enemy.get("burnSrc", other.get("burnSrc", "fire"))
 	var gold_gain: float = 10.0 if bool(enemy.get("boss", false)) else 1.0
 	gold_gain *= float(enemy.get("bounty", 1.0))
 	if run.relic_ids.has("yuxi"): gold_gain *= 2.0
