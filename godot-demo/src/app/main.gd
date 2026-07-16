@@ -132,6 +132,8 @@ const TRI_DISPLAY := {
 }
 const SPECIAL_GLYPHS := {"runner": "奔", "healer": "医", "shooter": "弓", "banner": "旗", "thrower": "投", "shaman": "妖", "rattan": "藤", "ram": "车", "cata": "砲", "warden": "督", "bomber": "爆", "assassin": "刺", "pavise": "楯"}
 const SPECIAL_COLORS := {"runner": Color("8ad2ff"), "healer": Color("8aff9a"), "shooter": Color("ffb06a"), "banner": Color("ffd24a"), "thrower": Color("c9b89a"), "shaman": Color("c96aff"), "rattan": Color("7fa34a"), "ram": Color("a48b70"), "cata": Color("c9b89a"), "warden": Color("ff6a5a"), "bomber": Color("ff7a3a"), "assassin": Color("ff9ad2"), "pavise": Color("8aa0b8")}
+const SPECIAL_PREVIEW_ICONS := {"runner": "💨", "healer": "🧙", "shooter": "🏹", "banner": "🚩", "thrower": "💣", "shaman": "🌀", "rattan": "🎋", "ram": "🛞", "cata": "🏗️", "warden": "👺", "bomber": "💥", "assassin": "🗡️", "pavise": "🐢"}
+const AFFIX_PREVIEW_ICONS := {"shield": "🛡️", "split": "🧬", "frenzy": "😤", "regen": "💚"}
 const CITY_POSITIONS := [
 	Vector2(168, 650), Vector2(76, 578), Vector2(356, 630), Vector2(244, 568),
 	Vector2(66, 430), Vector2(396, 496), Vector2(282, 476), Vector2(348, 392),
@@ -153,6 +155,7 @@ const RULER_BACK_RECT := Rect2(14, 22, 90, 34)
 const BATTLE_MUTE_RECT := Rect2(402, 102, 64, 32)
 const BATTLE_QUIT_RECT := Rect2(402, 140, 64, 32)
 const BATTLE_DMG_RECT := Rect2(402, 456, 64, 30)
+const BATTLE_WAVE_FONT_SIZE := 16
 const RESULT_BTN1 := Rect2(38, 690, 404, 42)
 const RESULT_BTN2 := Rect2(38, 744, 404, 42)
 const HOME_CODEX_RECT := Rect2(28, 604, 200, 44)
@@ -300,6 +303,7 @@ func select_opening_hero(hero_id: String) -> void:
 	var shen_ids := ShenRotationSource.ids_for_period(shen_period, hero_ids)
 	battle_run = BattleRunSource.new(catalog, Mulberry32Source.new(seed))
 	battle_run.start(city, selected_ruler, selected_hero, LocalProfileSource.ruler_level(profile, selected_ruler), LocalProfileSource.hero_levels(profile), shen_period, shen_ids)
+	battle_run.known_achievement_ids = profile.get("achievements", []).duplicate()
 	battle_field_banner_time = 9.0
 	foe_lord_popup = false
 	player_lord_popup = false
@@ -1381,11 +1385,75 @@ func active_bond_text() -> String:
 	if battle_run == null:
 		return ""
 	var names: Array[String] = []
-	for bond_id in battle_run.team.active_bond_ids():
+	for bond_id in active_bond_ids_in_display_order():
 		var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
 		if not bond.is_empty():
 			names.append(str(bond.name))
 	return " · ".join(names)
+
+func active_bond_ids_in_display_order() -> Array:
+	var result: Array = []
+	if battle_run == null:
+		return result
+	for bond in catalog.list("bonds"):
+		if battle_run.team.active_bonds.has(str(bond.id)):
+			result.append(str(bond.id))
+	return result
+
+func battle_left_chip_specs() -> Array:
+	var chips: Array = []
+	if battle_run == null:
+		return chips
+	var chip_y := 140.0 if not battle_run.foe_lord.is_empty() else 112.0
+	var battle_field: Dictionary = catalog.by_id("fields", str(battle_run.city.get("field", "")))
+	if not battle_field.is_empty():
+		chips.append({
+			"kind": "field",
+			"rect": Rect2(10, chip_y - 14, 118, 19),
+			"text": "%s%s" % [battle_field.get("icon", ""), battle_field.get("name", "")],
+			"baseline": chip_y,
+		})
+		chip_y += 22.0
+	if not battle_run.relic_ids.is_empty():
+		var icons := ""
+		for relic_id in battle_run.relic_ids:
+			var relic: Dictionary = catalog.by_id("relics", str(relic_id))
+			if not relic.is_empty():
+				icons += str(relic.get("icon", ""))
+		chips.append({
+			"kind": "relic",
+			"rect": Rect2(10, chip_y - 14, 22 + battle_run.relic_ids.size() * 20, 22),
+			"text": icons,
+			"baseline": chip_y + 3.0,
+		})
+		chip_y += 24.0
+	for bond_id in active_bond_ids_in_display_order():
+		var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
+		if bond.is_empty():
+			continue
+		var text := "🔗%s" % str(bond.name)
+		var width := ceilf(_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x) + 14.0
+		chips.append({
+			"kind": "bond",
+			"rect": Rect2(10, chip_y - 14, width, 22),
+			"text": text,
+			"baseline": chip_y + 3.0,
+		})
+		chip_y += 26.0
+	return chips
+
+func _draw_battle_left_chips() -> void:
+	for chip in battle_left_chip_specs():
+		match str(chip.kind):
+			"field":
+				_rounded_panel(chip.rect, Color("00000059"), Color.TRANSPARENT, 0.0, 6.0)
+				_text(str(chip.text), Vector2(chip.rect.position.x + 6.0, chip.baseline), 12, Color("c9e0a0"))
+			"relic":
+				_rounded_panel(chip.rect, Color("00000059"), Color.TRANSPARENT, 0.0, 6.0)
+				_text(str(chip.text), Vector2(chip.rect.position.x + 6.0, chip.baseline), 14, Color.WHITE)
+			"bond":
+				_rounded_panel(chip.rect, Color("28200ccc"), Color("ffd24aa6"), 1.2, 6.0)
+				_text(str(chip.text), Vector2(chip.rect.position.x + 7.0, chip.baseline), 13, GOLD)
 
 func active_relic_text() -> String:
 	if battle_run == null:
@@ -1440,11 +1508,12 @@ func _draw_battle() -> void:
 	_draw_player_projectiles()
 	_draw_battle_skill_events()
 	_draw_dance_overlay()
+	_draw_battle_floaters()
 	# The Web battlefield spawns enemies above the playfield. Keep that motion,
 	# but paint the opaque HUD last so newly spawned units cannot obscure it.
 	_rounded_panel(Rect2(10, 10, 460, 84), Color("00000059"), Color.TRANSPARENT, 0.0, 12.0)
 	_text("Lv.%d" % battle_run.level, Vector2(24, 34), 16, GOLD)
-	_text("⚔ 第 %d 波" % maxi(battle_run.wave, 1), Vector2(24, 60), 15, PALE_GOLD)
+	_text("⚔ 第 %d 波" % maxi(battle_run.wave, 1), Vector2(24, 60), BATTLE_WAVE_FONT_SIZE, PALE_GOLD)
 	_text("%s%s" % [str(city.get("icon", "⚡")), str(city.get("tag", city.get("name", "")))], Vector2(88, 34), 12, Color(str(city.get("color", "ffb84a"))))
 	_text("击破 %d / %s" % [battle_run.kills, "∞" if battle_run.endless else str(city.killTarget)], Vector2(130, 28), 13, Color.WHITE)
 	_rounded_panel(Rect2(130, 34, 330, 10), Color("ffffff26"), Color.TRANSPARENT, 0.0, 5.0)
@@ -1452,25 +1521,12 @@ func _draw_battle() -> void:
 	_text("EXP", Vector2(130, 62), 12, Color("8ad2ff"))
 	_rounded_panel(Rect2(164, 53, 296, 10), Color("ffffff26"), Color.TRANSPARENT, 0.0, 5.0)
 	_rounded_panel(Rect2(164, 53, minf(296.0, battle_run.xp / maxf(1.0, battle_run.xp_need) * 296.0), 10), Color("4ab0ff"), Color.TRANSPARENT, 0.0, 5.0)
-	var battle_field: Dictionary = catalog.by_id("fields", str(city.get("field", "")))
 	var foe_offset := 46.0 if not battle_run.foe_lord.is_empty() else 0.0
 	if foe_offset > 0:
 		_draw_foe_lord_status()
-	var field_chip_y := 140.0 if foe_offset > 0 else 112.0
-	_rounded_panel(Rect2(10, field_chip_y - 14, 118, 19), Color("00000059"), Color.TRANSPARENT, 0.0, 6.0)
-	_text("%s%s" % [battle_field.get("icon", ""), battle_field.get("name", "")], Vector2(16, field_chip_y), 12, Color("c9e0a0"))
+	_draw_battle_left_chips()
 	if not battle_run.next_wave_preview.is_empty():
-		draw_rect(Rect2(128, 130 + foe_offset, 224, 27), Color("17120ce6"), true)
-		var threat := _next_wave_threat_text()
-		_text_center(_short_text("下波 %.1fs%s" % [maxf(0.0, battle_run.wave_timer), " · " + threat if not threat.is_empty() else ""], 34), 150 + foe_offset, 14, PALE_GOLD)
-	var bond_text := active_bond_text()
-	if not bond_text.is_empty():
-		draw_rect(Rect2(66, 140 + foe_offset, 348, 25), Color("332714e8"), true)
-		_text_center("🔗 羁绊：%s" % bond_text, 158 + foe_offset, 13, GOLD)
-	var relic_text := active_relic_text()
-	if not relic_text.is_empty():
-		draw_rect(Rect2(16, 170 + foe_offset, 448, 23), Color("211b12e8"), true)
-		_text_center("遗宝：%s" % _short_text(relic_text, 28), 187 + foe_offset, 12, PALE_GOLD)
+		_draw_next_wave_preview()
 	var lord_effect := _active_lord_effect_text()
 	if not lord_effect.is_empty():
 		draw_rect(Rect2(54, 198 + foe_offset, 372, 25), Color("172334e8"), true)
@@ -1618,7 +1674,7 @@ func unit_info_popup_spec() -> Dictionary:
 	var row := int(unit_info_popup.row)
 	var col := int(unit_info_popup.col)
 	var active_bonds := []
-	for bond_id in battle_run.team.active_bond_ids():
+	for bond_id in active_bond_ids_in_display_order():
 		var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
 		if bond.get("members", []).has(hero_id):
 			active_bonds.append(bond)
@@ -2207,6 +2263,22 @@ func battle_report_rows() -> Array:
 		rows.append({"label": "🐉 觉醒应龙", "value": "%d 条（第%s波破壳）" % [battle_run.dragon_count, wave_text], "color": BLUE})
 	return rows
 
+func _draw_battle_floaters() -> void:
+	if battle_run == null:
+		return
+	for floater in battle_run.battle_floaters:
+		var alpha := clampf(float(floater.get("life", 0.0)), 0.0, 1.0)
+		var center_x := float(floater.get("x", 240.0))
+		var baseline_y := float(floater.get("y", 280.0))
+		var size := int(floater.get("size", 16))
+		var text := str(floater.get("text", ""))
+		var width := 470.0
+		for offset in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
+			draw_string(_font(), Vector2(center_x - width / 2.0, baseline_y) + offset, text, HORIZONTAL_ALIGNMENT_CENTER, width, size, Color(0, 0, 0, 0.6 * alpha))
+		var color := Color(str(floater.get("color", "#ffffff")))
+		color.a *= alpha
+		draw_string(_font(), Vector2(center_x - width / 2.0, baseline_y), text, HORIZONTAL_ALIGNMENT_CENTER, width, size, color)
+
 func _draw_battle_entities() -> void:
 	var field: Dictionary = catalog.by_id("fields", str(battle_run.city.get("field", "")))
 	var band: Dictionary = field.get("band", {})
@@ -2499,6 +2571,76 @@ func _next_wave_threat_text() -> String:
 	if not str(preview.get("boss", "")).is_empty(): parts.append("贼首%s" % str(preview.boss))
 	return " / ".join(parts)
 
+func next_wave_preview_spec() -> Dictionary:
+	if battle_run == null or battle_run.next_wave_preview.is_empty():
+		return {}
+	var preview: Dictionary = battle_run.next_wave_preview
+	var lines := []
+	var resting: bool = battle_run.spawn_queue.is_empty() and battle_run.enemies.is_empty()
+	if resting:
+		lines.append({"text": "⏳ 第 %d 波（%ds）" % [battle_run.wave + 1, ceili(maxf(0.0, battle_run.wave_timer))], "size": 13, "color": Color("e8c86a")})
+	else:
+		var press_seconds := ceili(maxf(0.0, battle_run.wave_budget - battle_run.wave_clock))
+		lines.append({"text": "🥁 催战！第 %d 波 %ds 后压上" % [battle_run.wave + 1, press_seconds], "size": 13, "color": Color("ff8a6a")})
+	var theme_elements: Array = preview.get("themeElems", [])
+	if not theme_elements.is_empty():
+		var enemy_tri: Dictionary = TRI_DISPLAY.get(str(theme_elements[0]), {})
+		if not enemy_tri.is_empty():
+			var counter_tri: Dictionary = TRI_DISPLAY.get(str(enemy_tri.counter), {})
+			lines.append({"text": "贼是%s%s——%s%s打他最疼" % [str(enemy_tri.icon), str(enemy_tri.name), str(counter_tri.get("icon", "")), str(counter_tri.get("name", ""))], "size": 15, "color": Color("5aff9a")})
+	var mutation_value = preview.get("mutation", null)
+	var mutation_id := "" if mutation_value == null else str(mutation_value)
+	var mutation: Dictionary = catalog.content.get("mutations", {}).get(mutation_id, {}) if not mutation_id.is_empty() else {}
+	if not mutation.is_empty():
+		var mutation_text := "%s「%s」%s" % [str(mutation.get("icon", "")), str(mutation.get("name", mutation_id)), str(mutation.get("desc", ""))]
+		if battle_run.relic_ids.has("tongque") and not bool(mutation.get("good", false)):
+			mutation_text += " 🏛️金币+50%"
+		lines.append({"text": mutation_text, "size": 13, "color": Color("ff9a6a")})
+	if battle_run.relic_ids.has("tongque"):
+		var warning_value = battle_run.mutations.get(battle_run.wave + 2, null)
+		var warning_id := "" if warning_value == null else str(warning_value)
+		var warning: Dictionary = catalog.content.get("mutations", {}).get(warning_id, {}) if not warning_id.is_empty() else {}
+		if not warning.is_empty() and not bool(warning.get("good", false)):
+			lines.append({"text": "🏛️ 铜雀预警：第%d波「%s」将至" % [battle_run.wave + 2, str(warning.name)], "size": 12, "color": Color("e8c86a")})
+	if battle_run.endless:
+		var endless_rule: Dictionary = battle_run.endless_pending if not battle_run.endless_pending.is_empty() else battle_run.endless_mod
+		if not endless_rule.is_empty():
+			var endless_text := "⚔️ 下波军令「%s」：%s" % [str(endless_rule.name), str(endless_rule.tip)] if not battle_run.endless_pending.is_empty() else "⚔️ 军令「%s」生效中（第%d波撤）" % [str(endless_rule.name), int(endless_rule.get("until", battle_run.wave)) + 1]
+			lines.append({"text": endless_text, "size": 12, "color": Color("ffb84a")})
+	if bool(preview.get("youdi", false)):
+		lines.append({"text": "🐑 诱敌成功：这波多而脆，经验金币肥！", "size": 12, "color": Color("ffb84a")})
+	var extra := []
+	var boss_value = preview.get("boss", null)
+	var boss := "" if boss_value == null else str(boss_value)
+	if not boss.is_empty():
+		extra.append("👹「%s」" % boss)
+	for affix_id in preview.get("affixes", {}).keys():
+		var affix: Dictionary = BattleFoesSource.AFFIXES.get(str(affix_id), {})
+		extra.append("%s%s×%d" % [AFFIX_PREVIEW_ICONS.get(str(affix_id), ""), str(affix.get("name", affix_id)), int(preview.affixes[affix_id])])
+	for special_id in preview.get("specials", {}).keys():
+		var special: Dictionary = BattleFoesSource.SPECIALS.get(str(special_id), {})
+		extra.append("%s%s×%d" % [SPECIAL_PREVIEW_ICONS.get(str(special_id), ""), str(special.get("name", special_id)), int(preview.specials[special_id])])
+	if not extra.is_empty():
+		lines.append({"text": " ".join(extra.slice(0, mini(4, extra.size()))), "size": 12, "color": Color("ffb84a")})
+	var box_width := 260.0
+	for line in lines:
+		box_width = maxf(box_width, _font().get_string_size(str(line.text), HORIZONTAL_ALIGNMENT_LEFT, -1, int(line.size)).x + 28.0)
+	box_width = minf(box_width, 464.0)
+	var box_height := 20.0 + lines.size() * 21.0
+	return {"rect": Rect2(240.0 - box_width / 2.0, 130.0, box_width, box_height), "lines": lines, "mutation": not mutation.is_empty()}
+
+func _draw_next_wave_preview() -> void:
+	var spec := next_wave_preview_spec()
+	if spec.is_empty():
+		return
+	var rect: Rect2 = spec.rect
+	_rounded_panel(rect, Color("00000080"), Color("ff8a5acc") if bool(spec.mutation) else Color("e8c86a80"), 1.5, 12.0)
+	for index in spec.lines.size():
+		var line: Dictionary = spec.lines[index]
+		var text := str(line.text)
+		var size := _fit_font_size(text, rect.size.x - 20.0, int(line.size), 10)
+		draw_string(_font(), Vector2(rect.position.x, rect.position.y + 22.0 + index * 21.0), text, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, size, line.color)
+
 func _draw_battle_formation() -> void:
 	for row in BattleRunSource.GRID_ROWS:
 		for col in BattleRunSource.GRID_COLS:
@@ -2513,13 +2655,17 @@ func _draw_battle_formation() -> void:
 				var trait_data: Dictionary = TRAIT_DISPLAY.get(str(battle_run.traits[key]), {})
 				var trait_color := Color("ffffff66") if is_obstacle else Color("ffffffd9")
 				draw_string(_font(), Vector2(rect.end.x - 25, rect.end.y - 7), str(trait_data.get("icon", "")), HORIZONTAL_ALIGNMENT_RIGHT, 20, 11, trait_color)
-			if is_obstacle:
+	_draw_formation_links()
+	for row in BattleRunSource.GRID_ROWS:
+		for col in BattleRunSource.GRID_COLS:
+			if battle_run.obstacles.has("%d,%d" % [row, col]):
 				continue
 			var unit = battle_run.grid[row][col]
 			if unit == null:
 				continue
 			if battle_drag.is_active() and battle_drag.source_cell == Vector2i(col, row):
 				continue
+			var rect := BattleDragControllerSource.cell_rect(Vector2i(col, row))
 			_draw_battle_unit(unit, rect.get_center(), 1.0, row, col)
 	_draw_battle_drag_preview()
 	var wall_y := BattleRunSource.DEFENSE_LINE - 2.0
@@ -2532,17 +2678,29 @@ func _draw_battle_formation() -> void:
 	draw_line(Vector2(0, wall_y + 14), Vector2(480, wall_y + 14), Color("00000040"), 1.0)
 	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
 	if battle_run.lord_mount.is_empty():
-		var lord_center := Vector2(240, BattleRunSource.DEFENSE_LINE + 26)
-		draw_circle(lord_center, 20, Color("6a4a2a"))
-		draw_arc(lord_center, 20, 0, TAU, 32, GOLD if battle_run.lord_kin_power() > 1.0 else Color("ffdc9999"), 2.5 if battle_run.lord_kin_power() > 1.0 else 1.5)
-		_text_centered_in_rect(str(ruler.name), Rect2(lord_center.x - 26, lord_center.y - 12, 52, 26), 13, Color("ffe8b0"))
-		if battle_run.lord_kin_power() > 1.0:
-			_text("🤝×%.1f" % battle_run.lord_kin_power(), Vector2(lord_center.x - 48, lord_center.y + 4), 10, GOLD)
+		var lord_spec := battle_wall_lord_spec()
+		var lord_center: Vector2 = lord_spec.center
+		draw_circle(lord_center, 20, Color("5a4224"))
+		for ring in 9:
+			var gradient_progress := float(ring + 1) / 9.0
+			var ring_center := lord_center + Vector2(0, -6.0 * gradient_progress)
+			var radius := 20.0 - 16.0 * gradient_progress
+			draw_circle(ring_center, radius, Color("5a4224").lerp(Color("8a6a3a"), gradient_progress))
+		var kin_power: float = float(lord_spec.kin_power)
+		if kin_power > 1.0:
+			for glow_index in 3:
+				draw_arc(lord_center, 22.0 + glow_index * 2.0, 0, TAU, 40, Color(1.0, 0.824, 0.29, 0.18 - glow_index * 0.045), 2.0)
+		draw_arc(lord_center, 20, 0, TAU, 40, GOLD if kin_power > 1.0 else Color("ffdc9999"), 2.5 if kin_power > 1.0 else 1.5)
+		draw_string(_font(), Vector2(lord_center.x - 20.0, float(lord_spec.character_baseline)), str(lord_spec.character), HORIZONTAL_ALIGNMENT_CENTER, 40.0, 16, Color("ffe8c0"))
+		draw_string(_font(), Vector2(lord_center.x - 26.0, float(lord_spec.name_baseline)), str(lord_spec.full_name), HORIZONTAL_ALIGNMENT_CENTER, 52.0, 9, Color("d5c9a8"))
+		if kin_power > 1.0:
+			var kin_center: Vector2 = lord_spec.kin_center
+			draw_string(_font(), Vector2(kin_center.x - 45.0, kin_center.y), "🤝×%.1f" % kin_power, HORIZONTAL_ALIGNMENT_CENTER, 90.0, 10, GOLD)
 		var attack: Dictionary = BattleLordSource.ATTACKS.get(battle_run.ruler_id, {})
 		if not attack.is_empty():
-			var estimate := _lord_attack_estimate()
-			_text("%s%s" % [LORD_ATTACK_ICONS.get(battle_run.ruler_id, ""), attack.get("name", "")], Vector2(lord_center.x + 52, lord_center.y - 3), 10, Color("ffb84a"))
-			_text("约%d伤/%.1fs" % [roundi(float(estimate.per)), float(estimate.itv)], Vector2(lord_center.x + 52, lord_center.y + 9), 9, Color("d5c9a8"))
+			var attack_center: Vector2 = lord_spec.attack_center
+			draw_string(_font(), Vector2(attack_center.x - 52.0, attack_center.y), str(lord_spec.attack_text), HORIZONTAL_ALIGNMENT_CENTER, 104.0, 10, Color("ffb84a"))
+			draw_string(_font(), Vector2(attack_center.x - 52.0, attack_center.y + 12.0), str(lord_spec.attack_detail), HORIZONTAL_ALIGNMENT_CENTER, 104.0, 9, Color("d5c9a8"))
 	else:
 		var mount_pos := Vector2(float(battle_run.lord_mount.x), float(battle_run.lord_mount.y))
 		draw_circle(mount_pos, 21, Color("e8f4ff55"))
@@ -2576,6 +2734,98 @@ func _draw_battle_formation() -> void:
 		_text_centered_in_rect(str(command_visual.stars), Rect2(command_center.x - 28, command_center.y + 13, 56, 13), 7, GOLD)
 		if not command_ready:
 			_text_centered_in_rect(str(command_visual.cooldown_label), Rect2(command_center.x - 20, command_center.y - 10, 40, 20), 12, Color.WHITE)
+
+func formation_link_spec() -> Dictionary:
+	var result := {"spear": [], "granary": [], "bond": []}
+	if battle_run == null:
+		return result
+	for row in BattleRunSource.GRID_ROWS:
+		for col in BattleRunSource.GRID_COLS:
+			var unit = battle_run.grid[row][col]
+			if unit == null:
+				continue
+			var origin := BattleRunSource.slot_center(row, col)
+			if str(unit.hero.cls) == "spear":
+				for near_row in range(maxi(0, row - 1), mini(BattleRunSource.GRID_ROWS - 1, row + 1) + 1):
+					for near_col in range(maxi(0, col - 1), mini(BattleRunSource.GRID_COLS - 1, col + 1) + 1):
+						if near_row == row and near_col == col:
+							continue
+						var neighbour = battle_run.grid[near_row][near_col]
+						if neighbour == null or float(neighbour.hero.get("dmg", 0.0)) <= 0.0:
+							continue
+						result.spear.append({"from": origin, "to": BattleRunSource.slot_center(near_row, near_col), "alpha": 0.25 + sin(float(battle_run.game_time) * 3.0 + row + col) * 0.12})
+			if str(unit.hero.cls) == "granary":
+				var target: Dictionary = battle_run.granary_feed_target(row, col)
+				if not target.is_empty():
+					var destination := BattleRunSource.slot_center(int(target.row), int(target.col))
+					var grain_progress := fposmod(float(battle_run.game_time) * 0.7 + (row + col) * 0.37, 1.0)
+					result.granary.append({
+						"from": origin, "to": destination,
+						"alpha": 0.35 + sin(float(battle_run.game_time) * 2.8 + row * 2 + col) * 0.18,
+						"target_icon": destination + Vector2(16, -26),
+						"grain_position": origin.lerp(destination, grain_progress) + Vector2(0, -6),
+						"grain_alpha": 0.85 * sin(grain_progress * PI),
+					})
+	for bond_id in active_bond_ids_in_display_order():
+		var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
+		var points := []
+		for member_id in bond.get("members", []):
+			var found := false
+			for row in BattleRunSource.GRID_ROWS:
+				for col in BattleRunSource.GRID_COLS:
+					var member = battle_run.grid[row][col]
+					if member != null and str(member.hero.id) == str(member_id):
+						points.append(BattleRunSource.slot_center(row, col))
+						found = true
+						break
+				if found:
+					break
+		for index in maxi(0, points.size() - 1):
+			result.bond.append({"bond_id": str(bond_id), "from": points[index], "to": points[index + 1], "alpha": 0.3 + sin(float(battle_run.game_time) * 2.5) * 0.18})
+	return result
+
+func _draw_formation_links() -> void:
+	var links := formation_link_spec()
+	for link in links.spear:
+		draw_line(link.from, link.to, Color(111.0 / 255.0, 212.0 / 255.0, 78.0 / 255.0, float(link.alpha)), 3.0, true)
+	for link in links.granary:
+		_draw_dashed_segment(link.from, link.to, Color(232.0 / 255.0, 200.0 / 255.0, 106.0 / 255.0, float(link.alpha)), 3.0, 4.0, 5.0)
+		draw_string(_font(), Vector2(float(link.target_icon.x) - 12.0, float(link.target_icon.y)), "🌾", HORIZONTAL_ALIGNMENT_CENTER, 24.0, 13, Color("ffffffe6"))
+		draw_string(_font(), Vector2(float(link.grain_position.x) - 10.0, float(link.grain_position.y)), "🌾", HORIZONTAL_ALIGNMENT_CENTER, 20.0, 11, Color(1.0, 1.0, 1.0, float(link.grain_alpha)))
+	for link in links.bond:
+		_draw_dashed_segment(link.from, link.to, Color(1.0, 210.0 / 255.0, 74.0 / 255.0, float(link.alpha)), 2.5, 7.0, 6.0)
+
+func _draw_dashed_segment(from: Vector2, to: Vector2, color: Color, width: float, dash: float, gap: float) -> void:
+	var distance := from.distance_to(to)
+	if distance <= 0.0:
+		return
+	var direction := (to - from) / distance
+	var cursor := 0.0
+	while cursor < distance:
+		var dash_end := minf(distance, cursor + dash)
+		draw_line(from + direction * cursor, from + direction * dash_end, color, width, true)
+		cursor += dash + gap
+
+func battle_wall_lord_spec() -> Dictionary:
+	if battle_run == null:
+		return {}
+	var ruler: Dictionary = catalog.by_id("rulers", battle_run.ruler_id)
+	var full_name := str(ruler.get("name", battle_run.ruler_id))
+	var center := Vector2(240, BattleRunSource.DEFENSE_LINE + 26)
+	var attack: Dictionary = BattleLordSource.ATTACKS.get(battle_run.ruler_id, {})
+	var estimate := _lord_attack_estimate()
+	return {
+		"center": center,
+		"character": full_name.left(1),
+		"full_name": full_name,
+		"character_baseline": center.y + 1.0,
+		"name_baseline": center.y + 13.0,
+		"kin_power": battle_run.lord_kin_power(),
+		"kin_center": center + Vector2(-48, 4),
+		"attack_center": center + Vector2(52, -3),
+		"attack_text": "%s%s" % [LORD_ATTACK_ICONS.get(battle_run.ruler_id, ""), attack.get("name", "")],
+		"attack_detail": "约%d伤/%.1fs" % [roundi(float(estimate.get("per", 0.0))), float(estimate.get("itv", 0.0))],
+	}
 
 func _battle_wall_color_at(y: float) -> Color:
 	var wall_y := BattleRunSource.DEFENSE_LINE - 2.0

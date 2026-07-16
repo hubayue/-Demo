@@ -2,6 +2,7 @@ extends SceneTree
 
 const MainScene = preload("res://scenes/main.tscn")
 const LocalProfile = preload("res://src/progression/local_profile.gd")
+const BattleCards = preload("res://src/battle/battle_cards.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -70,5 +71,55 @@ func _run() -> void:
 		push_error("Unable to save %s: %s" % [path, error_string(error)])
 		quit(1)
 		return
+	main.player_lord_popup = false
+	run.clear_formation()
+	run.obstacles.clear()
+	run.traits.clear()
+	run.level = 7
+	run.wave = 8
+	run.kills = 123
+	run.xp = 7.0
+	run.xp_need = 20.0
+	run.wave_timer = 2.2
+	run.wave_budget = 10.0
+	run.wave_clock = 4.2
+	run.enemies.clear()
+	run.spawn_queue.clear()
+	run.next_wave_preview = {"themeElems": ["badao"], "mutation": null, "boss": "张梁", "affixes": {"shield": 2}, "specials": {"cata": 1}}
+	if not await _capture(main, output_directory, "v7.19.14-battle-empty-rest.png"):
+		return
+	run.next_wave_preview.clear()
+	var hero: Dictionary = main.catalog.by_id("heroes", "zhaoyun")
+	for row in 3:
+		for column in 5:
+			run.grid[row][column] = run._make_unit(hero, row, column)
+	run.team.recompute(run)
+	if not await _capture(main, output_directory, "v7.19.14-battle-full-grid.png"):
+		return
+	run.clear_formation()
+	run.add_unit_at("daqiao", 0, 1)
+	run.add_unit_at("xiaoqiao", 0, 3)
+	run.grid[2][1] = run._make_unit(BattleCards.GRANARY_TYPE, 2, 1)
+	run.add_unit_at("zhaoyun", 2, 2)
+	run.team.recompute(run)
+	if not await _capture(main, output_directory, "v7.19.14-battle-support-links.png"):
+		return
 	print("Godot v7.19.14 battle shell screenshot: PASS")
 	quit(0)
+
+func _capture(main, output_directory: String, filename: String) -> bool:
+	main.queue_redraw()
+	await process_frame
+	await process_frame
+	var image := root.get_viewport().get_texture().get_image()
+	if image == null or image.is_empty() or image.get_size() != Vector2i(480, 800):
+		push_error("%s capture requires a non-empty 480x800 rendered window" % filename)
+		quit(1)
+		return false
+	var path := output_directory.path_join(filename)
+	var error := image.save_png(path)
+	if error != OK:
+		push_error("Unable to save %s: %s" % [path, error_string(error)])
+		quit(1)
+		return false
+	return true

@@ -141,6 +141,8 @@ var dragon_count := 0
 var dragon_waves: Array = []
 var farm_stars := 0
 var achievement_events: Array = []
+var known_achievement_ids: Array = []
+var battle_floaters: Array = []
 var grid: Array = []
 var obstacles: Dictionary = {}
 var traits: Dictionary = {}
@@ -294,6 +296,7 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	dragon_waves = []
 	farm_stars = 0
 	achievement_events = []
+	battle_floaters = []
 	grid = []
 	for row in GRID_ROWS:
 		var cells := []
@@ -339,6 +342,7 @@ func advance_real(delta: float) -> void:
 		return
 	if awaiting_card_choice:
 		game_time += delta
+		_update_battle_floaters(delta)
 		_advance_paused_card_visuals(delta)
 		return
 	for step in speed:
@@ -346,6 +350,7 @@ func advance_real(delta: float) -> void:
 
 func advance_visual_only(delta: float) -> void:
 	game_time += delta
+	_update_battle_floaters(delta)
 	_advance_paused_card_visuals(delta)
 	_decay_visual_events(field_events, delta)
 	_decay_visual_events(skill_lines, delta)
@@ -589,6 +594,7 @@ func queue_relic_draft() -> void:
 
 func _update_step(delta: float) -> void:
 	game_time += delta
+	_update_battle_floaters(delta)
 	dance_time = maxf(0.0, dance_time - delta)
 	_update_focus(delta)
 	for event in field_events:
@@ -1751,9 +1757,25 @@ func granary_rate(unit: Dictionary) -> float:
 func granary_star_need() -> float:
 	return xp_need * GRANARY_STAR_COST
 
+func add_battle_floater(x: float, y: float, text: String, color: String, size: int) -> void:
+	battle_floaters.append({"x": x, "y": y, "text": text, "color": color, "size": size, "life": 1.0})
+
+func _update_battle_floaters(delta: float) -> void:
+	for floater in battle_floaters:
+		floater.y = float(floater.y) - 34.0 * delta
+		floater.life = float(floater.life) - delta * 0.9
+	for index in range(battle_floaters.size() - 1, -1, -1):
+		if float(battle_floaters[index].life) <= 0.0:
+			battle_floaters.remove_at(index)
+
 func unlock_achievement_event(achievement_id: String) -> void:
-	if not achievement_events.has(achievement_id):
-		achievement_events.append(achievement_id)
+	if known_achievement_ids.has(achievement_id) or achievement_events.has(achievement_id):
+		return
+	achievement_events.append(achievement_id)
+	known_achievement_ids.append(achievement_id)
+	var achievement: Dictionary = catalog.by_id("achievements", achievement_id)
+	if not achievement.is_empty():
+		add_battle_floater(240.0, 300.0, "🏆「%s」达成！%d💰待领" % [str(achievement.name), int(achievement.gold)], "#ffd24a", 21)
 
 func granary_feed_target(row: int, col: int) -> Dictionary:
 	var best: Dictionary = {}

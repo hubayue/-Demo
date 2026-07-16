@@ -12,6 +12,7 @@ func _init(content_catalog) -> void:
 	_reset()
 
 func recompute(run) -> void:
+	var previous_bonds: Dictionary = active_bonds.duplicate()
 	_reset()
 	var owned := {}
 	for unit in run.units():
@@ -30,6 +31,15 @@ func recompute(run) -> void:
 			active_bonds[str(bond.id)] = true
 	if not active_bonds.is_empty():
 		run.bond_ever = true
+	if str(run.status) == "play":
+		for bond_id in active_bonds:
+			if previous_bonds.has(str(bond_id)):
+				continue
+			var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
+			run.add_battle_floater(240.0, 280.0, "🔗 羁绊「%s」生效！%s" % [str(bond.name), str(bond.desc)], "#ffd24a", 19)
+			run.unlock_achievement_event("swap10")
+			if str(bond_id) == "wuhu":
+				run.unlock_achievement_event("pins5lv5")
 
 func active_bond_ids() -> Array:
 	var result: Array = active_bonds.keys()

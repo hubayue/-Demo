@@ -19,6 +19,53 @@ func _run() -> void:
 	main.select_city(0)
 	main.select_ruler("liubei")
 	main.select_opening_hero("zhaoyun")
+	if not _expect(main.BATTLE_WAVE_FONT_SIZE == 16, "battle wave label must retain the Web bold 16px HUD size"):
+		return
+	var wall_lord: Dictionary = main.battle_wall_lord_spec()
+	if not _expect(wall_lord.center == Vector2(240, main.BattleRunSource.DEFENSE_LINE + 26), "wall lord must stand at the exact Web defense-line anchor"):
+		return
+	if not _expect(wall_lord.character == "刘" and wall_lord.full_name == "刘备", "wall lord must render the ruler's first character and full name as separate Web rows"):
+		return
+	if not _expect(wall_lord.character_baseline == wall_lord.center.y + 1.0 and wall_lord.name_baseline == wall_lord.center.y + 13.0, "wall lord character and full-name baselines must match Web"):
+		return
+	if not _expect(wall_lord.kin_center == wall_lord.center + Vector2(-48, 4) and wall_lord.attack_center == wall_lord.center + Vector2(52, -3), "kin bonus and attack method must be centered around the wall lord instead of left-aligned"):
+		return
+	main.battle_run.wave = 8
+	main.battle_run.wave_timer = 2.2
+	main.battle_run.spawn_queue.clear()
+	main.battle_run.enemies.clear()
+	main.battle_run.next_wave_preview = {"themeElems": ["badao"], "mutation": null, "boss": "张梁", "affixes": {"shield": 2}, "specials": {"cata": 1}}
+	var rest_preview: Dictionary = main.next_wave_preview_spec()
+	if not _expect(rest_preview.rect.position.y == 130.0 and rest_preview.rect.size.y == 83.0 and rest_preview.rect.size.x >= 260.0 and rest_preview.rect.size.x <= 464.0, "next-wave box must use the Web y anchor, dynamic width and twenty-one-pixel line height"):
+		return
+	if not _expect(rest_preview.lines.size() == 3 and rest_preview.lines[0].text == "⏳ 第 9 波（3s）", "resting preview must identify the exact next wave and ceil the countdown like Web"):
+		return
+	if not _expect(str(rest_preview.lines[1].text).contains("贼是✊霸道") and str(rest_preview.lines[1].text).contains("✋仁德打他最疼"), "next-wave preview must expose the enemy element and its counter"):
+		return
+	if not _expect(str(rest_preview.lines[2].text).contains("👹「张梁」") and str(rest_preview.lines[2].text).contains("🏗️投石车×1") and str(rest_preview.lines[2].text).contains("🛡️铁盾×2"), "next-wave preview must list boss, special and affix threats with Web icons"):
+		return
+	main.battle_run.spawn_queue = [{"delay": 1.0}]
+	main.battle_run.wave_budget = 10.0
+	main.battle_run.wave_clock = 4.2
+	var pressing_preview: Dictionary = main.next_wave_preview_spec()
+	if not _expect(pressing_preview.lines[0].text == "🥁 催战！第 9 波 6s 后压上" and pressing_preview.lines[0].color == Color("ff8a6a"), "active spawning must switch the preview to the Web pressing warning"):
+		return
+	main.battle_run.spawn_queue.clear()
+	main.battle_run.clear_formation()
+	main.battle_run.obstacles.clear()
+	main.battle_run.foe_lord = {}
+	main.battle_run.relic_ids = ["jinlan"]
+	main.battle_run.add_unit_at("daqiao", 1, 1)
+	main.battle_run.add_unit_at("xiaoqiao", 1, 2)
+	var chips: Array = main.battle_left_chip_specs()
+	if not _expect(chips.size() == 3 and chips[0].kind == "field" and chips[0].rect == Rect2(10, 98, 118, 19), "the terrain chip must start the Web left-hand status stack"):
+		return
+	if not _expect(chips[1].kind == "relic" and chips[1].rect.position == Vector2(10, 120) and chips[1].rect.size.y == 22.0, "relic icons must occupy the next compact Web chip instead of a centered banner"):
+		return
+	if not _expect(chips[2].kind == "bond" and chips[2].text == "🔗江东二乔" and chips[2].rect.position == Vector2(10, 144) and chips[2].rect.size.y == 22.0, "each active bond must remain visible as its own gold Web chip"):
+		return
+	main.battle_run.relic_ids.clear()
+	main.battle_run.clear_formation()
 	var rules: Array = main.battle_run.city.get("rules", [])
 	var expected_banner_height := 92 + 22 + rules.size() * 17
 	if not _expect(main.battle_field_banner_rect() == Rect2(8, 138, 392, expected_banner_height), "field banner height must follow Web foe and rule rows"):

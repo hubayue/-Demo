@@ -36,11 +36,11 @@ const cli = (...args) => new Promise((resolve, reject) => {
   child.stderr.setEncoding("utf8");
   child.stdout.on("data", (chunk) => { stdout += chunk; });
   child.stderr.on("data", (chunk) => { stderr += chunk; });
-  const timeout = setTimeout(() => child.kill(), 30000);
+  const timeout = setTimeout(() => child.kill(), 60000);
   child.on("error", (error) => { clearTimeout(timeout); reject(error); });
   child.on("exit", (code) => {
     clearTimeout(timeout);
-    if (code !== 0) reject(new Error(stderr || stdout || `playwright-cli exited ${code}`));
+    if (code !== 0) reject(new Error(`${args.join(" ")}: ${stderr || stdout || `playwright-cli exited ${code}`}`));
     else resolve(stdout);
   });
 });
@@ -104,6 +104,54 @@ try {
     throw new Error(`Unexpected player lord popup state: ${lordState}`);
   }
   await capture(lordOutput);
+  const restState = await cli("eval", `() => {
+    lordPop = false;
+    state.fieldBanner = 0;
+    state.level = 7;
+    state.wave = 8;
+    state.kills = 123;
+    state.xp = 7;
+    state.xpNeed = 20;
+    state.waveTimer = 2.2;
+    state.waveBudget = 10;
+    state.waveClock = 4.2;
+    state.enemies = [];
+    state.spawnQueue = [];
+    state.slots = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(null));
+    state.obstacles = new Set();
+    state.traits = {};
+    state.nextWavePreview = { themeElems: ['badao'], mutation: null, boss: '张梁', affixes: { shield: 2 }, specials: { cata: 1 } };
+    computeTeam();
+    draw();
+    return { level: state.level, wave: state.wave, empty: allUnits().length, next: state.wave + 1 };
+  }`.replace(/\r?\n\s*/g, " "));
+  if (!restState.includes('"level": 7') || !restState.includes('"wave": 8') || !restState.includes('"empty": 0') || !restState.includes('"next": 9')) {
+    throw new Error(`Unexpected empty-rest state: ${restState}`);
+  }
+  await capture(join(outputDirectory, "v7.19.14-web-battle-empty-rest.png"));
+  const fullState = await cli("eval", `() => {
+    state.nextWavePreview = null;
+    state.slots = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(null));
+    const hero = GENERALS.find((general) => general.id === 'zhaoyun');
+    for (let r = 0; r < GRID_ROWS; r++) for (let c = 0; c < GRID_COLS; c++) state.slots[r][c] = makeUnit(hero);
+    computeTeam();
+    draw();
+    return { full: allUnits().length };
+  }`.replace(/\r?\n\s*/g, " "));
+  if (!fullState.includes('"full": 15')) throw new Error(`Unexpected full-grid state: ${fullState}`);
+  await capture(join(outputDirectory, "v7.19.14-web-battle-full-grid.png"));
+  const supportLinkState = await cli("eval", `() => {
+    state.slots = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(null));
+    state.slots[0][1] = makeUnit(GENERALS.find((general) => general.id === 'daqiao'));
+    state.slots[0][3] = makeUnit(GENERALS.find((general) => general.id === 'xiaoqiao'));
+    state.slots[2][1] = makeUnit(GRANARY_TYPE);
+    state.slots[2][2] = makeUnit(GENERALS.find((general) => general.id === 'zhaoyun'));
+    computeTeam();
+    draw();
+    return { units: allUnits().length, erqiao: state.bondSet.has('erqiao'), feed: granaryFeedTarget(2, 1)?.u?.type?.id || null };
+  }`.replace(/\r?\n\s*/g, " "));
+  if (!supportLinkState.includes('"units": 4') || !supportLinkState.includes('"erqiao": true') || !supportLinkState.includes('"feed": "zhaoyun"')) throw new Error(`Unexpected support-link state: ${supportLinkState}`);
+  await capture(join(outputDirectory, "v7.19.14-web-battle-support-links.png"));
 } finally {
   try { await cli("close"); } catch {}
   await closeServer();
