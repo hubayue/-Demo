@@ -99,6 +99,11 @@ try {
     throw new Error(`Unexpected battle shell state: ${stateResult}`);
   }
   await capture(battleOutput);
+  const multiRuleState = await cli("eval", "() => { state.diff.rules = ['smoke', 'mud']; state.fieldBanner = 9; draw(); return { rules: state.diff.rules, bannerHeight: FIELD_BANNER_RC.h }; }");
+  if (!multiRuleState.includes('"rules": [') || !multiRuleState.includes('"smoke"') || !multiRuleState.includes('"mud"') || !multiRuleState.includes('"bannerHeight": 148')) {
+    throw new Error(`Unexpected multi-rule banner state: ${multiRuleState}`);
+  }
+  await capture(join(outputDirectory, "v7.19.14-web-battle-multi-rule-banner.png"));
   const lordState = await cli("eval", "() => { state.fieldBanner = 0; state.lordCd = 0; state.lordCdTotal = lordCdMax(state.lord[0]); lordPop = true; return { lordPop, cd: state.lordCd, total: state.lordCdTotal }; }");
   if (!lordState.includes('"lordPop": true') || !lordState.includes('"cd": 0')) {
     throw new Error(`Unexpected player lord popup state: ${lordState}`);

@@ -53,6 +53,12 @@ func _run() -> void:
 		push_error("Unable to save %s: %s" % [path, error_string(error)])
 		quit(1)
 		return
+	var original_rules: Array = run.city.get("rules", []).duplicate()
+	run.city.rules = ["smoke", "mud"]
+	main.battle_field_banner_time = 9.0
+	if not await _capture(main, output_directory, "v7.19.14-battle-multi-rule-banner.png"):
+		return
+	run.city.rules = original_rules
 	main.battle_field_banner_time = 0.0
 	run.lord_command_cd = 0.0
 	run.lord_command_cd_total = run.lord_command_cooldown_max()

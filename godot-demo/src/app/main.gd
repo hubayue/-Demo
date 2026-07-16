@@ -12,6 +12,7 @@ const BattleRecordsSource = preload("res://src/progression/battle_records.gd")
 const LocalProfileSource = preload("res://src/progression/local_profile.gd")
 const RunSettlementSource = preload("res://src/progression/run_settlement.gd")
 const HeroProgressionSource = preload("res://src/progression/hero_progression.gd")
+const ProgressionSource = preload("res://src/core/progression.gd")
 const VisitSystemSource = preload("res://src/progression/visit_system.gd")
 const AchievementProgressSource = preload("res://src/progression/achievement_progress.gd")
 const BattleDragControllerSource = preload("res://src/input/battle_drag_controller.gd")
@@ -28,6 +29,11 @@ const MUTED := Color("8a7d5a")
 const GREEN := Color("7ad86a")
 const BLUE := Color("62b8ff")
 const RED := Color("ff8a6a")
+const REBIRTH_COLORS := [Color("ffe45a"), Color("ff7ad2"), Color("c96aff"), Color("5ae8ff")]
+const SUPER_STAR_COLOR := Color("ff7a3a")
+const SUPER2_STAR_COLOR := Color("3a9aff")
+const BATTLE_TRI_KE := {"badao": "liangmou", "liangmou": "rende", "rende": "badao"}
+const ELEMENT_COSMETIC_HEROES := {"huatuo": true, "xiaoqiao": true, "lusu": true, "daqiao": true, "xuhuang": true, "caiwenji": true, "simayi": true, "xushu": true, "caohong": true, "granary": true, "dragonegg": true, "yinglong": true}
 
 const RULER_IDS := ["caocao", "liubei", "sunquan", "yuanshao", "liubiao", "gongsunzan", "dongzhuo", "yuanshu"]
 const ACH_GROUPS := ["战功", "讨伐", "养成", "奇趣"]
@@ -1540,9 +1546,12 @@ func _draw_battle() -> void:
 		_text_center("%s%s：%s" % [definition.get("icon", "贼"), definition.get("name", "渠帅"), event.text], 286, 18, RED if str(event.kind) == "cast" else Color("ffb08a"))
 		if not str(event.get("tip", "")).is_empty():
 			_text_center(str(event.tip), 310, 12, Color("c9a8ff"))
-	if battle_run.taoyuan_time > 0:
-		draw_rect(Rect2(5, 5, 470, 790), Color("ffd27899"), false, 5.0)
-		_text_center("桃园金身 · 全军刀枪不入 %.1fs" % battle_run.taoyuan_time, 246, 18, Color("ffe8b0"))
+	var taoyuan := taoyuan_overlay_spec()
+	if not taoyuan.is_empty():
+		draw_rect(taoyuan.rect, Color(1.0, 210.0 / 255.0, 120.0 / 255.0, float(taoyuan.alpha)), false, float(taoyuan.border_width))
+		for offset in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
+			draw_string(_font(), Vector2(0, float(taoyuan.baseline)) + offset, str(taoyuan.text), HORIZONTAL_ALIGNMENT_CENTER, 480.0, int(taoyuan.font_size), Color("000000b3"))
+		draw_string(_font(), Vector2(0, float(taoyuan.baseline)), str(taoyuan.text), HORIZONTAL_ALIGNMENT_CENTER, 480.0, int(taoyuan.font_size), Color("ffe8b0"))
 	_draw_battle_side_controls()
 	_draw_cata_warning_bar()
 	if damage_panel_visible and battle_run.status == "play":
@@ -2963,11 +2972,13 @@ func _draw_drag_range_preview(unit: Dictionary, target: Vector2i, fallback_ancho
 	if not str(spec.trait_text).is_empty():
 		_text_centered_in_rect(str(spec.trait_text), Rect2(anchor.x - 105, anchor.y - 62, 210, 18), 10, GOLD)
 
-func _unit_visual_spec(unit: Dictionary) -> Dictionary:
+func _unit_visual_spec(unit: Dictionary, context_row := -2, context_col := -2) -> Dictionary:
 	var hero: Dictionary = unit.hero
-	var rarity_id := HeroProgressionSource.rarity(str(hero.id), catalog.content.get("hero_tiers", {}))
+	var hero_id := str(hero.id)
+	var hero_class := str(hero.cls)
+	var rarity_id := HeroProgressionSource.rarity(hero_id, catalog.content.get("hero_tiers", {}))
 	var rarity: Dictionary = catalog.content.get("rarities", {}).get(rarity_id, {})
-	var class_display: Dictionary = BATTLE_CLASS_DISPLAY.get(str(hero.cls), {"icon": "兵", "color": Color("cfd6dc")})
+	var class_display: Dictionary = BATTLE_CLASS_DISPLAY.get(hero_class, {"icon": "兵", "color": Color("cfd6dc")})
 	var element: Dictionary = TRI_DISPLAY.get(str(hero.elem), TRI_DISPLAY.badao)
 	var hp_fraction := clampf(float(unit.hp) / maxf(1.0, float(unit.hp_max)), 0.0, 1.0)
 	var health_color := Color("7aff5a") if hp_fraction > 0.5 else (Color("ffd24a") if hp_fraction > 0.25 else Color("ff5a3a"))
@@ -2978,8 +2989,34 @@ func _unit_visual_spec(unit: Dictionary) -> Dictionary:
 		var ult_max: float = maxf(0.01, battle_run.ult_system.cooldown_max(battle_run, unit))
 		ult_progress = 1.0 - clampf(float(unit.get("ultCd", 0.0)) / ult_max, 0.0, 1.0)
 		ult_color = {"dmg": Color("ff8a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "util": Color("c9a8ff"), "exec": Color("ffd24a")}.get(str(ult.type), GOLD)
-	var name_text := "蛋" if str(hero.cls) == "egg" else ("龍" if str(hero.cls) == "dragon" else str(hero.name))
-	var hero_level := int(battle_run.hero_levels.get(str(hero.id), 1)) if battle_run != null else 1
+	var name_text := "蛋" if hero_class == "egg" else ("龍" if hero_class == "dragon" else str(hero.name))
+	var hero_level := int(battle_run.hero_levels.get(hero_id, 1)) if battle_run != null else 1
+	var profile_hero: Dictionary = profile.get("heroes", {}).get(hero_id, {})
+	var rebirth := clampi(int(profile_hero.get("rb", 0)), 0, REBIRTH_COLORS.size() - 1)
+	var rebirth_color: Color = REBIRTH_COLORS[rebirth]
+	var star_parts: Dictionary = ProgressionSource.star_parts(int(unit.get("level", 1)))
+	var star_colors: Array = []
+	for _index in int(star_parts.t2): star_colors.append(SUPER2_STAR_COLOR)
+	for _index in int(star_parts.hi): star_colors.append(SUPER_STAR_COLOR)
+	for _index in int(star_parts.lo): star_colors.append(rebirth_color)
+	var buff_icons: Array = []
+	var ripple_buffs: Dictionary = unit.get("rbuffs", {})
+	for entry in [["heal", "💗"], ["haste", "⚡"], ["dmg", "⚔️"], ["crit", "🎯"], ["cdr", "🕐"], ["farm", "🌾"]]:
+		if float(ripple_buffs.get(entry[0], 0.0)) > 0.0:
+			buff_icons.append(entry[1])
+	if battle_run != null and not battle_run.army_buff.is_empty() and float(hero.get("dmg", 0.0)) > 0.0:
+		buff_icons.append("🌾")
+	if battle_run != null and not battle_run.army_haste.is_empty() and hero_class != "shield":
+		buff_icons.append("🌬️")
+	var row := int(unit.get("row", -1)) if int(context_row) == -2 else int(context_row)
+	var col := int(unit.get("col", -1)) if int(context_col) == -2 else int(context_col)
+	var resistance_hint_visible := false
+	if battle_run != null and battle_run.status == "play" and row >= 0 and col >= 0 and not ELEMENT_COSMETIC_HEROES.has(hero_id):
+		for enemy_element in battle_run.next_wave_preview.get("themeElems", []):
+			if str(BATTLE_TRI_KE.get(str(enemy_element), "")) == str(hero.elem):
+				resistance_hint_visible = true
+				break
+	var adjacent_shield: bool = battle_run != null and hero_class != "shield" and row >= 0 and col >= 0 and battle_run._has_adjacent_shield(row, col)
 	return {
 		"body_radius": 21.0,
 		"aura_radius": 25.0,
@@ -3002,19 +3039,123 @@ func _unit_visual_spec(unit: Dictionary) -> Dictionary:
 		"ult_progress": ult_progress,
 		"ult_color": ult_color,
 		"has_ult": not ult.is_empty(),
+		"shen_badge_visible": battle_run != null and battle_run.shen_ids.has(hero_id) and not ["granary", "egg", "dragon"].has(hero_class),
+		"shen_badge_position": Vector2(-22, -18),
+		"taoyuan_ring_visible": battle_run != null and battle_run.taoyuan_time > 0.0 and not ["granary", "egg"].has(hero_class),
+		"taoyuan_ring_radius": 30.0,
+		"resistance_hint_visible": resistance_hint_visible,
+		"resistance_hint_radius": 28.0,
+		"resistance_hint_label": "打不动",
+		"resistance_hint_label_position": Vector2(22, -20),
+		"buff_icons": buff_icons,
+		"buff_icons_y": -33.0,
+		"ult_buff_active": float(unit.get("buffT", 0.0)) > 0.0,
+		"reflect_active": float(unit.get("reflectT", 0.0)) > 0.0,
+		"reflect_inner_radius": 24.0,
+		"reflect_outer_radius": 31.0,
+		"adjacent_shield": adjacent_shield,
+		"shield_protect_position": Vector2(-21, -28),
+		"sealed": float(unit.get("sealedT", 0.0)) > 0.0,
+		"rebirth": rebirth,
+		"rebirth_label": " %d转" % rebirth if rebirth > 0 else "",
+		"rebirth_color": rebirth_color,
+		"star_colors": star_colors,
+		"shield_skin_visible": hero_class == "shield",
+		"shield_top": Vector2(0, -31),
+		"shield_heart_center": Vector2(0, -17),
+		"poison_aura_radius": 90.0 * (2.2 if float(unit.get("ultT", 0.0)) > 0.0 else 1.0) if hero_id == "wutugu" and row >= 0 and col >= 0 else 0.0,
+		"egg_ready_glow": hero_class == "egg" and int(unit.get("level", 1)) >= 3,
+		"dragon_glow": hero_class == "dragon",
 	}
+
+func _shield_skin_spec(visual_spec: Dictionary) -> Dictionary:
+	var outline := PackedVector2Array([
+		Vector2(-16, -29), Vector2(-12, -32), Vector2(-6, -33.5), Vector2(0, -34), Vector2(6, -33.5), Vector2(12, -32), Vector2(16, -29),
+		Vector2(16, -13), Vector2(15, -8), Vector2(12, -5), Vector2(6, -3), Vector2(0, -2), Vector2(-6, -3), Vector2(-12, -5), Vector2(-15, -8), Vector2(-16, -13),
+	])
+	return {
+		"outline": outline,
+		"rivets": [Vector2(-11, -25), Vector2(11, -25), Vector2(-11, -11), Vector2(11, -11)],
+		"heart_center": Vector2(0, -17),
+		"heart_radius": 4.5,
+		"heart_color": visual_spec.element_color,
+	}
+
+func _unit_star_row_spec(visual_spec: Dictionary) -> Array:
+	var stars: Array = []
+	var widths: Array[float] = []
+	var total := -1.0
+	for color in visual_spec.star_colors:
+		var size := 14 if color == SUPER_STAR_COLOR or color == SUPER2_STAR_COLOR else 12
+		var width := _font().get_string_size("★", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		widths.append(width)
+		total += width + 1.0
+	var rebirth_width := _font().get_string_size(str(visual_spec.rebirth_label), HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	var x := -rebirth_width / 2.0 - total / 2.0
+	for index in visual_spec.star_colors.size():
+		var color: Color = visual_spec.star_colors[index]
+		var size := 14 if color == SUPER_STAR_COLOR or color == SUPER2_STAR_COLOR else 12
+		stars.append({"x": x, "baseline": 27.0, "color": color, "size": size})
+		x += widths[index] + 1.0
+	return stars
+
+func _draw_shield_skin(visual_spec: Dictionary) -> void:
+	var skin := _shield_skin_spec(visual_spec)
+	var outline: PackedVector2Array = skin.outline
+	draw_colored_polygon(outline, Color("77828e"))
+	draw_colored_polygon(PackedVector2Array([Vector2(-16, -29), Vector2(-12, -32), Vector2(0, -34), Vector2(12, -32), Vector2(16, -29), Vector2(16, -21), Vector2(-16, -21)]), Color("aeb8c2"))
+	draw_colored_polygon(PackedVector2Array([Vector2(-16, -13), Vector2(16, -13), Vector2(15, -8), Vector2(6, -3), Vector2(0, -2), Vector2(-6, -3), Vector2(-15, -8)]), Color("454f5a"))
+	var closed_outline := outline.duplicate()
+	closed_outline.append(outline[0])
+	draw_polyline(closed_outline, Color("252c34"), 2.0, true)
+	draw_line(Vector2(0, -31), Vector2(0, -3), Color("1e242c8c"), 1.2, true)
+	for rivet in skin.rivets:
+		draw_circle(rivet, 1.6, Color("cfd8e0"))
+	draw_circle(skin.heart_center, float(skin.heart_radius), skin.heart_color)
+	draw_arc(skin.heart_center, float(skin.heart_radius), 0, TAU, 20, Color("20262e"), 1.5)
+
+func _draw_unit_star_row(visual_spec: Dictionary) -> void:
+	var stars := _unit_star_row_spec(visual_spec)
+	for star in stars:
+		var position := Vector2(float(star.x), float(star.baseline))
+		for offset in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(_font(), position + offset, "★", HORIZONTAL_ALIGNMENT_LEFT, -1, int(star.size), Color("000000b3"))
+		draw_string(_font(), position, "★", HORIZONTAL_ALIGNMENT_LEFT, -1, int(star.size), star.color)
+	if int(visual_spec.rebirth) > 0:
+		var total_width := 0.0
+		if not stars.is_empty():
+			var last: Dictionary = stars[-1]
+			total_width = float(last.x) + _font().get_string_size("★", HORIZONTAL_ALIGNMENT_LEFT, -1, int(last.size)).x
+		var label_position := Vector2(total_width, 27.0)
+		for offset in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(_font(), label_position + offset, str(visual_spec.rebirth_label), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("000000b3"))
+		draw_string(_font(), label_position, str(visual_spec.rebirth_label), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, visual_spec.rebirth_color)
+
+func _draw_reflect_spikes(visual_spec: Dictionary) -> void:
+	if not bool(visual_spec.reflect_active):
+		return
+	var rotation := float(battle_run.game_time) * 2.5
+	for index in 8:
+		var angle := rotation + index * PI / 4.0
+		var from := Vector2(cos(angle), sin(angle)) * float(visual_spec.reflect_inner_radius)
+		var to := Vector2(cos(angle), sin(angle)) * float(visual_spec.reflect_outer_radius)
+		draw_line(from, to, Color("bfe8ff"), 2.5, true)
 
 func _draw_battle_unit(unit: Dictionary, center: Vector2, scale := 1.0, row := -1, col := -1) -> void:
 	var hero: Dictionary = unit.hero
-	var spec := _unit_visual_spec(unit)
+	var spec := _unit_visual_spec(unit, row, col)
 	draw_set_transform(center, 0.0, Vector2(scale, scale))
 	draw_circle(Vector2(0, 22), 10, Color("0000004d"))
+	if bool(spec.taoyuan_ring_visible):
+		var taoyuan_alpha := 0.6 + sin(float(battle_run.game_time) * 8.0) * 0.3
+		draw_arc(Vector2.ZERO, float(spec.taoyuan_ring_radius), 0, TAU, 40, Color(1.0, 210.0 / 255.0, 120.0 / 255.0, taoyuan_alpha), 3.0)
+	if bool(spec.resistance_hint_visible):
+		_draw_dashed_arc(Vector2.ZERO, float(spec.resistance_hint_radius), 0, TAU, Color("ff5a5abf"), 3.0, 5.0, 5.0)
+		var hint_position: Vector2 = spec.resistance_hint_label_position
+		for offset in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]:
+			draw_string(_font(), hint_position - Vector2(25, 0) + offset, str(spec.resistance_hint_label), HORIZONTAL_ALIGNMENT_CENTER, 50.0, 10, Color("000000b3"))
+		draw_string(_font(), hint_position - Vector2(25, 0), str(spec.resistance_hint_label), HORIZONTAL_ALIGNMENT_CENTER, 50.0, 10, Color("ff8a8a"))
 	draw_arc(Vector2.ZERO, spec.aura_radius, 0, TAU, 36, spec.aura_color, 3.0)
-	if spec.has_ult:
-		if float(spec.ult_progress) >= 0.999:
-			draw_arc(Vector2.ZERO, spec.ult_radius, 0, TAU, 40, spec.ult_color, 4.0)
-		elif float(spec.ult_progress) > 0.02:
-			draw_arc(Vector2.ZERO, spec.ult_radius, -PI / 2.0, -PI / 2.0 + TAU * float(spec.ult_progress), 32, spec.ult_color, 3.5)
 	var bonded := false
 	for bond_id in battle_run.team.active_bond_ids():
 		var bond: Dictionary = catalog.by_id("bonds", str(bond_id))
@@ -3022,10 +3163,40 @@ func _draw_battle_unit(unit: Dictionary, center: Vector2, scale := 1.0, row := -
 			bonded = true
 			break
 	if bonded:
-		draw_arc(Vector2.ZERO, 30, 0, TAU, 36, Color("ffd24ad9"), 1.6)
+		var bond_alpha := 0.55 + sin(float(battle_run.game_time) * 3.0) * 0.3
+		draw_arc(Vector2.ZERO, 30, 0, TAU, 36, Color(1.0, 210.0 / 255.0, 74.0 / 255.0, bond_alpha), 1.6)
 		_text_centered_in_rect("🔗", Rect2(-32, 16, 20, 16), 10, Color.WHITE)
+	if bool(spec.shen_badge_visible):
+		var shen_position: Vector2 = spec.shen_badge_position
+		draw_string(_font(), shen_position - Vector2(12, 0), "👼", HORIZONTAL_ALIGNMENT_CENTER, 24.0, 12, Color.WHITE)
+	if float(spec.poison_aura_radius) > 0.0:
+		draw_circle(Vector2(0, -10), float(spec.poison_aura_radius), Color("9adf5a0f"))
+		_draw_dashed_arc(Vector2(0, -10), float(spec.poison_aura_radius), 0, TAU, Color("9adf5a66"), 1.5, 4.0, 6.0)
+	if spec.has_ult:
+		if float(spec.ult_progress) >= 0.999:
+			draw_arc(Vector2.ZERO, spec.ult_radius, 0, TAU, 40, spec.ult_color, 4.0)
+		elif float(spec.ult_progress) > 0.02:
+			draw_arc(Vector2.ZERO, spec.ult_radius, -PI / 2.0, -PI / 2.0 + TAU * float(spec.ult_progress), 32, spec.ult_color, 3.5)
+	if bool(spec.ult_buff_active):
+		_text_centered_in_rect("⚡", Rect2(-30, -28, 24, 20), 13, Color.WHITE)
+	var buff_icons: Array = spec.buff_icons
+	for index in buff_icons.size():
+		var icon_x := (index - (buff_icons.size() - 1) / 2.0) * 14.0
+		draw_string(_font(), Vector2(icon_x - 9.0, float(spec.buff_icons_y)), str(buff_icons[index]), HORIZONTAL_ALIGNMENT_CENTER, 18.0, 12, Color.WHITE)
+	_draw_reflect_spikes(spec)
+	if bool(spec.adjacent_shield):
+		var protect_position: Vector2 = spec.shield_protect_position
+		draw_string(_font(), protect_position - Vector2(10, 0), "🛡️", HORIZONTAL_ALIGNMENT_CENTER, 20.0, 11, Color(1, 1, 1, 0.9))
+	if bool(spec.sealed):
+		_text_centered_in_rect("🌀", Rect2(-24, -22, 48, 36), 26, Color("e0b0ffe6"))
 	draw_circle(Vector2.ZERO, spec.body_radius, Color("3a3024"))
 	draw_string(_font(), Vector2(-21, 1 + int(spec.name_font_size) / 3.0), str(spec.name_text), HORIZONTAL_ALIGNMENT_CENTER, 42, int(spec.name_font_size), spec.name_color)
+	if bool(spec.shield_skin_visible):
+		_draw_shield_skin(spec)
+	if bool(spec.egg_ready_glow):
+		draw_arc(Vector2.ZERO, 29, 0, TAU, 40, GOLD, 3.5)
+	elif bool(spec.dragon_glow):
+		draw_arc(Vector2.ZERO, 28, 0, TAU, 40, Color("8ad2ff"), 2.5)
 	var class_center: Vector2 = spec.class_center
 	draw_circle(class_center, 11, Color("140e06eb"))
 	draw_arc(class_center, 11, 0, TAU, 24, spec.class_color, 2.0)
@@ -3036,17 +3207,13 @@ func _draw_battle_unit(unit: Dictionary, center: Vector2, scale := 1.0, row := -
 		draw_arc(element_center, 10, 0, TAU, 24, spec.element_color, 2.0)
 		_text_centered_in_rect(spec.element_icon, Rect2(element_center.x - 10, element_center.y - 7, 20, 14), 9, Color.WHITE)
 	if str(hero.cls) != "dragon":
-		_text_centered_in_rect("★".repeat(int(unit.level)), Rect2(-34, spec.star_y - 10, 68, 14), 9, GOLD)
-	if float(unit.get("sealedT", 0.0)) > 0:
-		_text_centered_in_rect("🌀", Rect2(-18, -14, 36, 28), 22, Color("e0b0ff"))
+		_draw_unit_star_row(spec)
 	if float(unit.get("hurtFlash", 0.0)) > 0:
 		draw_circle(Vector2.ZERO, 23, Color(1.0, 0.29, 0.23, minf(0.45, float(unit.hurtFlash) * 0.45)))
 	if spec.health_visible:
 		var health_rect: Rect2 = spec.health_rect
 		draw_rect(health_rect, Color("00000099"), true)
 		draw_rect(Rect2(health_rect.position, Vector2(health_rect.size.x * float(spec.health_fraction), health_rect.size.y)), spec.health_color, true)
-	if row >= 0 and col >= 0 and str(hero.cls) != "shield" and battle_run._has_adjacent_shield(row, col):
-		_text_centered_in_rect("🛡", Rect2(-32, -37, 22, 16), 10, Color.WHITE)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _active_lord_effect_text() -> String:
@@ -3056,8 +3223,6 @@ func _active_lord_effect_text() -> String:
 		return "🍷乐不思蜀 · 全军攻击+30% · 自动抽卡 · 点屏回神"
 	if battle_run.wuxing_time > 0:
 		return "三才破敌 %.1fs · 被克免罚 + 全军伤害+15%%" % battle_run.wuxing_time
-	if battle_run.taoyuan_time > 0:
-		return "桃园义 %.1fs · 已扛 %.0f 伤" % [battle_run.taoyuan_time, battle_run.taoyuan_absorb]
 	if not battle_run.flood.is_empty():
 		return "截江断流 %.1fs · 江中减速40%%" % float(battle_run.flood.t)
 	if battle_run.wide_picks > 0:
@@ -3065,6 +3230,18 @@ func _active_lord_effect_text() -> String:
 	if battle_run.tyranny > 0:
 		return "暴政印记 · 全军攻击+%d%%" % roundi(battle_run.tyranny)
 	return ""
+
+func taoyuan_overlay_spec() -> Dictionary:
+	if battle_run == null or battle_run.status != "play" or battle_run.taoyuan_time <= 0.0:
+		return {}
+	return {
+		"rect": Rect2(5, 5, 470, 790),
+		"border_width": 10.0,
+		"alpha": 0.35 + sin(float(battle_run.game_time) * 5.0) * 0.15,
+		"text": "🍑 桃园金身 · 全军刀枪不入 %.1fs" % battle_run.taoyuan_time,
+		"baseline": 236.0,
+		"font_size": 21,
+	}
 
 func _draw_foe_lord_status() -> void:
 	var state: Dictionary = battle_run.foe_lord
