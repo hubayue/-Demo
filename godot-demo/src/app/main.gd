@@ -69,6 +69,9 @@ const UNIT_CLASS_COPY := {
 	"archer": {"icon": "🏹", "name": "弓兵"},
 	"shield": {"icon": "🛡️", "name": "盾兵"},
 	"support": {"icon": "🎐", "name": "辅兵"},
+	"granary": {"icon": "🌾", "name": "粮仓"},
+	"egg": {"icon": "🥚", "name": "龙蛋"},
+	"dragon": {"icon": "🐉", "name": "神兽"},
 }
 const UNIT_ELEMENT_COPY := {
 	"badao": {"icon": "✊", "name": "霸道", "color": Color("ff6b4a")},
@@ -336,8 +339,22 @@ func _process(delta: float) -> void:
 	else:
 		battle_run.advance_real(delta)
 	_sync_growth_card_ui(delta)
+	if _sync_battle_achievements():
+		_save_profile()
 	_sync_battle_result()
 	queue_redraw()
+
+func _sync_battle_achievements() -> bool:
+	if battle_run == null:
+		return false
+	if not profile.get("achievements", []) is Array:
+		profile.achievements = []
+	var changed := false
+	for achievement_id in battle_run.achievement_events:
+		if not profile.achievements.has(achievement_id):
+			profile.achievements.append(achievement_id)
+			changed = true
+	return changed
 
 func _sync_battle_result() -> void:
 	if battle_run.status == "win" and not battle_run.clear_settled:
@@ -1609,8 +1626,9 @@ func unit_info_popup_spec() -> Dictionary:
 	var account: Dictionary = profile.get("heroes", {}).get(hero_id, {})
 	var rebirth := int(account.get("rb", 0))
 	var account_level := int(account.get("lv", 1))
+	var special_class := str(hero.cls) if ["granary", "egg", "dragon"].has(str(hero.cls)) else ""
 	var shen_prefix := "神·" if battle_run.shen_ids.has(hero_id) else ""
-	var title_base := "%s%s %d星" % [shen_prefix, str(hero.name), int(unit.get("level", 1))]
+	var title_base := "%s%s%s" % [shen_prefix, str(hero.name), "" if special_class == "dragon" else " %d星" % int(unit.get("level", 1))]
 	if rebirth > 0:
 		title_base += " %d转" % rebirth
 	var title := title_base
@@ -1630,6 +1648,8 @@ func unit_info_popup_spec() -> Dictionary:
 	var cooldown_text := ("能放了 · %s就放" % condition_text) if cooldown_progress >= 0.999 else ("%d秒后能放 · %s就放" % [ceili(cooldown), condition_text])
 	var trait_id := str(battle_run.traits.get("%d,%d" % [row, col], ""))
 	var trait_text := ""
+	if not special_class.is_empty() and not ["guard", "heal"].has(trait_id):
+		trait_id = ""
 	if not trait_id.is_empty() and DRAG_TRAIT_COPY.has(trait_id):
 		var trait_copy: Dictionary = DRAG_TRAIT_COPY[trait_id]
 		trait_text = "宝地：%s%s %s" % [trait_copy.icon, trait_copy.name, _crit_text(str(trait_copy.desc))]
@@ -1638,6 +1658,7 @@ func unit_info_popup_spec() -> Dictionary:
 	var bond_parts := PackedStringArray()
 	for bond in active_bonds:
 		bond_parts.append("🔗%s：%s" % [str(bond.get("name", "")), str(bond.get("desc", ""))])
+	var special_lines := _special_unit_ledger(unit, special_class)
 	return {
 		"rect": rect,
 		"unit": unit,
@@ -1651,14 +1672,45 @@ func unit_info_popup_spec() -> Dictionary:
 		"play_note": _unit_play_note(hero),
 		"ultimate_name": str(ult.get("name", "")),
 		"ultimate_desc": str(presentation.get("desc", "")),
-		"ultimate_line": "大招【%s】%s" % [str(ult.get("name", "")), str(presentation.get("desc", ""))],
+		"ultimate_line": "" if not special_class.is_empty() else "大招【%s】%s" % [str(ult.get("name", "")), str(presentation.get("desc", ""))],
 		"ultimate_type": str(ult.get("type", "dmg")),
 		"cooldown_progress": cooldown_progress,
 		"cooldown_text": cooldown_text,
 		"trait_text": trait_text,
 		"status_text": status_text,
 		"bond_text": "　".join(bond_parts),
+		"special_class": special_class,
+		"special_lines": special_lines,
 	}
+
+func _special_unit_ledger(unit: Dictionary, special_class: String) -> PackedStringArray:
+	var lines := PackedStringArray()
+	match special_class:
+		"granary":
+			var progress := mini(99, roundi(float(unit.get("farmAcc", 0.0)) / maxf(0.01, battle_run.granary_star_need()) * 100.0))
+			lines.append("每秒攒 %.1f 粮 · 喂星进度 %d%%（喂身边星最低的）" % [battle_run.granary_rate(unit), progress])
+			lines.append("再抽「粮仓扩建」升星：产粮×1.6" if int(unit.get("level", 1)) < 5 else "满星了！再抽「屯田粮仓」能开新仓")
+			lines.append("被拆了不算阵亡 · 拖出阵地能卖")
+		"egg":
+			var level := int(unit.get("level", 1))
+			lines.append("🐉 三阶圆满！抽到「应龙觉醒」就破壳" if level >= 3 else "孵到 %d/3 阶 · 这次把握 %d 成" % [level, roundi(battle_run.egg_hatch_chance(unit) * 10.0)])
+			if level < 3:
+				var helps := PackedStringArray()
+				if float(unit.get("hatchBonus", 0.0)) > 0.0: helps.append("失败攒的把握+%d成" % roundi(float(unit.hatchBonus) * 10.0))
+				if str(battle_run.traits.get("%d,%d" % [int(unit.row), int(unit.col)], "")) == "elem": helps.append("灵脉+1成")
+				if battle_run.relic_ids.has("longxian"): helps.append("龙涎香+2成")
+				if float(unit.get("rbuffs", {}).get("farm", 0.0)) > 0.0: helps.append("鲁肃粮草+1成5")
+				lines.append(" · ".join(helps) if not helps.is_empty() else "失败不掉阶，下次把握+2成")
+			else:
+				lines.append("觉醒后比五星英雄还猛，越往后越猛")
+			lines.append("被打碎=白孵 · 放灵脉宝地孵得稳")
+		"dragon":
+			var damage: int = battle_run.dragon_damage(unit)
+			var rank := int(unit.get("dragonRank", 1))
+			lines.append("重击 %d 伤 · 圈内 %d 伤（跟波次和队伍星级涨）" % [damage * 3, damage])
+			lines.append("第%d条应龙：伤害多%d%%" % [rank, roundi(25.0 * (rank - 1))] if rank > 1 else "被镇住的贼头不敢作法 · 什么抗都烧得动")
+			lines.append("还能再抽龙蛋，下一条更猛（一局最多两条）" if battle_run.dragon_count < 2 else "双龙圆满——一局的顶配就是这了")
+	return lines
 
 func unit_ultimate_presentation(hero_id: String) -> Dictionary:
 	return ULT_PRESENTATION.get(hero_id, {})
@@ -1727,7 +1779,7 @@ func _unit_play_note(hero: Dictionary) -> String:
 		"support": return "不打人 · 每隔几秒%s" % str(hero.get("desc", ""))
 		"granary": return "不打人 · 产粮喂旁边武将升星，敌人能拆它"
 		"egg": return "不打人 · 干孵着等觉醒，被打碎就血本无归"
-		"dragon": return "吐龙息：重击最强的贼头并镇住它，圈内跟着烧"
+		"dragon": return "每%s秒吐龙息：重击最强的贼头并镇住它，圈内跟着烧" % str(hero.get("rate", 2.8))
 	return "射箭 · %s" % str(hero.get("desc", ""))
 
 func _unit_ult_condition_copy(ult: Dictionary) -> String:
@@ -1766,13 +1818,20 @@ func _draw_unit_info_popup() -> void:
 	_rounded_panel(badge_rect, Color("00000066"), spec.element_color, 1.5, 8.0)
 	_text_centered_in_rect(str(spec.badge), badge_rect, 13, spec.element_color)
 	_text_centered_in_rect(str(spec.play_note), Rect2(rect.position + Vector2(10, 70), Vector2(rect.size.x - 20, 22)), 13, Color("e8dcc0"))
-	var ult_color: Color = {"dmg": Color("ff8a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "exec": Color("ffd24a"), "util": Color("c9a8ff")}.get(str(spec.ultimate_type), GOLD)
-	_text_centered_in_rect(str(spec.ultimate_line), Rect2(rect.position + Vector2(10, 94), Vector2(rect.size.x - 20, 22)), 13, ult_color)
-	var cooldown_rect := Rect2(rect.position + Vector2(40, 118), Vector2(rect.size.x - 80, 8))
-	_rounded_panel(cooldown_rect, Color("ffffff26"), Color.TRANSPARENT, 0.0, 4.0)
-	if float(spec.cooldown_progress) > 0.0:
-		_rounded_panel(Rect2(cooldown_rect.position, Vector2(cooldown_rect.size.x * float(spec.cooldown_progress), cooldown_rect.size.y)), ult_color, Color.TRANSPARENT, 0.0, 4.0)
-	_text_centered_in_rect(str(spec.cooldown_text), Rect2(rect.position + Vector2(8, 130), Vector2(rect.size.x - 16, 20)), 12, GREEN if float(spec.cooldown_progress) >= 0.999 else Color("c9b69a"))
+	if str(spec.special_class).is_empty():
+		var ult_color: Color = {"dmg": Color("ff8a5a"), "ctrl": Color("8ad2ff"), "def": Color("9adf5a"), "exec": Color("ffd24a"), "util": Color("c9a8ff")}.get(str(spec.ultimate_type), GOLD)
+		_text_centered_in_rect(str(spec.ultimate_line), Rect2(rect.position + Vector2(10, 94), Vector2(rect.size.x - 20, 22)), 13, ult_color)
+		var cooldown_rect := Rect2(rect.position + Vector2(40, 118), Vector2(rect.size.x - 80, 8))
+		_rounded_panel(cooldown_rect, Color("ffffff26"), Color.TRANSPARENT, 0.0, 4.0)
+		if float(spec.cooldown_progress) > 0.0:
+			_rounded_panel(Rect2(cooldown_rect.position, Vector2(cooldown_rect.size.x * float(spec.cooldown_progress), cooldown_rect.size.y)), ult_color, Color.TRANSPARENT, 0.0, 4.0)
+		_text_centered_in_rect(str(spec.cooldown_text), Rect2(rect.position + Vector2(8, 130), Vector2(rect.size.x - 16, 20)), 12, GREEN if float(spec.cooldown_progress) >= 0.999 else Color("c9b69a"))
+	else:
+		var ledger_color: Color = {"granary": Color("e8c86a"), "egg": Color("c9a8ff"), "dragon": Color("8ad2ff")}.get(str(spec.special_class), GOLD)
+		for index in spec.special_lines.size():
+			var line := str(spec.special_lines[index])
+			var line_size := _fit_font_size(line, rect.size.x - 18.0, 14 if index == 0 else 13, 11)
+			_text_centered_in_rect(line, Rect2(rect.position + Vector2(6, 94 + index * 20), Vector2(rect.size.x - 12, 20)), line_size, ledger_color if index == 0 else Color("c9b69a"))
 	draw_line(rect.position + Vector2(26, 156), rect.position + Vector2(rect.size.x - 26, 156), Color("ffffff24"), 1.0)
 	var status_y := 164.0
 	if not str(spec.trait_text).is_empty():
@@ -2013,11 +2072,15 @@ func _draw_result() -> void:
 
 	_panel(Rect2(26, 330, 428, 174), Color("211a10"), Color("6c5835"), 1.5)
 	_text_center("—— 战报 ——", 355, 13, MUTED)
-	_text("⚔ 击破", Vector2(48, 389), 13, Color("a89a76")); _text("%d 个贼" % battle_run.kills, Vector2(352, 389), 14, GREEN)
-	_text("💢 最重一击", Vector2(48, 418), 13, Color("a89a76")); _text("%d" % battle_run.max_hit, Vector2(366, 418), 14, GREEN)
-	_text("💥 绝技施放", Vector2(48, 447), 13, Color("a89a76")); _text("%d 次" % battle_run.ults_used, Vector2(366, 447), 14, GREEN)
-	var counter_pct := roundi(battle_run.counter_damage / battle_run.total_damage * 100.0) if battle_run.total_damage > 0 else 0
-	_text("☱ 克制伤害占比", Vector2(48, 476), 13, Color("a89a76")); _text("%d%%" % counter_pct, Vector2(366, 476), 14, GREEN if counter_pct >= 35 else PALE_GOLD)
+	var report_rows := battle_report_rows()
+	var report_gap := 20.0 if report_rows.size() > 4 else 29.0
+	for index in report_rows.size():
+		var report_row: Dictionary = report_rows[index]
+		var report_y := 389.0 + index * report_gap
+		_text(str(report_row.label), Vector2(48, report_y), 12 if report_rows.size() > 4 else 13, Color("a89a76"))
+		var report_value := str(report_row.value)
+		var report_value_size := _fit_font_size(report_value, 210.0, 12 if report_rows.size() > 4 else 14, 10)
+		draw_string(_font(), Vector2(220, report_y), report_value, HORIZONTAL_ALIGNMENT_RIGHT, 210, report_value_size, report_row.color)
 
 	_panel(Rect2(26, 518, 428, 150), Color("211a10"), Color("6c5835"), 1.5)
 	_text_center("—— 阵容 ——", 543, 13, MUTED)
@@ -2037,6 +2100,23 @@ func _draw_result() -> void:
 	_text_centered_in_rect("⚔ 继续讨伐——多撑一波分更高" if won else "🗺 回地图，重整旗鼓", RESULT_BTN1, 15, Color.WHITE)
 	_panel(RESULT_BTN2, Color("5a4a3a"), PALE_GOLD, 2.0)
 	_text_centered_in_rect("🗺 收兵回城（回地图）" if won else "🏠 返回首页", RESULT_BTN2, 15, Color.WHITE)
+
+func battle_report_rows() -> Array:
+	if battle_run == null:
+		return []
+	var counter_pct := roundi(battle_run.counter_damage / battle_run.total_damage * 100.0) if battle_run.total_damage > 0 else 0
+	var rows := [
+		{"label": "⚔ 击破", "value": "%d 个贼" % battle_run.kills, "color": GREEN},
+		{"label": "💢 最重一击", "value": "%d" % battle_run.max_hit, "color": GREEN},
+		{"label": "💥 绝技施放", "value": "%d 次" % battle_run.ults_used, "color": GREEN},
+		{"label": "☱ 克制伤害占比", "value": "%d%%" % counter_pct, "color": GREEN if counter_pct >= 35 else PALE_GOLD},
+	]
+	if battle_run.farm_stars > 0:
+		rows.append({"label": "🌾 屯田喂星", "value": "%d 颗" % battle_run.farm_stars, "color": Color("e8c86a")})
+	if battle_run.dragon_count > 0:
+		var wave_text := "、".join(battle_run.dragon_waves.map(func(value): return str(value)))
+		rows.append({"label": "🐉 觉醒应龙", "value": "%d 条（第%s波破壳）" % [battle_run.dragon_count, wave_text], "color": BLUE})
+	return rows
 
 func _draw_battle_entities() -> void:
 	var field: Dictionary = catalog.by_id("fields", str(battle_run.city.get("field", "")))

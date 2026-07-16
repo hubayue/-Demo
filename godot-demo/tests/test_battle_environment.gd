@@ -22,6 +22,7 @@ func _run() -> void:
 	var catalog = ContentCatalog.new()
 	if not _expect(catalog.load_from("res://data/content-v7.19.2.json") == OK, "content must load"): return
 	if not _test_relic_authority(catalog): return
+	if not _test_granary(catalog): return
 	if not _test_dragon_egg(catalog): return
 	if not _test_static_fields(catalog): return
 	if not _test_permanent_tactics(catalog): return
@@ -29,6 +30,49 @@ func _run() -> void:
 	if not _test_weather_and_relic_amplifiers(catalog): return
 	print("Godot v7.19.2 relics, tactics, and fields: PASS")
 	quit(0)
+
+func _test_granary(catalog) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(81))
+	run.start(_city(""), "caocao", "zhaoyun", 3)
+	run.clear_formation()
+	run.wave = 10
+	run.xp_need = 10.0
+	var granary: Dictionary = run._make_unit(BattleCards.GRANARY_TYPE.duplicate(true), 1, 2)
+	granary.level = 2
+	granary.rbuffs = {"farm": 5.0}
+	granary.farmAcc = 0.0
+	run.grid[1][2] = granary
+	var low: Dictionary = run._make_unit(catalog.by_id("heroes", "zhaoyun"), 1, 1)
+	low.level = 1
+	low.hp_max = run._unit_max_hp(low.hero, low.level)
+	low.hp = low.hp_max * 0.25
+	run.grid[1][1] = low
+	var high: Dictionary = run._make_unit(catalog.by_id("heroes", "zhangfei"), 0, 2)
+	high.level = 3
+	run.grid[0][2] = high
+	run.team.recompute(run)
+	if not _expect(is_equal_approx(run.granary_rate(granary), 5.232), "granary rate must match wave, star, Lu Su and Cao Cao multipliers"): return false
+	if not _expect(is_equal_approx(run.granary_star_need(), 18.0), "granary star cost must be 1.8 times current XP need"): return false
+	run.farm_stars = 4
+	granary.farmAcc = 17.0
+	run._update_units(0.2)
+	if not _expect(int(low.level) == 2 and int(high.level) == 3, "granary must feed the lowest-star adjacent fighter first"): return false
+	if not _expect(is_equal_approx(float(low.hp), float(low.hp_max)) and int(run.farm_stars) == 5, "granary-fed fighter must gain a star and return to full health"): return false
+	if not _expect(run.achievement_events.has("granary40"), "the fifth granary-fed star must emit the Web Tuntian Landlord achievement"): return false
+	var stranded = BattleRun.new(catalog, Mulberry32.new(82))
+	stranded.start(_city(""), "caocao", "zhaoyun")
+	stranded.clear_formation()
+	var lone_granary: Dictionary = stranded._make_unit(BattleCards.GRANARY_TYPE.duplicate(true), 1, 2)
+	lone_granary.farmAcc = 4.0
+	stranded.grid[1][2] = lone_granary
+	stranded._update_units(8.0)
+	if not _expect(is_equal_approx(float(lone_granary.farmAcc), 4.0), "granary must stop producing when no adjacent fighter can be fed"): return false
+	stranded.hurt_unit(lone_granary, 9999, 1, 2)
+	if not _expect(stranded.unit_deaths == 0, "a destroyed granary must not count as a fighter death in Web star settlement"): return false
+	var egg: Dictionary = stranded._make_unit(BattleCards.EGG_TYPE.duplicate(true), 1, 2)
+	stranded.grid[1][2] = egg
+	stranded.hurt_unit(egg, 9999, 1, 2)
+	return _expect(stranded.unit_deaths == 0, "a shattered dragon egg must not count as a fighter death in Web star settlement")
 
 func _test_relic_authority(catalog) -> bool:
 	var catalog_ids: Array = catalog.list("relics").map(func(relic): return str(relic.id))
@@ -93,6 +137,7 @@ func _test_dragon_egg(catalog) -> bool:
 	egg.level = 3
 	var awaken: Dictionary = cards.build_pool(run).filter(func(card): return str(card.kind) == "egg" and str(card.sub) == "awaken")[0]
 	if not _expect(cards.apply(run, awaken), "third-rank egg must awaken through the real card flow"): return false
+	if not _expect(run.achievement_events.has("dragon1") and run.dragon_waves == [10], "first dragon awakening must emit its Web achievement and battle-report wave"): return false
 	var dragon: Dictionary = run.units().filter(func(unit): return str(unit.hero.cls) == "dragon")[0]
 	dragon.cd = 0.0
 	var threat := _enemy(240.0, 250.0, 0.0)

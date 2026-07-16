@@ -22,6 +22,11 @@ const TRI_KE := {"badao": "liangmou", "liangmou": "rende", "rende": "badao"}
 const MUTATION_KEYS := ["frenzy", "horde", "volley", "ironhide", "fat", "eastwind", "rainstorm"]
 const TRAIT_KEYS := ["atk", "haste", "guard", "heal", "crit", "elem"]
 const BOSS_NAMES := ["程远志", "邓茂", "波才", "张梁", "张宝", "张角"]
+const GRANARY_G0 := 0.8
+const GRANARY_G1 := 0.12
+const GRANARY_STAR_MULTIPLIER := 1.6
+const GRANARY_WAVE_CAP := 30
+const GRANARY_STAR_COST := 1.8
 const ENDLESS_RULES := [
 	{"key": "smoke", "name": "烟瘴弥漫", "tip": "弓兵射程-35%", "mod": {"archerRngMul": 0.65}},
 	{"key": "mud", "name": "泥沼遍地", "tip": "骑兵冲锋只有一半远", "mod": {"cavChargeMul": 0.55}},
@@ -75,6 +80,9 @@ var pending_relic_picks := 0
 var picking_relic := false
 var card_choices: Array = []
 var card_picks: Dictionary = {}
+var granary_offered := false
+var egg_offered := false
+var shen_dry := 0
 var gewu_auto_timer := 0.0
 var gewu_auto_index := -1
 var dance_time := 0.0
@@ -120,6 +128,9 @@ var clear_settled := false
 var over_settled := false
 var field_events: Array = []
 var dragon_count := 0
+var dragon_waves: Array = []
+var farm_stars := 0
+var achievement_events: Array = []
 var grid: Array = []
 var obstacles: Dictionary = {}
 var traits: Dictionary = {}
@@ -200,6 +211,9 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	picking_relic = false
 	card_choices = []
 	card_picks = {}
+	granary_offered = false
+	egg_offered = false
+	shen_dry = 0
 	gewu_auto_timer = 0.0
 	gewu_auto_index = -1
 	dance_time = 0.0
@@ -266,6 +280,9 @@ func start(level_data: Dictionary, selected_ruler_id: String, opening_hero_id: S
 	over_settled = false
 	field_events = []
 	dragon_count = 0
+	dragon_waves = []
+	farm_stars = 0
+	achievement_events = []
 	grid = []
 	for row in GRID_ROWS:
 		var cells := []
@@ -1258,7 +1275,8 @@ func hurt_unit(unit: Dictionary, amount: int, row: int, col: int) -> int:
 		unit.hp = 0.0
 		if row >= 0 and row < GRID_ROWS and col >= 0 and col < GRID_COLS and grid[row][col] == unit:
 			grid[row][col] = null
-			unit_deaths += 1
+			if not ["granary", "egg"].has(str(unit.hero.cls)):
+				unit_deaths += 1
 			team.recompute(self)
 	return damage
 
@@ -1324,6 +1342,9 @@ func _update_units(delta: float) -> void:
 			continue
 		var hero: Dictionary = unit.hero
 		var hero_class := str(hero.cls)
+		if hero_class == "granary":
+			_update_granary(unit, delta)
+			continue
 		if hero_class == "egg":
 			unit.eggT = float(unit.get("eggT", 1.0)) - delta
 			if float(unit.eggT) <= 0:
@@ -1685,6 +1706,64 @@ func egg_hatch_chance(egg: Dictionary) -> float:
 	if ruler_id == "liubiao": chance += 0.01 * ruler_level
 	return minf(0.9, chance)
 
+func granary_rate(unit: Dictionary) -> float:
+	return (GRANARY_G0 + GRANARY_G1 * mini(wave, GRANARY_WAVE_CAP)) \
+		* pow(GRANARY_STAR_MULTIPLIER, int(unit.get("level", 1)) - 1) \
+		* (1.5 if float(unit.get("rbuffs", {}).get("farm", 0.0)) > 0.0 else 1.0) \
+		* (1.0 + 0.03 * ruler_level if ruler_id == "caocao" else 1.0)
+
+func granary_star_need() -> float:
+	return xp_need * GRANARY_STAR_COST
+
+func unlock_achievement_event(achievement_id: String) -> void:
+	if not achievement_events.has(achievement_id):
+		achievement_events.append(achievement_id)
+
+func granary_feed_target(row: int, col: int) -> Dictionary:
+	var best: Dictionary = {}
+	for near_row in range(maxi(0, row - 1), mini(GRID_ROWS - 1, row + 1) + 1):
+		for near_col in range(maxi(0, col - 1), mini(GRID_COLS - 1, col + 1) + 1):
+			if near_row == row and near_col == col:
+				continue
+			var unit = grid[near_row][near_col]
+			if unit == null or int(unit.get("level", 1)) >= 15 or ["granary", "egg", "dragon"].has(str(unit.hero.cls)):
+				continue
+			if best.is_empty() or int(unit.level) < int(best.unit.level):
+				best = {"unit": unit, "row": near_row, "col": near_col}
+	return best
+
+func _update_granary(unit: Dictionary, delta: float) -> void:
+	unit.farmT = float(unit.get("farmT", 4.0)) - delta
+	var target := granary_feed_target(int(unit.row), int(unit.col))
+	if target.is_empty():
+		if float(unit.farmT) <= 0.0:
+			unit.farmT = 4.0
+		return
+	unit.farmAcc = float(unit.get("farmAcc", 0.0)) + granary_rate(unit) * delta
+	var need := granary_star_need()
+	if float(unit.farmAcc) >= need:
+		unit.farmAcc = float(unit.farmAcc) - need
+		var fed: Dictionary = target.unit
+		fed.level = int(fed.level) + 1
+		fed.bounce = 1.0
+		fed.hp_max = _unit_max_hp(fed.hero, int(fed.level))
+		fed.hp = fed.hp_max
+		farm_stars += 1
+		if farm_stars >= 5:
+			unlock_achievement_event("granary40")
+	if float(unit.farmT) <= 0.0:
+		unit.farmT = 4.0
+
+func dragon_damage(unit: Dictionary) -> int:
+	var mods: Dictionary = team.unit_mods(self, unit)
+	var fighter_levels: Array = units().filter(func(other): return not ["dragon", "egg", "granary"].has(str(other.hero.cls))).map(func(other): return int(other.level))
+	var top_level := 5
+	for fighter_level in fighter_levels:
+		top_level = maxi(top_level, int(fighter_level))
+	var phoenix := relic_ids.has("fenghuang")
+	var star_ratio: float = team._star_damage_multiplier(top_level, phoenix) / team._star_damage_multiplier(5, phoenix)
+	return roundi((300.0 + wave * 55.0) * (1.0 + 0.25 * (int(unit.get("dragonRank", 1)) - 1)) * maxf(1.0, star_ratio) * float(mods.dmgMul))
+
 func _update_dragon(unit: Dictionary) -> void:
 	var target: Dictionary = _focused_target_for_unit(unit, slot_center(int(unit.row), int(unit.col)), 0.0)
 	var best_score := -INF
@@ -1700,13 +1779,7 @@ func _update_dragon(unit: Dictionary) -> void:
 		unit.cd = 0.4
 		return
 	unit.cd = 2.8
-	var mods: Dictionary = team.unit_mods(self, unit)
-	var fighter_levels: Array = units().filter(func(other): return not ["dragon", "egg", "granary"].has(str(other.hero.cls))).map(func(other): return int(other.level))
-	var top_level := 5
-	for fighter_level in fighter_levels: top_level = maxi(top_level, int(fighter_level))
-	var phoenix := relic_ids.has("fenghuang")
-	var star_ratio: float = team._star_damage_multiplier(top_level, phoenix) / team._star_damage_multiplier(5, phoenix)
-	var damage: float = round((300.0 + wave * 55.0) * (1.0 + 0.25 * (int(unit.get("dragonRank", 1)) - 1)) * maxf(1.0, star_ratio) * float(mods.dmgMul))
+	var damage := dragon_damage(unit)
 	target.silencedT = maxf(float(target.get("silencedT", 0.0)), 3.2)
 	_hit_enemy(target, damage * 3.0, "", 0.0, unit)
 	var center := Vector2(float(target.x), float(target.y))

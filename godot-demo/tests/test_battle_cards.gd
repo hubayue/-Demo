@@ -5,6 +5,16 @@ const Mulberry32 = preload("res://src/core/mulberry32.gd")
 const BattleRun = preload("res://src/battle/battle_run.gd")
 const BattleCards = preload("res://src/battle/battle_cards.gd")
 
+class SequenceRng:
+	extends RefCounted
+	var values: Array
+	var index := 0
+	func _init(sequence: Array) -> void: values = sequence
+	func next_float() -> float:
+		var value := float(values[mini(index, values.size() - 1)])
+		index += 1
+		return value
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -40,6 +50,8 @@ func _run() -> void:
 			return
 
 	if not _test_applications(catalog, fixture.city):
+		return
+	if not _test_granary_draft(catalog, fixture.city):
 		return
 	if not _test_card_presentation_and_kin(catalog, fixture.city):
 		return
@@ -83,6 +95,34 @@ func _test_applications(catalog, city: Dictionary) -> bool:
 	cards.apply(run, unit_card)
 	if not _expect(run.units().size() == 2, "unit card must place a new hero on a legal empty cell"):
 		return false
+	return true
+
+func _test_granary_draft(catalog, city: Dictionary) -> bool:
+	var run = BattleRun.new(catalog, Mulberry32.new(541))
+	run.start(city, "caocao", "zhangfei")
+	var cards = BattleCards.new(catalog, Mulberry32.new(542))
+	var opening = _find_title(cards.build_pool(run), "屯田粮仓")
+	if not _expect(opening != null and int(opening.weight) == 15, "Cao Cao must draft the first granary at Web weight fifteen"): return false
+	if not _expect(cards.apply(run, opening), "first granary card must place the building"): return false
+	var granary: Dictionary = run.units().filter(func(unit): return str(unit.hero.cls) == "granary")[0]
+	var unit_count := run.units().size()
+	granary.hp = 1.0
+	var expansion = _find_title(cards.build_pool(run), "粮仓扩建")
+	if not _expect(expansion != null and int(expansion.stars) == 2 and int(expansion.weight) == 13, "an unfinished granary must replace new construction with the lowest-star expansion card"): return false
+	if not _expect(cards.apply(run, expansion) and run.units().size() == unit_count and int(granary.level) == 2 and granary.hp == granary.hp_max, "granary expansion must upgrade and fully heal the existing building instead of placing another"): return false
+	granary.level = 5
+	var second = _find_title(cards.build_pool(run), "屯田粮仓")
+	if not _expect(second != null and int(second.weight) == 9, "all five-star granaries must reopen construction at Web weight nine"): return false
+	var guarantee = BattleRun.new(catalog, Mulberry32.new(543))
+	guarantee.start(city, "caocao", "zhangfei")
+	guarantee.wave = 2
+	var guaranteed_cards = BattleCards.new(catalog, SequenceRng.new([0.999])).roll(guarantee)
+	if not _expect(guaranteed_cards.any(func(card): return str(card.kind) == "granary") and guarantee.granary_offered, "Cao Cao's first draft from wave two must force one granary choice when random rolls miss it"): return false
+	var egg_guarantee = BattleRun.new(catalog, Mulberry32.new(544))
+	egg_guarantee.start(city, "liubiao", "zhangfei")
+	egg_guarantee.endless = true
+	var egg_cards = BattleCards.new(catalog, SequenceRng.new([0.999])).roll(egg_guarantee)
+	if not _expect(egg_cards.any(func(card): return str(card.kind) == "egg") and egg_guarantee.egg_offered, "Liu Biao's first suppression draft must force one dragon-egg choice when random rolls miss it"): return false
 	return true
 
 func _test_card_presentation_and_kin(catalog, city: Dictionary) -> bool:

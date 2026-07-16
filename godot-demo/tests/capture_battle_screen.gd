@@ -159,6 +159,9 @@ func _run() -> void:
 	run.max_hit = 1860
 	run.total_damage = 1000.0
 	run.counter_damage = 620.0
+	run.farm_stars = 5
+	run.dragon_count = 1
+	run.dragon_waves = [10]
 	run.finish("win")
 	main.profile = LocalProfile.defaults(main.CURRENT_WEEK)
 	main.week_clears = main.profile.week_clears

@@ -14,6 +14,7 @@ const ACTIVE_RELIC_IDS := [
 	"xuantie", "chensha", "madeng", "jili", "dujing", "jiaowei", "shuijingshu", "jinlan", "fenghuang", "hufu",
 ]
 const EGG_MAX := 3
+const GRANARY_MAX := 5
 const ELEMENT_CARD_META := {
 	"badao": {"name": "霸道", "icon": "✊", "color": "#ff6b4a"},
 	"liangmou": {"name": "良谋", "icon": "✌️", "color": "#4aa8ff"},
@@ -29,6 +30,7 @@ const CLASS_CARD_META := {
 	"egg": {"name": "龙蛋", "icon": "🥚"},
 	"dragon": {"name": "神兽", "icon": "🐉"},
 }
+const GRANARY_TYPE := {"id": "granary", "name": "粮仓", "char": "粮", "cls": "granary", "elem": "rende", "rng": 0, "dmg": 0, "rate": 9.0, "speed": 0, "hp": 260, "desc": "不打人，产粮喂旁边武将升星；敌人能拆它"}
 const EGG_TYPE := {"id": "dragonegg", "name": "龙蛋", "char": "蛋", "cls": "egg", "elem": "badao", "dmg": 0, "rate": 9.0, "speed": 0, "hp": 300, "desc": "孵着持续吐纳经验，三阶可觉醒"}
 const DRAGON_TYPE := {"id": "yinglong", "name": "应龙", "char": "龍", "cls": "dragon", "elem": "badao", "dmg": 0, "rate": 2.8, "speed": 0, "hp": 520, "desc": "龙息重击并镇压最强威胁"}
 
@@ -120,8 +122,16 @@ func build_pool(run) -> Array:
 		pool.append({"kind": "terrain", "weight": 16.0 if run.obstacles.size() >= 6 else 8.0, "title": "开山凿石", "icon": "🧹", "desc": "炸掉 1 块石头，露出宝地"})
 	else:
 		pool.append({"kind": "merit", "weight": 5.0, "value": mini(150, 25 + run.wave), "title": "犒赏三军", "icon": "💰", "desc": "金币落袋为安"})
-	if run.ruler_id == "caocao" and not run.empty_slots().is_empty():
-		pool.append({"kind": "granary", "weight": 15.0, "title": "屯田粮仓", "icon": "🌾", "desc": "产粮喂旁边武将升星，敌人能拆它"})
+	if run.ruler_id == "caocao":
+		var granaries: Array = units.filter(func(unit): return str(unit.hero.cls) == "granary")
+		var unfinished: Array = granaries.filter(func(unit): return int(unit.level) < GRANARY_MAX)
+		if not unfinished.is_empty():
+			var lowest: Dictionary = unfinished[0]
+			for granary in unfinished:
+				if int(granary.level) < int(lowest.level): lowest = granary
+			pool.append({"kind": "granary", "weight": 13.0, "title": "粮仓扩建", "icon": "🌾", "cls": "granary", "stars": int(lowest.level) + 1, "desc": "产粮×1.6"})
+		elif not run.empty_slots().is_empty():
+			pool.append({"kind": "granary", "weight": 9.0 if not granaries.is_empty() else 15.0, "title": "屯田粮仓", "icon": "🌾", "cls": "granary", "desc": "产粮喂旁边武将升星，敌人能拆它"})
 	if run.ruler_id == "liubiao" and (run.endless or (int(run.city.get("metaWins", 0)) >= 8 and run.wave >= 10)):
 		var egg = units.filter(func(unit): return str(unit.hero.cls) == "egg").front() if units.any(func(unit): return str(unit.hero.cls) == "egg") else null
 		if egg != null and int(egg.level) >= EGG_MAX:
@@ -173,6 +183,13 @@ func build_pool(run) -> Array:
 
 func roll(run) -> Array:
 	var pool := build_pool(run)
+	var granary_card: Dictionary = {}
+	var egg_card: Dictionary = {}
+	var shen_cards: Array = []
+	for card in pool:
+		if str(card.kind) == "granary" and granary_card.is_empty(): granary_card = card
+		if str(card.kind) == "egg" and egg_card.is_empty(): egg_card = card
+		if str(card.kind) == "unit" and run.shen_ids.has(str(card.get("hero_id", ""))): shen_cards.append(card)
 	for card in pool:
 		var picked := int(run.card_picks.get(str(card.title), 0))
 		if picked > 0 and str(card.kind) != "egg":
@@ -201,6 +218,29 @@ func roll(run) -> Array:
 		for index in range(pool.size() - 1, -1, -1):
 			if str(pool[index].title) == title:
 				pool.remove_at(index)
+	if not run.granary_offered:
+		if result.any(func(card): return str(card.kind) == "granary"):
+			run.granary_offered = true
+		elif run.wave >= 2 and not granary_card.is_empty() and not result.is_empty():
+			result[result.size() - 1] = granary_card
+			run.granary_offered = true
+	if not run.egg_offered:
+		if result.any(func(card): return str(card.kind) == "egg"):
+			run.egg_offered = true
+		elif run.endless and not egg_card.is_empty() and not result.is_empty():
+			var replace_index := result.size() - 1
+			while replace_index > 0 and str(result[replace_index].kind) == "granary": replace_index -= 1
+			result[replace_index] = egg_card
+			run.egg_offered = true
+	if result.any(func(card): return str(card.kind) == "unit" and run.shen_ids.has(str(card.get("hero_id", "")))):
+		run.shen_dry = 0
+	elif not shen_cards.is_empty():
+		run.shen_dry += 1
+		if run.shen_dry >= 3 and not result.is_empty():
+			var replace_index := result.size() - 1
+			while replace_index > 0 and ["granary", "egg"].has(str(result[replace_index].kind)): replace_index -= 1
+			result[replace_index] = shen_cards[int(floor(rng.next_float() * shen_cards.size()))]
+			run.shen_dry = 0
 	return result
 
 func widen_current(run, current: Array, target_count: int) -> void:
@@ -271,7 +311,7 @@ func apply(run, card) -> bool:
 			run.wall_max = maxi(3, run.wall_max - 2)
 			run.wall = mini(run.wall, run.wall_max)
 		"granary":
-			applied = run.add_unit_data({"id": "granary", "name": "粮仓", "char": "仓", "cls": "granary", "elem": "badao", "rng": 0, "dmg": 0, "rate": 99, "speed": 0, "hp": 240, "desc": "产粮喂星"})
+			applied = _apply_granary(run)
 		"egg": applied = _apply_egg(run, data)
 		"levelup":
 			run.level += 1
@@ -315,12 +355,28 @@ func _apply_egg(run, data: Dictionary) -> bool:
 			var row := int(egg.row)
 			var col := int(egg.col)
 			run.dragon_count += 1
+			run.unlock_achievement_event("dragon1")
+			if run.dragon_count >= 2: run.unlock_achievement_event("dragon2")
+			run.dragon_waves.append(run.wave)
 			var dragon: Dictionary = run._make_unit(DRAGON_TYPE.duplicate(true), row, col)
 			dragon.dragonRank = run.dragon_count
 			run.grid[row][col] = dragon
 			run.team.recompute(run)
 			return true
 	return false
+
+func _apply_granary(run) -> bool:
+	var unfinished: Array = run.units().filter(func(unit): return str(unit.hero.cls) == "granary" and int(unit.level) < GRANARY_MAX)
+	if unfinished.is_empty():
+		return run.add_unit_data(GRANARY_TYPE.duplicate(true))
+	var lowest: Dictionary = unfinished[0]
+	for granary in unfinished:
+		if int(granary.level) < int(lowest.level): lowest = granary
+	lowest.level = int(lowest.level) + 1
+	lowest.bounce = 1.0
+	lowest.hp_max = run._unit_max_hp(lowest.hero, int(lowest.level))
+	lowest.hp = lowest.hp_max
+	return true
 
 func _finish_choice(run) -> void:
 	run.card_choices = []
